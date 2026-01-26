@@ -1,0 +1,10 @@
+﻿Entity Name,Table Name,Module,Description (AR),Has Frontend,Column Count,Notes
+CptCode,uk_cpt_code,medicalcode,كود CPT - رموز الإجراءات الطبية العالمية,لا,17,هذه الأكواد موجودة في الباك‌اند لكنها لا تظهر في واجهة المستخدم حالياً
+IcdCode,uk_icd_code,medicalcode,كود ICD-10 - رموز التشخيص الطبي العالمية,لا,11,هذه الأكواد موجودة في الباك‌اند لكنها لا تظهر في واجهة المستخدم حالياً
+MedicalPackage,uk_medical_package_code,medicalpackage,الباقة الطبية - مجموعة خدمات بسعر موحد,نعم,9,
+MedicalCategory,medical_categories,medicaltaxonomy,التصنيف الطبي - الفئة الرئيسية للخدمات الطبية,نعم,8,
+MedicalService,medical_services,medicaltaxonomy,الخدمة الطبية - خدمة فردية ضمن تصنيف معين,نعم,10,
+BenefitPolicyRule,idx_bpr_policy,benefitpolicy,قاعدة وثيقة المنافع - تحدد حدود التغطية لكل خدمة/تصنيف,نعم,13,
+BenefitPolicy,idx_benefit_policy_employer,benefitpolicy,وثيقة المنافع - تحدد التغطية التأمينية للمؤمن عليهم,نعم,19,
+ProviderContractPricingItem,idx_pricing_contract_id,providercontract,بند تسعير العقد - سعر خدمة محددة ضمن عقد,نعم,19,
+ProviderContract,idx_contracts_provider_id,providercontract,عقد مقدم الخدمة - الاتفاق بين شركة التأمين ومقدم الخدمة,نعم,24,

@@ -1,0 +1,18 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+code,code,String,VARCHAR,لا,لا,نعم,لا,,20,,الرمز,,,
+descriptionAr,description_ar,String,VARCHAR,لا,لا,لا,لا,,500,,,,,
+descriptionEn,description_en,String,VARCHAR,لا,لا,لا,لا,,500,,,,,
+category,category,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,نعم
+subCategory,sub_category,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,
+procedureType,procedure_type,ProcedureType,VARCHAR,نعم,لا,لا,لا,,20,,,,,
+standardPrice,standard_price,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,,
+maxAllowedPrice,max_allowed_price,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,نعم,
+minAllowedPrice,min_allowed_price,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,نعم,
+covered,covered,Boolean,BOOLEAN,لا,لا,لا,لا,,,true,,,,
+coPaymentPercentage,co_payment_percentage,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,,نعم,
+requiresPreAuth,requires_pre_auth,Boolean,BOOLEAN,لا,لا,لا,لا,,,false,,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,2000,,ملاحظات,,,
+active,active,Boolean,BOOLEAN,لا,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ التحديث,,,

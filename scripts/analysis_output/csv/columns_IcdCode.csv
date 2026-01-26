@@ -1,0 +1,12 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+code,code,String,VARCHAR,لا,لا,نعم,لا,,20,,الرمز,,,
+descriptionAr,description_ar,String,VARCHAR,لا,لا,لا,لا,,500,,,,,
+descriptionEn,description_en,String,VARCHAR,لا,لا,لا,لا,,500,,,,,
+category,category,String,VARCHAR,نعم,لا,لا,لا,,50,,,,,نعم
+subCategory,sub_category,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,
+version,version,IcdVersion,VARCHAR,نعم,لا,لا,لا,,20,,,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,2000,,ملاحظات,,,
+active,active,Boolean,BOOLEAN,لا,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ التحديث,,,

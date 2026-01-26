@@ -1,0 +1,143 @@
+package com.waad.tba.modules.company.entity;
+
+import java.time.LocalDateTime;
+
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * CompanySettings Entity - Phase 9
+ * 
+ * This entity stores feature toggles/flags for each employer within a company.
+ * It allows granular control over what features each employer can access.
+ * 
+ * Feature Flags:
+ * - canViewClaims: Allow EMPLOYER_ADMIN to view claims (default: false)
+ * - canViewVisits: Allow EMPLOYER_ADMIN to view visits (default: false)
+ * - canEditMembers: Allow EMPLOYER_ADMIN to edit members (default: true)
+ * - canDownloadAttachments: Allow downloading attachments (default: true)
+ * 
+ * These settings work ON TOP of RBAC permissions. Even if a user has the 
+ * VIEW_CLAIMS permission, they still need canViewClaims=true to access claims.
+ */
+@Entity
+@Table(name = "company_settings", 
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"company_id", "employer_id"}, 
+                         name = "uk_company_employer_settings")
+    },
+    indexes = {
+        @Index(name = "idx_company_settings_employer", columnList = "employer_id"),
+        @Index(name = "idx_company_settings_company", columnList = "company_id")
+    })
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class CompanySettings {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Reference to the company (TPA)
+     */
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
+    /**
+     * Reference to the employer
+     * Each employer can have different feature access
+     */
+    @Column(name = "employer_id", nullable = false)
+    private Long employerId;
+
+    /**
+     * Feature: Can EMPLOYER_ADMIN view claims?
+     * Default: false (claims are hidden by default)
+     */
+    @Builder.Default
+    @Column(name = "can_view_claims", nullable = false)
+    private Boolean canViewClaims = false;
+
+    /**
+     * Feature: Can EMPLOYER_ADMIN view visits?
+     * Default: false (visits are hidden by default)
+     */
+    @Builder.Default
+    @Column(name = "can_view_visits", nullable = false)
+    private Boolean canViewVisits = false;
+
+    /**
+     * Feature: Can EMPLOYER_ADMIN edit members?
+     * Default: true (members are editable by default)
+     * If false, members become read-only for this employer
+     */
+    @Builder.Default
+    @Column(name = "can_edit_members", nullable = false)
+    private Boolean canEditMembers = true;
+
+    /**
+     * Feature: Can download attachments (invoices, medical reports)?
+     * Default: true (attachments downloadable by default)
+     */
+    @Builder.Default
+    @Column(name = "can_download_attachments", nullable = false)
+    private Boolean canDownloadAttachments = true;
+
+    /**
+     * UI visibility configuration stored as JSONB in PostgreSQL.
+     * We keep it as String here and parse/serialize using Jackson in the service layer.
+     * Default: null (nullable to avoid SQL errors if column doesn't exist)
+     * 
+     * NOTE: This field may not exist in all databases. Handle gracefully.
+     */
+    @Column(name = "ui_visibility", columnDefinition = "jsonb", nullable = true)
+    private String uiVisibility;
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    /**
+     * Helper method to check if all features are disabled
+     */
+    public boolean hasAnyFeatureEnabled() {
+        return canViewClaims || canViewVisits || canEditMembers || canDownloadAttachments;
+    }
+
+    /**
+     * Helper method to check if claim-related features are enabled
+     */
+    public boolean canAccessClaimData() {
+        return canViewClaims;
+    }
+
+    /**
+     * Helper method to check if visit-related features are enabled
+     */
+    public boolean canAccessVisitData() {
+        return canViewVisits;
+    }
+}

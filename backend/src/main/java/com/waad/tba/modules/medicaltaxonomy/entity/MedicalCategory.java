@@ -1,0 +1,87 @@
+package com.waad.tba.modules.medicaltaxonomy.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+/**
+ * Medical Category Entity (Reference Data)
+ * 
+ * Purpose: Classification of medical services into hierarchical categories
+ * Scope: Pure reference data (NO coverage, claim, provider, or network logic)
+ * 
+ * Examples:
+ * - Root: MEDICAL, DENTAL, VISION, PHARMACY
+ * - Level 2: CONSULTATION, SURGERY, LAB, IMAGING
+ * - Level 3: CARDIOLOGY_CONSULT, ORTHOPEDIC_SURGERY, etc.
+ */
+@Entity
+@Table(name = "medical_categories")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class MedicalCategory {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Unique business identifier (immutable)
+     * Examples: "CONSULTATION", "SURGERY", "CARDIOLOGY_CONSULT"
+     */
+    @Column(nullable = false, unique = true, length = 50)
+    private String code;
+
+    /**
+     * Arabic name (primary)
+     */
+    @Column(name = "name_ar", nullable = false, length = 200)
+    private String name;
+
+    /**
+     * English name (supplementary)
+     */
+    @Column(name = "name_en", length = 200)
+    private String nameEn;
+
+    /**
+     * Parent category for hierarchy support
+     * NULL = root category
+     * NOT NULL = subcategory
+     */
+    @Column(name = "parent_id")
+    private Long parentId;
+
+    /**
+     * Soft delete flag
+     */
+    @Column(nullable = false)
+    private boolean active = true;
+
+    /**
+     * Audit: creation timestamp
+     */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /**
+     * Audit: last update timestamp
+     */
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}

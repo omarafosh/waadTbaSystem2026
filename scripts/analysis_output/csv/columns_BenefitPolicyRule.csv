@@ -1,0 +1,14 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+benefitPolicy,benefit_policy_id,BenefitPolicy,VARCHAR,لا,لا,لا,نعم,BenefitPolicy,,,,,,نعم
+medicalCategory,medical_category_id,MedicalCategory,VARCHAR,نعم,لا,لا,نعم,MedicalCategory,,,,,,نعم
+medicalService,medical_service_id,MedicalService,VARCHAR,نعم,لا,لا,نعم,MedicalService,,,,,,نعم
+coveragePercent,coverage_percent,Integer,INTEGER,نعم,لا,لا,لا,,,,نسبة التغطية,,نعم,
+amountLimit,amount_limit,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,نعم,
+timesLimit,times_limit,Integer,INTEGER,نعم,لا,لا,لا,,,,,,نعم,
+waitingPeriodDays,waiting_period_days,Integer,INTEGER,نعم,لا,لا,لا,,,0,,,نعم,
+requiresPreApproval,requires_pre_approval,boolean,BOOLEAN,نعم,لا,لا,لا,,,false,,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,500,,ملاحظات,,,
+active,active,boolean,BOOLEAN,نعم,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ التحديث,,,

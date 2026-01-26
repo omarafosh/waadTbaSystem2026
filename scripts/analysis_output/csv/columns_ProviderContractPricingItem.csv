@@ -1,0 +1,20 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+contract,contract_id,ProviderContract,VARCHAR,لا,لا,لا,نعم,ProviderContract,,,,,,نعم
+medicalService,medical_service_id,MedicalService,VARCHAR,نعم,لا,لا,نعم,MedicalService,,,,,,نعم
+serviceName,service_name,String,VARCHAR,نعم,لا,لا,لا,,255,,اسم الخدمة,,,نعم
+quantity,quantity,Integer,INTEGER,نعم,لا,لا,لا,,,0,الكمية,,,
+medicalCategory,medical_category_id,MedicalCategory,VARCHAR,نعم,لا,لا,نعم,MedicalCategory,,,,,,نعم
+basePrice,base_price,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,BigDecimal.ZERO,السعر الأساسي,نعم,,
+contractPrice,contract_price,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,BigDecimal.ZERO,سعر العقد,نعم,,نعم
+discountPercent,discount_percent,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,BigDecimal.ZERO,نسبة الخصم,نعم,نعم,
+unit,unit,String,VARCHAR,نعم,لا,لا,لا,,,"""service""",الوحدة,,,
+currency,currency,String,VARCHAR,نعم,لا,لا,لا,,,"""LYD""",العملة,,,
+effectiveFrom,effective_from,LocalDate,DATE,نعم,لا,لا,لا,,,,تاريخ السريان من,,,
+effectiveTo,effective_to,LocalDate,DATE,نعم,لا,لا,لا,,,,تاريخ السريان إلى,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,2000,,ملاحظات,,,
+active,active,Boolean,BOOLEAN,نعم,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ التحديث,,,
+createdBy,created_by,String,VARCHAR,نعم,لا,لا,لا,,100,,أنشأ بواسطة,,,
+updatedBy,updated_by,String,VARCHAR,نعم,لا,لا,لا,,100,,حُدث بواسطة,,,

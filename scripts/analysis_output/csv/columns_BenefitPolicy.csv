@@ -1,0 +1,20 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+name,name,String,VARCHAR,لا,لا,لا,لا,,,,الاسم بالعربية,,,
+policyCode,policy_code,String,VARCHAR,نعم,لا,لا,لا,,50,,,,,نعم
+description,description,String,VARCHAR,نعم,لا,لا,لا,,2000,,الوصف,,,
+employerOrganization,employer_org_id,Organization,VARCHAR,لا,لا,لا,نعم,Organization,,,,,,نعم
+insuranceOrganization,insurance_org_id,Organization,VARCHAR,نعم,لا,لا,نعم,Organization,,,,,,نعم
+startDate,start_date,LocalDate,DATE,لا,لا,لا,لا,,,,تاريخ البداية,,,
+endDate,end_date,LocalDate,DATE,لا,لا,لا,لا,,,,تاريخ النهاية,,,
+annualLimit,annual_limit,BigDecimal,DECIMAL,لا,لا,لا,لا,,,,,,نعم,
+defaultCoveragePercent,default_coverage_percent,Integer,INTEGER,نعم,لا,لا,لا,,,80,,,نعم,
+perMemberLimit,per_member_limit,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,,نعم,
+perFamilyLimit,per_family_limit,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,,نعم,
+defaultWaitingPeriodDays,default_waiting_period_days,Integer,INTEGER,نعم,لا,لا,لا,,,0,,,نعم,
+status,status,BenefitPolicyStatus,VARCHAR,نعم,لا,لا,لا,,,BenefitPolicyStatus.DRAFT,الحالة,,,
+coveredMembersCount,covered_members_count,Integer,INTEGER,نعم,لا,لا,لا,,,0,,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,1000,,ملاحظات,,,
+active,active,boolean,BOOLEAN,نعم,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,نعم,لا,لا,لا,,,,تاريخ التحديث,,,

@@ -1,0 +1,25 @@
+﻿Column Name,DB Column,Java Type,SQL Type,Nullable,Primary Key,Unique,Foreign Key,Foreign Table,Max Length,Default Value,Description (AR),For Pricing,For Coverage,For Linking
+id,id,Long,BIGINT,لا,نعم,لا,لا,,,,المعرف الفريد,,,
+contractCode,contract_code,String,VARCHAR,لا,لا,نعم,لا,,50,,,,,نعم
+contractNumber,contract_number,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,نعم
+provider,provider_id,Provider,VARCHAR,لا,لا,لا,نعم,Provider,,,,,,نعم
+status,status,ContractStatus,VARCHAR,نعم,لا,لا,لا,,,ContractStatus.DRAFT,الحالة,,,
+pricingModel,pricing_model,PricingModel,VARCHAR,نعم,لا,لا,لا,,,PricingModel.DISCOUNT,,,,
+discountPercent,discount_percent,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,BigDecimal.ZERO,نسبة الخصم,نعم,نعم,
+discountRate,discount_rate,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,,
+startDate,start_date,LocalDate,DATE,لا,لا,لا,لا,,,,تاريخ البداية,,,
+endDate,end_date,LocalDate,DATE,نعم,لا,لا,لا,,,,تاريخ النهاية,,,
+signedDate,signed_date,LocalDate,DATE,نعم,لا,لا,لا,,,,,,,
+totalValue,total_value,BigDecimal,DECIMAL,نعم,لا,لا,لا,,,,,نعم,,
+currency,currency,String,VARCHAR,نعم,لا,لا,لا,,,"""LYD""",العملة,,,
+paymentTerms,payment_terms,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,
+autoRenew,auto_renew,Boolean,BOOLEAN,نعم,لا,لا,لا,,,false,,,,
+contactPerson,contact_person,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,
+contactPhone,contact_phone,String,VARCHAR,نعم,لا,لا,لا,,50,,,,,
+contactEmail,contact_email,String,VARCHAR,نعم,لا,لا,لا,,100,,,,,
+notes,notes,String,VARCHAR,نعم,لا,لا,لا,,2000,,ملاحظات,,,
+active,active,Boolean,BOOLEAN,نعم,لا,لا,لا,,,true,نشط/فعال,,,
+createdAt,created_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ الإنشاء,,,
+updatedAt,updated_at,LocalDateTime,TIMESTAMP,لا,لا,لا,لا,,,,تاريخ التحديث,,,
+createdBy,created_by,String,VARCHAR,نعم,لا,لا,لا,,100,,أنشأ بواسطة,,,
+updatedBy,updated_by,String,VARCHAR,نعم,لا,لا,لا,,100,,حُدث بواسطة,,,

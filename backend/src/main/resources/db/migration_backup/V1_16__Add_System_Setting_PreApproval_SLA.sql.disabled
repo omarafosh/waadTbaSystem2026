@@ -1,0 +1,38 @@
+-- =====================================================
+-- Migration: Add PRE_APPROVAL_SLA_DAYS System Setting
+-- Version: V1.16
+-- Date: 2026-01-11
+-- Purpose: Configurable SLA days for pre-approval processing
+-- =====================================================
+
+-- Insert PRE_APPROVAL_SLA_DAYS setting (default 3 business days)
+INSERT INTO system_settings (
+    setting_key,
+    setting_value,
+    setting_type,
+    description,
+    category,
+    default_value,
+    editable,
+    active,
+    created_at,
+    updated_at
+) VALUES (
+    'PRE_APPROVAL_SLA_DAYS',
+    '3',
+    'INTEGER',
+    'Number of business days allowed for pre-approval processing (SLA)',
+    'OPERATIONS',
+    '3',
+    TRUE,
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+) ON CONFLICT (setting_key) DO UPDATE SET
+    description = EXCLUDED.description,
+    default_value = EXCLUDED.default_value,
+    updated_at = CURRENT_TIMESTAMP;
+
+-- Add comment
+-- Pre-approval SLA is typically shorter than claims (3 days vs 10 days)
+-- because members are waiting for treatment authorization

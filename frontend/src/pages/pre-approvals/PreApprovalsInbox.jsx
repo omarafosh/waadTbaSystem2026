@@ -1,0 +1,499 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  IconButton,
+  Tooltip,
+  Alert,
+  Card,
+  CardContent,
+  Typography,
+  Grid,
+  Stack,
+  Divider,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+  CircularProgress
+} from '@mui/material';
+import {
+  CheckCircle as ApproveIcon,
+  Cancel as RejectIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  Assignment as PreApprovalIcon,
+  MedicalServices as MedicalIcon,
+  PlayArrow as StartReviewIcon
+} from '@mui/icons-material';
+import MainCard from 'components/MainCard';
+import { ModernPageHeader } from 'components/tba';
+import RBACGuard from 'components/tba/RBACGuard';
+import { PERMISSIONS } from 'constants/permissions.constants';
+import { DataGrid } from '@mui/x-data-grid';
+import { preApprovalsService } from 'services/api';
+
+/**
+ * Pre-Approvals Inbox - صندوق الموافقات المسبقة
+ *
+ * يعرض طلبات الموافقة المسبقة المعلقة (SUBMITTED/UNDER_REVIEW) ويتيح الموافقة أو الرفض
+ */
+const PreApprovalsInbox = () => {
+  const navigate = useNavigate();
+
+  // State
+  const [preApprovals, setPreApprovals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalRows, setTotalRows] = useState(0);
+
+  // Dialog states
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedPreApproval, setSelectedPreApproval] = useState(null);
+
+  // Form states
+  const [approvedAmount, setApprovedAmount] = useState('');
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Error/Success states
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  // Fetch pending pre-approvals
+  const fetchPreApprovals = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await preApprovalsService.getPending({
+        page: page + 1,
+        size: pageSize,
+        sortBy: 'createdAt',
+        sortDir: 'asc' // FIFO - الأقدم أولاً
+      });
+      setPreApprovals(response.items || []);
+      setTotalRows(response.total || 0);
+    } catch (err) {
+      console.error('Error fetching pre-approvals:', err);
+      setError(err.userMessage || err.response?.data?.message || 'فشل في تحميل طلبات الموافقة المسبقة');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchPreApprovals();
+  }, [fetchPreApprovals]);
+
+  // Open approve dialog
+  const handleOpenApprove = (preApproval) => {
+    setSelectedPreApproval(preApproval);
+    setApprovedAmount(preApproval.requestedAmount?.toString() || '');
+    setApprovalNotes('');
+    setApproveDialogOpen(true);
+  };
+
+  // Open reject dialog
+  const handleOpenReject = (preApproval) => {
+    setSelectedPreApproval(preApproval);
+    setRejectionReason('');
+    setRejectDialogOpen(true);
+  };
+
+  // Start Review - transition from SUBMITTED to UNDER_REVIEW
+  const handleStartReview = async (preApproval) => {
+    try {
+      setActionLoading(true);
+      setError(null);
+      await preApprovalsService.startReview(preApproval.id);
+      setSuccess('تم بدء مراجعة الطلب');
+      fetchPreApprovals();
+    } catch (err) {
+      setError(err.userMessage || err.response?.data?.message || 'فشل في بدء المراجعة');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Approve pre-approval
+  const handleApprove = async () => {
+    if (!selectedPreApproval) return;
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      await preApprovalsService.approve(selectedPreApproval.id, {
+        approvedAmount: parseFloat(approvedAmount) || selectedPreApproval.requestedAmount,
+        notes: approvalNotes
+      });
+
+      setSuccess('تمت الموافقة على الطلب بنجاح');
+      setApproveDialogOpen(false);
+      fetchPreApprovals();
+    } catch (err) {
+      setError(err.userMessage || err.response?.data?.message || 'فشل في الموافقة على الطلب');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Reject pre-approval
+  const handleReject = async () => {
+    if (!selectedPreApproval || !rejectionReason.trim()) {
+      setError('يجب إدخال سبب الرفض');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      await preApprovalsService.reject(selectedPreApproval.id, {
+        rejectionReason: rejectionReason.trim()
+      });
+
+      setSuccess('تم رفض الطلب');
+      setRejectDialogOpen(false);
+      fetchPreApprovals();
+    } catch (err) {
+      setError(err.userMessage || err.response?.data?.message || 'فشل في رفض الطلب');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Status chip
+  const getStatusChip = (status) => {
+    const configs = {
+      PENDING: { color: 'warning', label: 'قيد المراجعة' },
+      APPROVED: { color: 'success', label: 'موافق عليه' },
+      REJECTED: { color: 'error', label: 'مرفوض' },
+      EXPIRED: { color: 'default', label: 'منتهي' },
+      USED: { color: 'info', label: 'مستخدم' }
+    };
+    const config = configs[status] || configs.PENDING;
+    return <Chip size="small" color={config.color} label={config.label} />;
+  };
+
+  // Priority indicator based on urgency
+  const getUrgencyBadge = (urgency) => {
+    if (urgency === 'EMERGENCY') {
+      return <Chip size="small" color="error" label="طارئ" variant="filled" />;
+    }
+    if (urgency === 'URGENT') {
+      return <Chip size="small" color="warning" label="عاجل" variant="outlined" />;
+    }
+    return null;
+  };
+
+  // DataGrid columns
+  const columns = [
+    {
+      field: 'id',
+      headerName: '#',
+      width: 100,
+      valueGetter: (value, row) => row?.referenceNumber || `PA-${row?.id}` || row?.id
+    },
+    {
+      field: 'memberName',
+      headerName: 'اسم المؤمن عليه',
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'
+    },
+    {
+      field: 'providerName',
+      headerName: 'مقدم الخدمة',
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (value, row) => row?.providerName || '-'
+    },
+    {
+      field: 'serviceName',
+      headerName: 'الخدمة',
+      width: 150,
+      valueGetter: (value, row) => row?.serviceName || row?.serviceCode || row?.serviceType || '-'
+    },
+    {
+      field: 'contractPrice',
+      headerName: 'المبلغ',
+      width: 120,
+      valueGetter: (value, row) => {
+        const amount = row?.contractPrice || row?.requestedAmount || row?.approvedAmount;
+        return amount ? `${Number(amount).toFixed(2)} د.ل` : '-';
+      }
+    },
+    {
+      field: 'priority',
+      headerName: 'الأولوية',
+      width: 100,
+      renderCell: (params) => getUrgencyBadge(params.row?.priority || params.row?.urgency)
+    },
+    {
+      field: 'requestDate',
+      headerName: 'تاريخ الطلب',
+      width: 130,
+      valueGetter: (value, row) => {
+        const date = row?.requestDate || row?.createdAt;
+        return date ? new Date(date).toLocaleDateString('en-US') : '-';
+      }
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'تاريخ الانتهاء',
+      width: 130,
+      valueGetter: (value, row) => {
+        const date = row?.expiryDate || row?.expiresAt;
+        return date ? new Date(date).toLocaleDateString('en-US') : '-';
+      }
+    },
+    {
+      field: 'status',
+      headerName: 'الحالة',
+      width: 120,
+      renderCell: (params) => getStatusChip(params.value)
+    },
+    {
+      field: 'actions',
+      headerName: 'الإجراءات',
+      width: 200,
+      sortable: false,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="عرض التفاصيل">
+            <IconButton size="small" color="primary" onClick={() => navigate(`/pre-approvals/${params.row.id}`)} disabled={actionLoading}>
+              <ViewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* SUBMITTED → Start Review */}
+          {params.row.status === 'SUBMITTED' && (
+            <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
+              <Tooltip title="بدء المراجعة">
+                <span>
+                  <IconButton size="small" color="info" onClick={() => handleStartReview(params.row)} disabled={actionLoading}>
+                    <StartReviewIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </RBACGuard>
+          )}
+
+          {/* PENDING/UNDER_REVIEW → Approve/Reject */}
+          {(params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW') && (
+            <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
+              <Tooltip title="موافقة">
+                <span>
+                  <IconButton size="small" color="success" onClick={() => handleOpenApprove(params.row)} disabled={actionLoading}>
+                    <ApproveIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="رفض">
+                <span>
+                  <IconButton size="small" color="error" onClick={() => handleOpenReject(params.row)} disabled={actionLoading}>
+                    <RejectIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </RBACGuard>
+          )}
+        </Stack>
+      )
+    }
+  ];
+
+  return (
+    <>
+      <ModernPageHeader
+        title="صندوق الموافقات المسبقة"
+        subtitle="طلبات الموافقة المسبقة المعلقة"
+        icon={PreApprovalIcon}
+        actions={
+          <Button startIcon={<RefreshIcon />} onClick={fetchPreApprovals} disabled={loading}>
+            تحديث
+          </Button>
+        }
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
+
+      <MainCard>
+        <Box sx={{ minHeight: 400, width: '100%' }}>
+          <DataGrid
+            autoHeight
+            rows={preApprovals}
+            columns={columns}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalRows}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageOptions={[10, 20, 50]}
+            disableSelectionOnClick
+            localeText={{
+              noRowsLabel: 'لا توجد طلبات موافقة مسبقة معلقة',
+              MuiTablePagination: {
+                labelRowsPerPage: 'عدد الصفوف:'
+              }
+            }}
+            sx={{
+              '& .MuiDataGrid-row': {
+                '&:hover': {
+                  backgroundColor: 'action.hover'
+                }
+              }
+            }}
+          />
+        </Box>
+      </MainCard>
+
+      {/* Approve Dialog */}
+      <Dialog open={approveDialogOpen} onClose={() => !actionLoading && setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <ApproveIcon color="success" />
+            <span>الموافقة على الطلب #{selectedPreApproval?.id}</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Card variant="outlined" sx={{ mb: 3, mt: 2 }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="primary" gutterBottom>
+                تفاصيل الطلب
+              </Typography>
+              <Table size="small">
+                <TableBody>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 500 }}>المؤمن عليه</TableCell>
+                    <TableCell>{selectedPreApproval?.memberFullNameArabic}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 500 }}>مقدم الخدمة</TableCell>
+                    <TableCell>{selectedPreApproval?.providerName}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 500 }}>نوع الخدمة</TableCell>
+                    <TableCell>{selectedPreApproval?.serviceType || selectedPreApproval?.procedureName || '-'}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 500 }}>المبلغ المطلوب</TableCell>
+                    <TableCell>
+                      <Typography color="primary" fontWeight="bold">
+                        {selectedPreApproval?.requestedAmount?.toFixed(2)} د.ل
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Divider sx={{ my: 2 }} />
+
+          <TextField
+            fullWidth
+            type="number"
+            label="المبلغ الموافق عليه"
+            value={approvedAmount}
+            onChange={(e) => setApprovedAmount(e.target.value)}
+            InputProps={{
+              endAdornment: <Typography color="textSecondary">د.ل</Typography>
+            }}
+            sx={{ mb: 2 }}
+            disabled={actionLoading}
+          />
+
+          <TextField
+            fullWidth
+            label="ملاحظات (اختياري)"
+            value={approvalNotes}
+            onChange={(e) => setApprovalNotes(e.target.value)}
+            multiline
+            rows={2}
+            disabled={actionLoading}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveDialogOpen(false)} disabled={actionLoading}>
+            إلغاء
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleApprove}
+            disabled={actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={20} color="inherit" /> : <ApproveIcon />}
+          >
+            {actionLoading ? 'جارِ الموافقة...' : 'موافقة'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onClose={() => !actionLoading && setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <RejectIcon color="error" />
+            <span>رفض الطلب #{selectedPreApproval?.id}</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2, mt: 1 }}>
+            يرجى إدخال سبب واضح للرفض. هذا السبب سيظهر للمستشفى/العيادة.
+          </Alert>
+
+          <TextField
+            fullWidth
+            required
+            label="سبب الرفض"
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            multiline
+            rows={3}
+            error={!rejectionReason.trim()}
+            helperText="مطلوب - اشرح سبب الرفض بوضوح"
+            disabled={actionLoading}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={actionLoading}>
+            إلغاء
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleReject}
+            disabled={!rejectionReason.trim() || actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={20} color="inherit" /> : <RejectIcon />}
+          >
+            {actionLoading ? 'جارِ الرفض...' : 'تأكيد الرفض'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+export default PreApprovalsInbox;
