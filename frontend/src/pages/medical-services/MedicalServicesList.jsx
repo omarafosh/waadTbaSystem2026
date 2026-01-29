@@ -25,13 +25,13 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // MUI Components
-import { 
-  Box, 
-  Button, 
-  Chip, 
-  IconButton, 
-  Stack, 
-  Tooltip, 
+import {
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Stack,
+  Tooltip,
   Typography,
   Dialog,
   DialogTitle,
@@ -74,8 +74,8 @@ import useTableState from 'hooks/useTableState';
 import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 // Services
-import { 
-  getMedicalServices, 
+import {
+  getMedicalServices,
   deleteMedicalService,
   deleteAllMedicalServices,
   deactivateAllMedicalServices,
@@ -124,10 +124,10 @@ const MedicalServicesList = () => {
 
   // Status filter: null = all, true = active, false = inactive
   const [statusFilter, setStatusFilter] = useState(null);
-  
+
   // Excel export loading state
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // Bulk operations dialogs
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [deactivateAllDialogOpen, setDeactivateAllDialogOpen] = useState(false);
@@ -381,10 +381,10 @@ const MedicalServicesList = () => {
         )
       },
 
-      // Arabic Name Column
+      // Name Column
       {
         accessorKey: 'name',
-        header: 'الاسم (عربي)',
+        header: 'الاسم',
         enableSorting: true,
         enableColumnFilter: false,
         minWidth: 180,
@@ -392,27 +392,6 @@ const MedicalServicesList = () => {
         cell: ({ getValue }) => (
           <Typography variant="body2">{getValue() || '-'}</Typography>
         )
-      },
-
-      // English Name Column
-      {
-        accessorKey: 'nameEn',
-        header: 'الاسم (إنجليزي)',
-        enableSorting: true,
-        enableColumnFilter: false,
-        minWidth: 180,
-        align: 'left',
-        cell: ({ getValue, row }) => {
-          const nameEn = getValue();
-          const nameAr = row.original?.name;
-          // إظهار شرطة إذا كان الاسم الإنجليزي فارغاً أو يساوي الاسم العربي
-          const displayValue = (!nameEn || nameEn === nameAr) ? '-' : nameEn;
-          return (
-            <Typography variant="body2" color="text.secondary" dir="ltr" textAlign="left">
-              {displayValue}
-            </Typography>
-          );
-        }
       },
 
       // Category Column - INLINE EDITABLE
@@ -427,7 +406,7 @@ const MedicalServicesList = () => {
           const currentCategoryId = row.original?.categoryId;
           const serviceName = row.original?.name || row.original?.code;
           const serviceId = row.original?.id;
-          
+
           return (
             <FormControl size="small" fullWidth sx={{ minWidth: 150 }}>
               <Select
@@ -568,7 +547,7 @@ const MedicalServicesList = () => {
         subtitle="إدارة الخدمات الطبية في النظام"
         icon={MedicalServicesIcon}
         breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'الخدمات الطبية' }]}
-        
+
         // Add Button
         showAddButton={true}
         addButtonLabel="إضافة خدمة جديدة"
@@ -590,12 +569,12 @@ const MedicalServicesList = () => {
             </Tooltip>
 
             <PermissionGuard requires="medical-services.add">
-              <ExcelImportButton 
+              <ExcelImportButton
                 module="medical-services"
                 onImportComplete={triggerRefresh}
               />
             </PermissionGuard>
-            
+
             {/* Bulk Activate Button */}
             <PermissionGuard requires={["SUPER_ADMIN", "INSURANCE_ADMIN"]}>
               <Tooltip title="تنشيط جميع الخدمات">
@@ -687,18 +666,18 @@ const MedicalServicesList = () => {
 
           {/* Status Summary Chips */}
           <Stack direction="row" spacing={1}>
-            <Chip 
+            <Chip
               label={`الإجمالي: ${stats?.total || 0}`}
               size="small"
               variant="outlined"
             />
-            <Chip 
+            <Chip
               label={`نشط: ${stats?.active || 0}`}
               size="small"
               color="success"
               variant="light"
             />
-            <Chip 
+            <Chip
               label={`غير نشط: ${stats?.inactive || 0}`}
               size="small"
               color="default"
@@ -753,14 +732,14 @@ const MedicalServicesList = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteAllDialogOpen(false)}
             color="inherit"
             disabled={deleteAllMutation.isPending}
           >
             إلغاء
           </Button>
-          <Button 
+          <Button
             onClick={handleConfirmDeleteAll}
             color="error"
             variant="contained"
@@ -794,14 +773,14 @@ const MedicalServicesList = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeactivateAllDialogOpen(false)}
             color="inherit"
             disabled={deactivateAllMutation.isPending}
           >
             إلغاء
           </Button>
-          <Button 
+          <Button
             onClick={handleConfirmDeactivateAll}
             color="warning"
             variant="contained"
@@ -834,14 +813,14 @@ const MedicalServicesList = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setActivateAllDialogOpen(false)}
             color="inherit"
             disabled={activateAllMutation.isPending}
           >
             إلغاء
           </Button>
-          <Button 
+          <Button
             onClick={handleConfirmActivateAll}
             color="success"
             variant="contained"

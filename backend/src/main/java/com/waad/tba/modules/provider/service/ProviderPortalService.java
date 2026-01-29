@@ -10,6 +10,8 @@ import com.waad.tba.modules.member.repository.MemberRepository;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.benefitpolicy.service.BenefitPolicyCoverageService;
 import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy;
+import com.waad.tba.modules.rbac.entity.User;
+import com.waad.tba.modules.rbac.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,7 @@ public class ProviderPortalService {
     private final UnifiedMemberService unifiedMemberService;
     private final MemberRepository memberRepository;
     private final BenefitPolicyCoverageService benefitPolicyCoverageService;
+    private final UserRepository userRepository;
     
     /**
      * Check Member Eligibility for Provider.
@@ -97,12 +100,20 @@ public class ProviderPortalService {
         
         log.debug("✓ Found member: id={}, barcode={}", member.getId(), member.getBarcode());
         
+        // Step 1.5: Security Check - Verify if provider user is authorized for this member's company
+        validateProviderUserPermissions(member, providerUsername);
+        
         // Step 2: Get family eligibility (reuse existing service)
-        String barcode = member.getBarcode();
-        FamilyEligibilityResponseDto familyEligibility = unifiedMemberService.checkEligibility(barcode);
+        // Fix: If member is Dependent, barcode is null, so use card number
+        String identifier = member.getBarcode();
+        if (identifier == null) {
+            identifier = member.getCardNumber();
+        }
+        
+        FamilyEligibilityResponseDto familyEligibility = unifiedMemberService.checkEligibility(identifier);
         
         // Step 3: Build provider response
-        ProviderEligibilityResponse response = buildProviderResponse(familyEligibility, barcode);
+        ProviderEligibilityResponse response = buildProviderResponse(familyEligibility, identifier);
         
         log.info("✅ Provider eligibility check completed: eligible={}, familySize={}", 
                  response.getEligible(), response.getTotalFamilyMembers());
@@ -111,16 +122,57 @@ public class ProviderPortalService {
     }
     
     /**
+     * Validates if the provider user is authorized to see members from the member's employer.
+     */
+    private void validateProviderUserPermissions(Member member, String username) {
+        if (username == null || member.getEmployerOrganization() == null) {
+            return;
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElse(null);
+        
+        if (user == null) {
+            return; // Skip if user not found (likely system process)
+        }
+
+        // 1. If user is SUPER_ADMIN, they can see everything
+        boolean isSuperAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getName().equals("ROLE_SUPER_ADMIN"));
+        
+        if (isSuperAdmin || Boolean.TRUE.equals(user.getAllowAllCompanies())) {
+            return;
+        }
+
+        // 2. Check if the employer is in the permitted list
+        Long memberEmployerId = member.getEmployerOrganization().getId();
+        boolean isPermitted = user.getPermittedCompanies().stream()
+                .anyMatch(e -> e.getId().equals(memberEmployerId));
+
+        if (!isPermitted) {
+            log.warn("🛡️ Security Restriction: User {} attempted to access member {} from unauthorized company {}", 
+                     username, member.getId(), member.getEmployerOrganization().getName());
+            throw new IllegalArgumentException(
+                "عذراً، ليس لديك صلاحية للوصول لبيانات أعضاء شركة: " + member.getEmployerOrganization().getName() +
+                " / Access denied for members of company: " + member.getEmployerOrganization().getName()
+            );
+        }
+    }
+    
+    /**
      * Find member by barcode or card number.
      * Uses eager fetching to ensure employer organization and benefit policy are loaded.
      */
     private Member findMember(String lookupKey) {
         // Try barcode first (with eager loading)
-        Member member = memberRepository.findByBarcode(lookupKey).orElse(null);
+        // Try barcode first (with eager loading)
+        List<Member> barcodeMembers = memberRepository.findByBarcode(lookupKey);
+        Member member = barcodeMembers.isEmpty() ? null : barcodeMembers.get(0);
         
         if (member == null) {
             // Try card number (with eager loading)
-            member = memberRepository.findByCardNumberWithDetails(lookupKey).orElse(null);
+            List<Member> cardMembers = memberRepository.findByCardNumberWithDetails(lookupKey);
+            member = cardMembers.isEmpty() ? null : cardMembers.get(0);
         }
         
         if (member != null) {

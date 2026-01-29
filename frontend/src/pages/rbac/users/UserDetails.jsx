@@ -188,7 +188,7 @@ const RolesTab = ({ user, allRoles, userRoleIds, onToggleRole, isSuperAdmin, loa
                     </Avatar>
                     <Box>
                       <Typography variant="subtitle1" fontWeight="medium">
-                        {role?.nameAr || role?.name || '-'}
+                        {role?.name || '-'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {role?.description || roleName}
@@ -322,7 +322,7 @@ const PermissionsTab = ({ effectivePermissions, allPermissions }) => {
                       >
                         {isActive ? <CheckCircleIcon color="success" fontSize="small" /> : <BlockIcon color="disabled" fontSize="small" />}
                         <Typography variant="body2" color={isActive ? 'success.dark' : 'text.disabled'} noWrap>
-                          {permission?.nameAr || actionLabels[action] || action}
+                          {actionLabels[action] || action}
                         </Typography>
                       </Stack>
                     </Grid>

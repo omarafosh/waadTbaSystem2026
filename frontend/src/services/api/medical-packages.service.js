@@ -9,11 +9,11 @@ import { normalizePaginatedResponse } from 'utils/api-response-normalizer';
  * CONTRACT: MEDICAL_PACKAGE_API_CONTRACT.md
  * 
  * DTOs per Contract:
- * - MedicalPackage (read): id, code, nameAr, nameEn, description, services[], 
+ * - MedicalPackage (read): id, code, name, description, services[], 
  *                          totalCoverageLimit, active, createdAt, updatedAt, servicesCount
- * - MedicalPackageDTO (create/update): code, nameAr, nameEn, description?, 
+ * - MedicalPackageDTO (create/update): code, name, description?, 
  *                                       serviceIds[]?, totalCoverageLimit?, active?
- * - MedicalPackageSelectorDto: id, code, nameAr, nameEn
+ * - MedicalPackageSelectorDto: id, code, name
  *
  * Endpoints per Contract:
  * - GET  /api/medical-packages              - قائمة (paginated)
@@ -73,7 +73,7 @@ export const getMedicalPackageByCode = async (code) => {
 /**
  * Create new medical package
  * CONTRACT: POST /api/medical-packages
- * @param {Object} payload - MedicalPackageDTO (code, nameAr, nameEn, description?, serviceIds[]?, totalCoverageLimit?, active?)
+ * @param {Object} payload - MedicalPackageDTO (code, name, description?, serviceIds[]?, totalCoverageLimit?, active?)
  * @returns {Promise<Object>} Created MedicalPackage
  */
 export const createMedicalPackage = async (payload) => {

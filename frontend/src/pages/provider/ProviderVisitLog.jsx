@@ -1,17 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Material UI
 import {
   Box,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Typography,
   Chip,
   Button,
@@ -26,14 +19,12 @@ import {
   Tooltip,
   Stack,
   Alert,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Card,
   CardContent,
-  Divider,
   Collapse
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -64,6 +55,8 @@ import { providerApi } from 'services/providerService';
 // Components
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
+import GenericDataTable from 'components/GenericDataTable/GenericDataTable';
+import { useTableState } from 'hooks/useTableState';
 
 // ========================= LABELS (Arabic) =========================
 const LABELS = {
@@ -187,6 +180,8 @@ const VISIT_TYPE_LABELS = {
   EMERGENCY: 'طوارئ',
   DAY_CARE: 'رعاية يومية'
 };
+
+const DEFAULT_SORT = { field: 'visitDate', direction: 'desc' };
 
 // ========================= PDF PREVIEW COMPONENT =========================
 const VisitPdfPreviewDialog = ({ open, onClose, visit }) => {
@@ -516,11 +511,15 @@ const ProviderVisitLog = () => {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+      initialPageSize: 10,
+      defaultSort: DEFAULT_SORT
+    });
+  
+  const { page, pageSize, sorting } = tableState;  
 
   // Filters - Default date to TODAY
   const [showFilters, setShowFilters] = useState(true);
@@ -545,8 +544,8 @@ const ProviderVisitLog = () => {
       // Backend automatically handles provider isolation via ProviderContextGuard
       // ════════════════════════════════════════════════════════════════════════
       const params = {
-        page: page,
-        size: rowsPerPage,
+        page: page, // API is 0-based
+        size: pageSize,
         // Search by member name/card/civilId
         memberName: searchQuery?.trim() || undefined,
         // Status filter
@@ -555,7 +554,10 @@ const ProviderVisitLog = () => {
         fromDate: dateFrom ? dateFrom.format('YYYY-MM-DD') : undefined,
         toDate: dateTo ? dateTo.format('YYYY-MM-DD') : undefined,
         // Visit type (optional)
-        visitType: visitTypeFilter || undefined
+        visitType: visitTypeFilter || undefined,
+        // Sorting
+        sortBy: sorting[0]?.id || undefined,
+        sortDir: sorting[0]?.desc ? 'desc' : 'asc'
       };
 
       // Remove undefined values
@@ -571,23 +573,16 @@ const ProviderVisitLog = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchQuery, dateFrom, dateTo, statusFilter, visitTypeFilter]);
+  }, [page, pageSize, sorting, searchQuery, dateFrom, dateTo, statusFilter, visitTypeFilter]);
 
   useEffect(() => {
     fetchVisits();
   }, [fetchVisits]);
 
   // Handlers
-  const handlePageChange = (_, newPage) => setPage(newPage);
-
-  const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   const handleSearchChange = (event) => {
     setSearchQuery(event.target.value);
-    setPage(0);
+    tableState.setPage(0);
   };
 
   const handleCreateClaim = (visit) => {
@@ -643,8 +638,217 @@ const ProviderVisitLog = () => {
     setDateTo(dayjs());   // Reset to TODAY
     setStatusFilter('');
     setVisitTypeFilter('');
-    setPage(0);
+    tableState.setPage(0);
   };
+
+  // ========================================
+  // COLUMNS DEFINITION
+  // ========================================
+  const columns = useMemo(() => [
+      {
+        accessorKey: 'visitId',
+        header: LABELS.visitId,
+        size: 100,
+        cell: ({ row }) => (
+            <Chip
+                label={`#${row.original.visitId}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}
+            />
+        )
+      },
+      {
+        accessorKey: 'memberName', // Sorting ID
+        header: LABELS.memberName,
+        size: 200,
+        cell: ({ row }) => (
+            <Box>
+                <Typography variant="body2" fontWeight="500">
+                    {row.original.memberName || '-'}
+                </Typography>
+                {row.original.employerName && (
+                    <Typography variant="caption" color="textSecondary" display="block">
+                        {row.original.employerName}
+                    </Typography>
+                )}
+            </Box>
+        )
+      },
+      {
+        accessorKey: 'memberCivilId',
+        header: LABELS.civilId,
+        size: 130,
+        enableSorting: false, // Often not sortable in backend, depends on impl
+        cell: ({ getValue }) => (
+             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                {getValue() || '-'}
+            </Typography>
+        )
+      },
+      {
+        accessorKey: 'memberCardNumber',
+        header: LABELS.cardNumber,
+        size: 130,
+        enableSorting: false,
+        cell: ({ getValue }) => (
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>
+                {getValue() || '-'}
+            </Typography>
+        )
+      },
+      {
+        accessorKey: 'visitDate',
+        header: LABELS.visitDate,
+        size: 120,
+        cell: ({ getValue }) => (
+             <Typography variant="body2">
+                {getValue() ? dayjs(getValue()).format('DD/MM/YYYY') : '-'}
+            </Typography>
+        )
+      },
+      {
+        accessorKey: 'visitType',
+        header: LABELS.visitType,
+        size: 120,
+        cell: ({ row }) => (
+             <Chip
+                label={VISIT_TYPE_LABELS[row.original.visitType] || row.original.visitTypeLabel || row.original.visitType || '-'}
+                size="small"
+                variant="outlined"
+                color="default"
+            />
+        )
+      },
+      {
+        accessorKey: 'status',
+        header: LABELS.status,
+        size: 120,
+        cell: ({ row }) => (
+            <Chip
+                label={STATUS_LABELS[row.original.status] || row.original.statusLabel || row.original.status || '-'}
+                size="small"
+                color={STATUS_COLORS[row.original.status] || 'default'}
+             />
+        )
+      },
+      {
+        id: 'claimStatus',
+        header: LABELS.claimStatus,
+        size: 140,
+        enableSorting: false,
+        cell: ({ row }) => {
+            const visit = row.original;
+            if (visit.claimCount > 0 || visit.latestClaimStatus) {
+                return (
+                    <Stack spacing={0.5}>
+                        <Chip
+                            label={CLAIM_STATUS_LABELS[visit.latestClaimStatus] || visit.latestClaimStatusLabel || LABELS.noClaim}
+                            size="small"
+                            color={CLAIM_STATUS_COLORS[visit.latestClaimStatus] || 'default'}
+                            variant="outlined"
+                        />
+                        {visit.claimCount > 1 && (
+                            <Typography variant="caption" color="text.secondary">
+                                +{visit.claimCount - 1} أخرى
+                            </Typography>
+                        )}
+                    </Stack>
+                );
+            }
+            return <Typography variant="caption" color="text.secondary">{LABELS.noClaim}</Typography>;
+        }
+      },
+      {
+        id: 'preAuthStatus',
+        header: LABELS.preAuthStatus,
+        size: 140,
+        enableSorting: false,
+        cell: ({ row }) => {
+            const visit = row.original;
+             if (visit.preAuthCount > 0 || visit.latestPreAuthStatus) {
+                return (
+                    <Stack spacing={0.5}>
+                        <Chip
+                            label={PREAUTH_STATUS_LABELS[visit.latestPreAuthStatus] || visit.latestPreAuthStatusLabel || LABELS.noPreAuth}
+                            size="small"
+                            color={PREAUTH_STATUS_COLORS[visit.latestPreAuthStatus] || 'default'}
+                            variant="outlined"
+                        />
+                        {visit.preAuthCount > 1 && (
+                            <Typography variant="caption" color="text.secondary">
+                                +{visit.preAuthCount - 1} أخرى
+                            </Typography>
+                        )}
+                    </Stack>
+                );
+            }
+            return <Typography variant="caption" color="text.secondary">{LABELS.noPreAuth}</Typography>;
+        }
+      },
+      {
+        id: 'actions',
+        header: LABELS.actions,
+        size: 160,
+        align: 'center', // Fix alignment
+        enableSorting: false,
+        cell: ({ row }) => {
+            const visit = row.original;
+            return (
+                <Stack direction="row" spacing={0.5} justifyContent="center">
+                    {/* Create Claim */}
+                    {visit.canCreateClaim !== false && (
+                    <Tooltip title={LABELS.createClaim}>
+                        <IconButton
+                        size="small"
+                        color="success"
+                        onClick={(e) => { e.stopPropagation(); handleCreateClaim(visit); }}
+                        >
+                        <ReceiptIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    )}
+
+                    {/* Create Pre-Auth */}
+                    {visit.canCreatePreAuth !== false && (
+                    <Tooltip title={LABELS.createPreAuth}>
+                        <IconButton
+                        size="small"
+                        color="info"
+                        onClick={(e) => { e.stopPropagation(); handleCreatePreAuth(visit); }}
+                        >
+                        <CheckCircleOutlineIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    )}
+
+                    {/* Print/PDF */}
+                    <Tooltip title={LABELS.printVisit}>
+                    <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => { e.stopPropagation(); handlePrintVisit(visit); }}
+                    >
+                        <PictureAsPdfIcon fontSize="small" />
+                    </IconButton>
+                    </Tooltip>
+
+                    {/* View Details */}
+                    <Tooltip title={LABELS.viewDetails}>
+                    <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={(e) => { e.stopPropagation(); handlePrintVisit(visit); }}
+                    >
+                        <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                    </Tooltip>
+                </Stack>
+            );
+        }
+      }
+  ], []);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -699,7 +903,7 @@ const ProviderVisitLog = () => {
               ),
               endAdornment: searchQuery && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => { setSearchQuery(''); setPage(0); }}>
+                  <IconButton size="small" onClick={() => { setSearchQuery(''); tableState.setPage(0); }}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -717,7 +921,7 @@ const ProviderVisitLog = () => {
         <Collapse in={showFilters}>
           <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fafafa' }}>
             <Grid container spacing={2} alignItems="center">
-              <Grid xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={3}>
                 <DatePicker
                   label={LABELS.dateFrom}
                   value={dateFrom}
@@ -733,7 +937,7 @@ const ProviderVisitLog = () => {
                   }}
                 />
               </Grid>
-              <Grid xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={3}>
                 <DatePicker
                   label={LABELS.dateTo}
                   value={dateTo}
@@ -749,12 +953,12 @@ const ProviderVisitLog = () => {
                   }}
                 />
               </Grid>
-              <Grid xs={12} sm={6} md={2}>
+              <Grid item xs={12} sm={6} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{LABELS.status}</InputLabel>
                   <Select
                     value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                    onChange={(e) => { setStatusFilter(e.target.value); tableState.setPage(0); }}
                     label={LABELS.status}
                   >
                     <MenuItem value="">{LABELS.allStatuses}</MenuItem>
@@ -764,12 +968,12 @@ const ProviderVisitLog = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid xs={12} sm={6} md={2}>
+              <Grid item xs={12} sm={6} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{LABELS.visitType}</InputLabel>
                   <Select
                     value={visitTypeFilter}
-                    onChange={(e) => { setVisitTypeFilter(e.target.value); setPage(0); }}
+                    onChange={(e) => { setVisitTypeFilter(e.target.value); tableState.setPage(0); }}
                     label={LABELS.visitType}
                   >
                     <MenuItem value="">{LABELS.allTypes}</MenuItem>
@@ -779,7 +983,7 @@ const ProviderVisitLog = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid xs={12} sm={6} md={2}>
+              <Grid item xs={12} sm={6} md={2}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -822,295 +1026,14 @@ const ProviderVisitLog = () => {
           </Stack>
         </Box>
 
-        {/* Data Table */}
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="medium" stickyHeader>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#0066e6' }}> {/* Primary Blue Header */}
-                <TableCell sx={{ color: '#fff', fontWeight: 600, py: 2, minWidth: 90 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <BadgeIcon fontSize="small" sx={{ color: 'rgba(255,255,255,0.8)' }} />
-                    <span>{LABELS.visitId}</span>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600, py: 2, minWidth: 180 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <PersonIcon fontSize="small" sx={{ color: 'rgba(255,255,255,0.8)' }} />
-                    <span>{LABELS.memberName}</span>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600, py: 2, minWidth: 120 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <CreditCardIcon fontSize="small" sx={{ color: 'rgba(255,255,255,0.8)' }} />
-                    <span>{LABELS.civilId}</span>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 110 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <CreditCardIcon fontSize="small" color="primary" />
-                    <span>{LABELS.cardNumber}</span>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 110 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <EventIcon fontSize="small" color="primary" />
-                    <span>{LABELS.visitDate}</span>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 110 }}>
-                  {LABELS.visitType}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 100 }}>
-                  {LABELS.status}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 130 }}>
-                  {LABELS.claimStatus}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 130 }}>
-                  {LABELS.preAuthStatus}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', minWidth: 200 }}>
-                  {LABELS.actions}
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                    <CircularProgress size={40} />
-                    <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                      {LABELS.loading}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : visits.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                    <LocalHospitalIcon sx={{ fontSize: 48, color: 'action.disabled', mb: 1 }} />
-                    <Typography variant="body1" color="textSecondary">
-                      {LABELS.noData}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                visits.map((visit) => (
-                  <TableRow
-                    key={visit.visitId}
-                    hover
-                    sx={{
-                      '&:nth-of-type(odd)': { bgcolor: 'rgba(248, 250, 252, 0.5)' },
-                      '&:hover': { bgcolor: 'rgba(224, 242, 254, 0.5) !important' },
-                      transition: 'background-color 0.2s',
-                      borderBottom: '1px solid rgba(226, 232, 240, 0.8)'
-                    }}
-                  >
-                    {/* Visit ID */}
-                    <TableCell>
-                      <Chip
-                        label={`#${visit.visitId}`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}
-                      />
-                    </TableCell>
-
-                    {/* Member Name */}
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="500">
-                        {visit.memberName || '-'}
-                      </Typography>
-                      {visit.employerName && (
-                        <Typography variant="caption" color="textSecondary" display="block">
-                          {visit.employerName}
-                        </Typography>
-                      )}
-                    </TableCell>
-
-                    {/* Civil ID */}
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {visit.memberCivilId || '-'}
-                      </Typography>
-                    </TableCell>
-
-                    {/* Card Number */}
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>
-                        {visit.memberCardNumber || '-'}
-                      </Typography>
-                    </TableCell>
-
-                    {/* Visit Date */}
-                    <TableCell>
-                      <Typography variant="body2">
-                        {visit.visitDate ? dayjs(visit.visitDate).format('DD/MM/YYYY') : '-'}
-                      </Typography>
-                    </TableCell>
-
-                    {/* Visit Type */}
-                    <TableCell>
-                      <Chip
-                        label={VISIT_TYPE_LABELS[visit.visitType] || visit.visitTypeLabel || visit.visitType || '-'}
-                        size="small"
-                        variant="outlined"
-                        color="default"
-                      />
-                    </TableCell>
-
-                    {/* Status */}
-                    <TableCell>
-                      <Chip
-                        label={STATUS_LABELS[visit.status] || visit.statusLabel || visit.status || '-'}
-                        size="small"
-                        color={STATUS_COLORS[visit.status] || 'default'}
-                      />
-                    </TableCell>
-
-                    {/* Claim Status - NEW COLUMN */}
-                    <TableCell>
-                      {visit.claimCount > 0 || visit.latestClaimStatus ? (
-                        <Stack spacing={0.5}>
-                          <Chip
-                            label={CLAIM_STATUS_LABELS[visit.latestClaimStatus] || visit.latestClaimStatusLabel || LABELS.noClaim}
-                            size="small"
-                            color={CLAIM_STATUS_COLORS[visit.latestClaimStatus] || 'default'}
-                            variant="outlined"
-                          />
-                          {visit.claimCount > 1 && (
-                            <Typography variant="caption" color="text.secondary">
-                              +{visit.claimCount - 1} أخرى
-                            </Typography>
-                          )}
-                        </Stack>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          {LABELS.noClaim}
-                        </Typography>
-                      )}
-                    </TableCell>
-
-                    {/* Pre-Auth Status - NEW COLUMN */}
-                    <TableCell>
-                      {visit.preAuthCount > 0 || visit.latestPreAuthStatus ? (
-                        <Stack spacing={0.5}>
-                          <Chip
-                            label={PREAUTH_STATUS_LABELS[visit.latestPreAuthStatus] || visit.latestPreAuthStatusLabel || LABELS.noPreAuth}
-                            size="small"
-                            color={PREAUTH_STATUS_COLORS[visit.latestPreAuthStatus] || 'default'}
-                            variant="outlined"
-                          />
-                          {visit.preAuthCount > 1 && (
-                            <Typography variant="caption" color="text.secondary">
-                              +{visit.preAuthCount - 1} أخرى
-                            </Typography>
-                          )}
-                        </Stack>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          {LABELS.noPreAuth}
-                        </Typography>
-                      )}
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5}>
-                        {/* Create Claim */}
-                        {visit.canCreateClaim !== false && (
-                          <Tooltip title={LABELS.createClaim}>
-                            <IconButton
-                              size="small"
-                              color="success"
-                              onClick={() => handleCreateClaim(visit)}
-                            >
-                              <ReceiptIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {/* Create Pre-Auth */}
-                        {visit.canCreatePreAuth !== false && (
-                          <Tooltip title={LABELS.createPreAuth}>
-                            <IconButton
-                              size="small"
-                              color="info"
-                              onClick={() => handleCreatePreAuth(visit)}
-                            >
-                              <CheckCircleOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {/* Print/PDF */}
-                        <Tooltip title={LABELS.printVisit}>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handlePrintVisit(visit)}
-                          >
-                            <PictureAsPdfIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        {/* View Details */}
-                        <Tooltip title={LABELS.viewDetails}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handlePrintVisit(visit)}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-
-                      {/* Linked counts badges */}
-                      {(visit.claimCount > 0 || visit.preAuthCount > 0) && (
-                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                          {visit.claimCount > 0 && (
-                            <Chip
-                              size="small"
-                              label={`${visit.claimCount} مطالبة`}
-                              sx={{ fontSize: '0.65rem', height: 18 }}
-                              color="success"
-                              variant="outlined"
-                            />
-                          )}
-                          {visit.preAuthCount > 0 && (
-                            <Chip
-                              size="small"
-                              label={`${visit.preAuthCount} موافقة`}
-                              sx={{ fontSize: '0.65rem', height: 18 }}
-                              color="info"
-                              variant="outlined"
-                            />
-                          )}
-                        </Stack>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {/* Pagination */}
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          onPageChange={handlePageChange}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleRowsPerPageChange}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage={LABELS.rowsPerPage}
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}-${to} من ${count !== -1 ? count : `أكثر من ${to}`}`
-          }
-          sx={{ borderTop: '1px solid #e0e0e0' }}
+        <GenericDataTable
+            columns={columns}
+            data={visits}
+            totalCount={totalCount}
+            isLoading={loading}
+            tableState={tableState}
+            onRowClick={(row) => handlePrintVisit(row)}
+            emptyMessage={LABELS.noData}
         />
       </MainCard>
 

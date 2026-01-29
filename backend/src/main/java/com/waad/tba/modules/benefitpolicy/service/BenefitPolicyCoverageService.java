@@ -145,9 +145,13 @@ public class BenefitPolicyCoverageService {
      * 
      * @param member The member
      * @param serviceId The medical service ID
+     * @param encounterType The visit type (Outpatient, Inpatient, etc.)
      * @return Coverage info, or empty if not covered
      */
-    public Optional<CoverageInfo> getCoverageForService(Member member, Long serviceId) {
+    public Optional<CoverageInfo> getCoverageForService(
+            Member member, 
+            Long serviceId, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         BenefitPolicy policy = member.getBenefitPolicy();
         if (policy == null) {
             return Optional.empty();
@@ -163,7 +167,7 @@ public class BenefitPolicyCoverageService {
             : null;
 
         Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
-            policy.getId(), serviceId, categoryId);
+            policy.getId(), serviceId, categoryId, encounterType);
 
         if (ruleOpt.isEmpty()) {
             log.debug("❌ Service {} not covered under policy {}", serviceId, policy.getName());
@@ -189,8 +193,11 @@ public class BenefitPolicyCoverageService {
     /**
      * Check if a service requires pre-approval
      */
-    public boolean requiresPreApproval(Member member, Long serviceId) {
-        return getCoverageForService(member, serviceId)
+    public boolean requiresPreApproval(
+            Member member, 
+            Long serviceId, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        return getCoverageForService(member, serviceId, encounterType)
             .map(CoverageInfo::isRequiresPreApproval)
             .orElse(false);
     }
@@ -210,7 +217,8 @@ public class BenefitPolicyCoverageService {
     public ClaimCoverageResult validateClaimCoverage(
             Member member, 
             List<ServiceCoverageInput> serviceItems, 
-            LocalDate serviceDate) {
+            LocalDate serviceDate,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         
         // First validate policy is active
         validateMemberHasActivePolicy(member, serviceDate);
@@ -225,7 +233,7 @@ public class BenefitPolicyCoverageService {
         BigDecimal totalPatientAmount = BigDecimal.ZERO;
 
         for (ServiceCoverageInput item : serviceItems) {
-            ServiceCoverageResult result = validateServiceCoverageForInput(policy, item);
+            ServiceCoverageResult result = validateServiceCoverageForInput(policy, item, encounterType);
             serviceResults.add(result);
 
             if (!result.isCovered()) {
@@ -274,7 +282,10 @@ public class BenefitPolicyCoverageService {
     /**
      * Validate a single service coverage from input DTO
      */
-    private ServiceCoverageResult validateServiceCoverageForInput(BenefitPolicy policy, ServiceCoverageInput input) {
+    private ServiceCoverageResult validateServiceCoverageForInput(
+            BenefitPolicy policy, 
+            ServiceCoverageInput input,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         Long serviceId = input.getServiceId();
         String serviceName = input.getServiceName() != null ? input.getServiceName() : "Unknown Service";
 
@@ -302,7 +313,7 @@ public class BenefitPolicyCoverageService {
             : null;
 
         Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
-            policy.getId(), serviceId, categoryId);
+            policy.getId(), serviceId, categoryId, encounterType);
 
         if (ruleOpt.isEmpty()) {
             return ServiceCoverageResult.builder()
@@ -350,8 +361,11 @@ public class BenefitPolicyCoverageService {
      * Get the effective coverage percentage for a service
      * Returns 0 if not covered
      */
-    public int getCoveragePercentForService(Member member, Long serviceId) {
-        return getCoverageForService(member, serviceId)
+    public int getCoveragePercentForService(
+            Member member, 
+            Long serviceId, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        return getCoverageForService(member, serviceId, encounterType)
             .map(CoverageInfo::getCoveragePercent)
             .orElse(0);
     }
@@ -444,7 +458,8 @@ public class BenefitPolicyCoverageService {
             Member member,
             BenefitPolicy benefitPolicy,
             List<ClaimLine> claimLines,
-            LocalDate serviceDate) {
+            LocalDate serviceDate,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         
         if (benefitPolicy == null) {
             return; // No policy to validate
@@ -476,7 +491,7 @@ public class BenefitPolicyCoverageService {
         // Check per-service/category waiting periods from rules
         if (claimLines != null && !claimLines.isEmpty()) {
             for (ClaimLine line : claimLines) {
-                validateWaitingPeriodForClaimLine(benefitPolicy, line, memberStartDate, serviceDate, daysSinceEnrollment);
+                validateWaitingPeriodForClaimLine(benefitPolicy, line, memberStartDate, serviceDate, daysSinceEnrollment, encounterType);
             }
         }
         
@@ -492,7 +507,8 @@ public class BenefitPolicyCoverageService {
             ClaimLine line,
             LocalDate memberStartDate,
             LocalDate serviceDate,
-            long daysSinceEnrollment) {
+            long daysSinceEnrollment,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         
         String serviceCode = line.getServiceCode();
         if (serviceCode == null || serviceCode.isBlank()) {
@@ -512,7 +528,7 @@ public class BenefitPolicyCoverageService {
             : null;
         
         Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
-            benefitPolicy.getId(), service.getId(), categoryId);
+            benefitPolicy.getId(), service.getId(), categoryId, encounterType);
         
         if (ruleOpt.isPresent()) {
             BenefitPolicyRule rule = ruleOpt.get();
@@ -537,7 +553,10 @@ public class BenefitPolicyCoverageService {
      * @param benefitPolicy The BenefitPolicy to check
      * @throws BusinessRuleException if service is not covered
      */
-    public void validateServiceCoverage(Long serviceId, BenefitPolicy benefitPolicy) {
+    public void validateServiceCoverage(
+            Long serviceId, 
+            BenefitPolicy benefitPolicy,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         if (serviceId == null || benefitPolicy == null) {
             return; // Nothing to validate
         }
@@ -552,7 +571,7 @@ public class BenefitPolicyCoverageService {
             : null;
         
         Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
-            benefitPolicy.getId(), serviceId, categoryId);
+            benefitPolicy.getId(), serviceId, categoryId, encounterType);
         
         if (ruleOpt.isEmpty()) {
             String serviceName = service.getName() != null ? service.getName() : service.getName();
@@ -582,7 +601,10 @@ public class BenefitPolicyCoverageService {
      * @param benefitPolicy The BenefitPolicy to check
      * @throws BusinessRuleException if service is not covered
      */
-    public void validateServiceCoverageByCode(String serviceCode, BenefitPolicy benefitPolicy) {
+    public void validateServiceCoverageByCode(
+            String serviceCode, 
+            BenefitPolicy benefitPolicy,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         if (serviceCode == null || serviceCode.isBlank() || benefitPolicy == null) {
             return;
         }
@@ -590,7 +612,7 @@ public class BenefitPolicyCoverageService {
         // Try to find service by code
         MedicalService service = serviceRepository.findByCode(serviceCode).orElse(null);
         if (service != null) {
-            validateServiceCoverage(service.getId(), benefitPolicy);
+            validateServiceCoverage(service.getId(), benefitPolicy, encounterType);
         } else {
             log.warn("Service code {} not found in database, skipping coverage check", serviceCode);
         }
@@ -712,30 +734,23 @@ public class BenefitPolicyCoverageService {
      * @param categoryId The medical category ID (from service)
      * @return Resolved coverage rule or null if not found
      */
-    public ResolvedCoverage resolveCoverage(Long policyId, Long serviceId, Long categoryId) {
-        log.debug("🔍 Resolving coverage: policyId={}, serviceId={}, categoryId={}", 
-            policyId, serviceId, categoryId);
+    public ResolvedCoverage resolveCoverage(
+            Long policyId, 
+            Long serviceId, 
+            Long categoryId,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        log.debug("🔍 Resolving coverage: policyId={}, serviceId={}, categoryId={}, encounterType={}", 
+            policyId, serviceId, categoryId, encounterType);
         
-        // Step 1: Try to find SERVICE_RULE
-        Optional<BenefitPolicyRule> serviceRuleOpt = ruleRepository
-            .findByBenefitPolicyIdAndMedicalServiceIdAndActiveTrue(policyId, serviceId);
+        // Use the canonical resolution logic (prioritizes ServiceRule over CategoryRule, handles encounterType)
+        Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
+            policyId, serviceId, categoryId, encounterType);
         
-        if (serviceRuleOpt.isPresent()) {
-            BenefitPolicyRule rule = serviceRuleOpt.get();
-            log.debug("✅ Found SERVICE_RULE: ruleId={}", rule.getId());
-            return ResolvedCoverage.fromRule(rule, CoverageSource.SERVICE_RULE);
-        }
-        
-        // Step 2: Try to find CATEGORY_RULE
-        if (categoryId != null) {
-            Optional<BenefitPolicyRule> categoryRuleOpt = ruleRepository
-                .findActiveCategoryRule(policyId, categoryId);
-            
-            if (categoryRuleOpt.isPresent()) {
-                BenefitPolicyRule rule = categoryRuleOpt.get();
-                log.debug("✅ Found CATEGORY_RULE: ruleId={}", rule.getId());
-                return ResolvedCoverage.fromRule(rule, CoverageSource.CATEGORY_RULE);
-            }
+        if (ruleOpt.isPresent()) {
+            BenefitPolicyRule rule = ruleOpt.get();
+            CoverageSource source = rule.isCategoryRule() ? CoverageSource.CATEGORY_RULE : CoverageSource.SERVICE_RULE;
+            log.debug("✅ Found {} Rule: ruleId={}", source, rule.getId());
+            return ResolvedCoverage.fromRule(rule, source);
         }
         
         // Step 3: Return POLICY_DEFAULT
@@ -766,7 +781,10 @@ public class BenefitPolicyCoverageService {
      * @param serviceId The service ID
      * @return true if PA is required
      */
-    public boolean requiresPreApprovalFromPolicy(Member member, Long serviceId) {
+    public boolean requiresPreApprovalFromPolicy(
+            Member member, 
+            Long serviceId, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         BenefitPolicy policy = member.getBenefitPolicy();
         if (policy == null) {
             return DEFAULT_REQUIRES_PA;
@@ -777,7 +795,7 @@ public class BenefitPolicyCoverageService {
             return DEFAULT_REQUIRES_PA;
         }
         
-        ResolvedCoverage coverage = resolveCoverage(policy.getId(), serviceId, service.getCategoryId());
+        ResolvedCoverage coverage = resolveCoverage(policy.getId(), serviceId, service.getCategoryId(), encounterType);
         if (coverage == null) {
             return DEFAULT_REQUIRES_PA;
         }
@@ -789,7 +807,10 @@ public class BenefitPolicyCoverageService {
      * Get effective coverage percent for a member/service combination.
      * Uses the canonical resolution algorithm.
      */
-    public int getEffectiveCoveragePercent(Member member, Long serviceId) {
+    public int getEffectiveCoveragePercent(
+            Member member, 
+            Long serviceId, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
         BenefitPolicy policy = member.getBenefitPolicy();
         if (policy == null) {
             return 0;
@@ -800,7 +821,7 @@ public class BenefitPolicyCoverageService {
             return 0;
         }
         
-        ResolvedCoverage coverage = resolveCoverage(policy.getId(), serviceId, service.getCategoryId());
+        ResolvedCoverage coverage = resolveCoverage(policy.getId(), serviceId, service.getCategoryId(), encounterType);
         if (coverage == null || !coverage.isCovered()) {
             return 0;
         }

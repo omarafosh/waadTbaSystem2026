@@ -238,7 +238,7 @@ public class AuthorizationService {
                 log.warn("❌ canAccessMember: DENIED - EMPLOYER_ADMIN user {} has no employerId", user.getUsername());
                 return false;
             }
-            if (member.getEmployer() == null || !user.getEmployerId().equals(member.getEmployer().getId())) {
+            if (member.getEmployerOrganization() == null || !user.getEmployerId().equals(member.getEmployerOrganization().getId())) {
                 log.warn("❌ canAccessMember: DENIED - user {} attempted to access member {} from different employer", 
                         user.getUsername(), memberId);
                 return false;
@@ -310,8 +310,8 @@ public class AuthorizationService {
                 log.warn("❌ canAccessClaim: DENIED - EMPLOYER_ADMIN user {} has no employerId", user.getUsername());
                 return false;
             }
-            if (claim.getMember() == null || claim.getMember().getEmployer() == null ||
-                !user.getEmployerId().equals(claim.getMember().getEmployer().getId())) {
+            if (claim.getMember() == null || claim.getMember().getEmployerOrganization() == null ||
+                !user.getEmployerId().equals(claim.getMember().getEmployerOrganization().getId())) {
                 log.warn("❌ canAccessClaim: DENIED - user {} attempted to access claim {} from different employer", 
                         user.getUsername(), claimId);
                 return false;
@@ -369,8 +369,8 @@ public class AuthorizationService {
                 log.warn("❌ canAccessVisit: DENIED - EMPLOYER_ADMIN user {} has no employerId", user.getEmployerId());
                 return false;
             }
-            if (visit.getMember() == null || visit.getMember().getEmployer() == null ||
-                !user.getEmployerId().equals(visit.getMember().getEmployer().getId())) {
+            if (visit.getMember() == null || visit.getMember().getEmployerOrganization() == null ||
+                !user.getEmployerId().equals(visit.getMember().getEmployerOrganization().getId())) {
                 log.warn("❌ canAccessVisit: DENIED - user {} attempted to access visit {} from different employer", 
                         user.getUsername(), visitId);
                 return false;

@@ -9,10 +9,11 @@ export default function InputLabel(theme) {
           color: varsPalette.grey?.[600] ?? theme.palette.grey?.[600]
         },
         outlined: {
-          lineHeight: '1rem',
-          top: -4,
+          lineHeight: '1.4375em',
+          top: -2,
           '&.MuiInputLabel-sizeSmall': {
-            lineHeight: '1em'
+            lineHeight: '1.4375em',
+            top: -2
           },
           '&.MuiInputLabel-shrink': {
             background: varsPalette.background?.paper ?? theme.palette.background?.paper,

@@ -12,26 +12,26 @@ import { createEmployer } from 'services/api/employers.service';
 
 // Static Arabic labels
 const LABELS = {
-  list: 'الشركاء',
-  add: 'إضافة شريك',
+  list: 'جهات العمل',
+  add: 'إضافة جهة عمل',
   back: 'رجوع',
-  code: 'الرمز (اختياري - يتم التوليد تلقائياً)',
-  codePlaceholder: 'اترك فارغاً للتوليد التلقائي',
-  name: 'اسم الشريك',
-  namePlaceholder: 'أدخل اسم الشريك (عربي أو إنجليزي)',
+  code: 'رمز جهة العمل (مطلوب للترقيم الذكي)',
+  codePlaceholder: 'أدخل رمزاً فريداً (مثل: ABC, WAAD)',
+  name: 'اسم جهة العمل',
+  namePlaceholder: 'أدخل اسم جهة العمل (عربي أو إنجليزي)',
   active: 'نشط',
   cancel: 'إلغاء',
   save: 'حفظ',
   saving: 'جار الحفظ...',
   required: 'مطلوب',
   fixErrors: 'الرجاء تصحيح الأخطاء',
-  createdSuccess: 'تم إنشاء الشريك بنجاح',
-  saveError: 'فشل في حفظ الشريك',
+  createdSuccess: 'تم إنشاء جهة العمل بنجاح',
+  saveError: 'فشل في حفظ جهة العمل',
   autoCode: 'سيتم توليد الرمز تلقائياً'
 };
 
-// Tip message for auto-generated code
-const CODE_HELPER_TEXT = 'يمكنك ترك هذا الحقل فارغاً ليتم توليد رمز تلقائي بسيط (مثل: EMP-01, EMP-02, ...)';
+// Tip message for mandatory code
+const CODE_HELPER_TEXT = 'هذا الرمز سيظهر في رقم بطاقة المؤمن عليه كـ [PRO]. يرجى إدخاله بدقة.';
 
 const emptyEmployer = {
   code: '',
@@ -57,7 +57,9 @@ const EmployerCreate = () => {
 
   const validate = () => {
     const newErrors = {};
-    // code is now optional - will be auto-generated if empty
+    if (!employer.code?.trim()) {
+      newErrors.code = LABELS.required;
+    }
     if (!employer.name?.trim()) {
       newErrors.name = LABELS.required;
     }
@@ -120,10 +122,11 @@ const EmployerCreate = () => {
               />
             </Grid>
 
-            {/* Code - Optional */}
+            {/* Code - Mandatory */}
             <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
+                required
                 label={LABELS.code}
                 value={employer.code}
                 onChange={handleChange('code')}

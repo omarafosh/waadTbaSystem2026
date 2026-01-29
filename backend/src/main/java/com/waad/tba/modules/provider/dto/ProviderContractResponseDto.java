@@ -44,11 +44,6 @@ public class ProviderContractResponseDto {
      */
     private String serviceName;
 
-    /**
-     * Service Name (English)
-     * Fetched from MedicalService
-     */
-    private String serviceNameEn;
 
     /**
      * Contract Price

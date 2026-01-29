@@ -49,31 +49,48 @@ public class EmployerService {
 
     private final OrganizationRepository organizationRepository;
     private final EmployerMapper mapper;
+    private final com.waad.tba.modules.benefitpolicy.repository.BenefitPolicyRepository benefitPolicyRepository;
 
     /**
      * Get all active, non-archived employers
      */
-    public List<EmployerResponseDto> getAll() {
-        return organizationRepository.findByTypeAndActiveTrue(OrganizationType.EMPLOYER)
+    @Transactional(readOnly = true)
+    public List<EmployerResponseDto> getAll(Boolean deleted) {
+        if (Boolean.TRUE.equals(deleted)) {
+            // Return ONLY archived
+            // Fetch everything and filter in memory to be 100% sure we catch them
+            return organizationRepository.findByType(OrganizationType.EMPLOYER)
+                    .stream()
+                    .filter(org -> org.isArchived())
+                    .map(this::mapToResponseWithPolicy)
+                    .toList();
+        }
+
+        // Return ONLY active (non-archived)
+        return organizationRepository.findByType(OrganizationType.EMPLOYER)
                 .stream()
                 .filter(org -> !org.isArchived())
-                .map(mapper::toResponse)
+                .map(this::mapToResponseWithPolicy)
                 .toList();
     }
 
     /**
      * Get all employers including archived ones
+     * 
+     * @deprecated Use getAll(Boolean deleted) instead
      */
+    @Transactional(readOnly = true)
     public List<EmployerResponseDto> getAllIncludingArchived() {
         return organizationRepository.findByType(OrganizationType.EMPLOYER)
                 .stream()
-                .map(mapper::toResponse)
+                .map(this::mapToResponseWithPolicy)
                 .toList();
     }
 
     /**
      * Get employer selectors (for dropdowns) - excludes archived
      */
+    @Transactional(readOnly = true)
     public List<EmployerSelectorDto> getSelectors() {
         return organizationRepository.findByTypeAndActiveTrue(OrganizationType.EMPLOYER)
                 .stream()
@@ -85,9 +102,10 @@ public class EmployerService {
     /**
      * Get employer by ID
      */
+    @Transactional(readOnly = true)
     public EmployerResponseDto getById(Long id) {
         Organization org = findEmployerById(id);
-        return mapper.toResponse(org);
+        return mapToResponseWithPolicy(org);
     }
 
     /**
@@ -95,7 +113,8 @@ public class EmployerService {
      * 
      * Phase 2 Features:
      * - Auto-generates code if not provided (EMP-01, EMP-02, ...)
-     * - Normalizes field names (accepts 'employerCode' or 'code', 'nameAr' or 'name')
+     * - Normalizes field names (accepts 'employerCode' or 'code', 'nameAr' or
+     * 'name')
      * - Validates uniqueness of code
      * - Sets default active=true
      * 
@@ -106,18 +125,18 @@ public class EmployerService {
     @Transactional
     public EmployerResponseDto create(EmployerCreateDto dto) {
         log.info("[EmployerService] Creating employer with name: {}", dto.getName());
-        
+
         // Step 1: Normalize and generate code if needed
         String employerCode = normalizeAndGenerateCode(dto.getCode());
         log.debug("[EmployerService] Normalized/Generated code: {}", employerCode);
-        
+
         // Step 2: Validate code uniqueness
         validateCodeUniqueness(employerCode, null);
-        
+
         // Step 3: Build Organization entity (Arabic name only)
         Organization org = Organization.builder()
                 .code(employerCode)
-                .name(dto.getName())  // Arabic name (primary and only)
+                .name(dto.getName()) // Arabic name (primary and only)
                 .type(OrganizationType.EMPLOYER)
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .build();
@@ -125,8 +144,8 @@ public class EmployerService {
         // Step 4: Persist and return
         Organization saved = organizationRepository.save(org);
         log.info("[EmployerService] Created employer with ID: {} and code: {}", saved.getId(), saved.getCode());
-        
-        return mapper.toResponse(saved);
+
+        return mapToResponseWithPolicy(saved);
     }
 
     /**
@@ -135,42 +154,42 @@ public class EmployerService {
      * Phase 2 Features:
      * - Normalizes field names
      * - Validates code uniqueness (if changed)
-     * - Updates mutable fields only (name, nameEn, active)
+     * - Updates mutable fields only (name, active)
      * - Preserves auto-generated codes (warning logged if code changes)
      * 
-     * @param id Employer ID
+     * @param id  Employer ID
      * @param dto EmployerUpdateDto
      * @return Updated employer response
      * @throws ResourceNotFoundException if employer not found
-     * @throws BusinessRuleException if code conflict
+     * @throws BusinessRuleException     if code conflict
      */
     @Transactional
     public EmployerResponseDto update(Long id, EmployerUpdateDto dto) {
         log.info("[EmployerService] Updating employer ID: {}", id);
-        
+
         // Step 1: Find existing employer
         Organization org = findEmployerById(id);
         String oldCode = org.getCode();
-        
+
         // Step 2: Validate code change (if applicable)
         if (!oldCode.equals(dto.getCode())) {
-            log.warn("[EmployerService] Changing employer code from {} to {} for ID: {}", 
-                     oldCode, dto.getCode(), id);
+            log.warn("[EmployerService] Changing employer code from {} to {} for ID: {}",
+                    oldCode, dto.getCode(), id);
             validateCodeUniqueness(dto.getCode(), id);
         }
-        
+
         // Step 3: Update mutable fields (Arabic name only)
         org.setCode(dto.getCode());
-        org.setName(dto.getName());  // Arabic name (primary and only)
-        
+        org.setName(dto.getName()); // Arabic name (primary and only)
+
         if (dto.getActive() != null) {
             org.setActive(dto.getActive());
         }
-        
+
         // Step 4: Persist and return
         Organization updated = organizationRepository.save(org);
         log.info("[EmployerService] Updated employer ID: {}", id);
-        
+
         return mapper.toResponse(updated);
     }
 
@@ -183,7 +202,8 @@ public class EmployerService {
      * - Claims
      * - Providers
      * 
-     * Use archive() instead to safely hide employers from lists while preserving data integrity.
+     * Use archive() instead to safely hide employers from lists while preserving
+     * data integrity.
      * 
      * @param id Employer ID
      * @throws BusinessRuleException Always throws - delete is not allowed
@@ -191,9 +211,8 @@ public class EmployerService {
     @Transactional
     public void delete(Long id) {
         throw new BusinessRuleException(
-            "لا يمكن حذف الشريك. استخدم الأرشفة بدلاً من ذلك. "
-            + "Employer cannot be deleted. Use archive instead to preserve system integrity."
-        );
+                "لا يمكن حذف الشريك. استخدم الأرشفة بدلاً من ذلك. "
+                        + "Employer cannot be deleted. Use archive instead to preserve system integrity.");
     }
 
     /**
@@ -213,18 +232,18 @@ public class EmployerService {
     @Transactional
     public EmployerResponseDto archive(Long id) {
         log.info("[EmployerService] Archiving employer ID: {}", id);
-        
+
         Organization org = findEmployerById(id);
-        
+
         if (org.isArchived()) {
             log.warn("[EmployerService] Employer ID: {} is already archived", id);
         }
-        
+
         org.setArchived(true);
         Organization updated = organizationRepository.save(org);
-        
+
         log.info("[EmployerService] Archived employer ID: {}", id);
-        return mapper.toResponse(updated);
+        return mapToResponseWithPolicy(updated);
     }
 
     /**
@@ -239,18 +258,18 @@ public class EmployerService {
     @Transactional
     public EmployerResponseDto restore(Long id) {
         log.info("[EmployerService] Restoring employer ID: {}", id);
-        
+
         Organization org = findEmployerById(id);
-        
+
         if (!org.isArchived()) {
             log.warn("[EmployerService] Employer ID: {} is not archived", id);
         }
-        
+
         org.setArchived(false);
         Organization updated = organizationRepository.save(org);
-        
+
         log.info("[EmployerService] Restored employer ID: {}", id);
-        return mapper.toResponse(updated);
+        return mapToResponseWithPolicy(updated);
     }
 
     /**
@@ -299,21 +318,20 @@ public class EmployerService {
         if (providedCode != null && !providedCode.trim().isEmpty()) {
             return providedCode.trim();
         }
-        
+
         // Auto-generate code
         log.debug("[EmployerService] Auto-generating employer code...");
-        
+
         List<String> codes = organizationRepository.findMaxCodeByTypeAndPrefix(
-                OrganizationType.EMPLOYER, 
-                EMPLOYER_CODE_PATTERN
-        );
-        
+                OrganizationType.EMPLOYER,
+                EMPLOYER_CODE_PATTERN);
+
         int nextNumber = 1; // Default: EMP-01
-        
+
         if (!codes.isEmpty()) {
             String maxCode = codes.get(0); // First result is max (DESC order)
             log.debug("[EmployerService] Max existing code: {}", maxCode);
-            
+
             try {
                 // Extract numeric suffix (e.g., "EMP-03" → "03" → 3)
                 String suffix = maxCode.substring(EMPLOYER_CODE_PREFIX.length());
@@ -323,35 +341,72 @@ public class EmployerService {
                 log.warn("[EmployerService] Failed to parse existing code: {}. Using default.", maxCode, e);
             }
         }
-        
+
         String generatedCode = String.format("%s%0" + EMPLOYER_CODE_LENGTH + "d", EMPLOYER_CODE_PREFIX, nextNumber);
         log.info("[EmployerService] Auto-generated employer code: {}", generatedCode);
-        
+
         return generatedCode;
     }
 
     /**
      * Validate code uniqueness
      * 
-     * @param code Code to validate
+     * @param code      Code to validate
      * @param excludeId ID to exclude from check (for updates)
      * @throws BusinessRuleException if code already exists
      */
     private void validateCodeUniqueness(String code, Long excludeId) {
         Optional<Organization> existing = organizationRepository.findByCode(code);
-        
+
         if (existing.isPresent()) {
             Organization existingOrg = existing.get();
-            
+
             // If updating, allow same code for same ID
             if (excludeId != null && existingOrg.getId().equals(excludeId)) {
                 return;
             }
-            
+
             log.error("[EmployerService] Code already exists: {}", code);
             throw new BusinessRuleException("Employer code already exists: " + code);
         }
     }
+
+    /**
+     * Helper to map Organization to EmployerResponseDto with active policy info
+     */
+    private EmployerResponseDto mapToResponseWithPolicy(Organization org) {
+        if (org == null) return null;
+        EmployerResponseDto dto = mapper.toResponse(org);
+
+        try {
+            // Strategy 1: Find by ID (Primary)
+            List<com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy> policies = 
+                    benefitPolicyRepository.findByEmployerOrganizationIdAndActiveTrue(org.getId());
+
+            // Strategy 2: Fallback to Name (Secondary/Diagnostic)
+            // Useful if there are multiple org records with the same name but different IDs
+            if (policies.isEmpty() && org.getName() != null) {
+                policies = benefitPolicyRepository.findByEmployerOrganizationNameAndActiveTrue(org.getName());
+            }
+
+            // Filter for ACTIVE status and Effective dates
+            policies.stream()
+                    .filter(p -> p.getStatus() == com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy.BenefitPolicyStatus.ACTIVE)
+                    .filter(com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy::isEffective)
+                    .sorted((p1, p2) -> {
+                        if (p1.getCreatedAt() == null) return 1;
+                        if (p2.getCreatedAt() == null) return -1;
+                        return p2.getCreatedAt().compareTo(p1.getCreatedAt());
+                    })
+                    .findFirst()
+                    .ifPresent(policy -> {
+                        dto.setActivePolicyName(policy.getName());
+                        dto.setActivePolicyId(policy.getId());
+                    });
+        } catch (Exception e) {
+            log.error("[EmployerService] Failed to map policy for employer {}: {}", org.getId(), e.getMessage());
+        }
+
+        return dto;
+    }
 }
-
-

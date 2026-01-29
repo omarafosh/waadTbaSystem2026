@@ -18,12 +18,17 @@ import FullScreen from './FullScreen';
 // import Customization from './Customization'; // ✅ Moved to إعدادات النظام page
 import MobileSection from './MobileSection';
 import HorizontalNavigation from './HorizontalNavigation';
+import ThemeModeToggle from './ThemeModeToggle';
 
 import useConfig from 'hooks/useConfig';
 import useAuth from 'hooks/useAuth';
 import { useCompanySettings } from 'contexts/CompanySettingsContext';
 import { MenuOrientation } from 'config';
 import DrawerHeader from 'layout/Dashboard/Drawer/DrawerHeader';
+import { useLocation } from 'react-router-dom';
+
+// Fallback static asset
+import waadLogoFallback from 'assets/images/waad-logo.png';
 
 // ==============================|| HEADER - CONTENT ||============================== //
 
@@ -31,12 +36,15 @@ export default function HeaderContent() {
   const { state } = useConfig();
   const { user } = useAuth();
   const { companyName, companyNameEn, primaryColor, getLogoSrc, hasLogo, getInitials, settings } = useCompanySettings();
+  const { pathname } = useLocation();
 
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
   // Check if user is a Provider
+  // FIX: Remove URL-based check so Admins retain their Admin UI even when visiting portal pages
   const isProvider = user?.roles?.includes('PROVIDER');
-  const providerName = user?.providerName || null;
+  
+  const providerName = user?.providerName || (user?.roles?.includes('SUPER_ADMIN') ? 'مستشفى الرازي - بنغازي' : null);
 
   const localization = useMemo(() => <Localization />, []);
 
@@ -46,63 +54,50 @@ export default function HeaderContent() {
   return (
     <>
       {state.menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
-      
+
       {/* ✅ System Logo/Title - Different for Provider */}
       {!downLG && (
         <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-          {isProvider ? (
-            // Provider Portal branding
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                <LocalHospitalIcon sx={{ fontSize: 18 }} />
-              </Avatar>
-              <Box>
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
-                    fontWeight: 700,
-                    color: 'primary.main',
-                    lineHeight: 1.2
-                  }}
-                >
-                  بوابة مقدم الخدمة
-                </Typography>
-                {providerName && (
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: 'text.secondary',
-                      fontSize: '0.7rem'
-                    }}
-                  >
-                    {providerName}
-                  </Typography>
-                )}
-              </Box>
-            </Stack>
-          ) : (
+          {/* Legacy Provider Logic Removed - Always Show Company Branding */}
+          {(
             // Company branding from settings (SINGLE SOURCE OF TRUTH)
             <Stack direction="row" spacing={1} alignItems="center">
               {/* Always show logo - uses fallback if no custom logo */}
-              <Box
-                component="img"
-                src={getLogoSrc()}
-                alt={displayName}
-                sx={{ 
-                  height: 32, 
-                  width: 'auto', 
-                  maxWidth: 100,
-                  objectFit: 'contain'
+              {hasLogo() || waadLogoFallback ? (
+                <Box
+                  component="img"
+                  src={getLogoSrc()}
+                  alt={displayName}
+                  sx={{
+                    height: 32,
+                    width: 'auto',
+                    maxWidth: 100,
+                    objectFit: 'contain'
+                  }}
+                  onError={(e) => {
+                    // Fallback to avatar if both custom and static fallback fail
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+
+              {/* Fallback initials avatar (hidden by default, shown if img fails) */}
+              <Avatar
+                sx={{
+                  bgcolor: 'primary.main',
+                  width: 32,
+                  height: 32,
+                  fontSize: '0.8rem',
+                  display: hasLogo() || waadLogoFallback ? 'none' : 'flex'
                 }}
-                onError={(e) => {
-                  // If image fails to load, hide it
-                  e.target.style.display = 'none';
-                }}
-              />
+              >
+                {getInitials()}
+              </Avatar>
               <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
+                <Typography
+                  variant="subtitle2"
+                  sx={{
                     fontWeight: 700,
                     lineHeight: 1.1,
                     color: 'primary.main',
@@ -112,9 +107,9 @@ export default function HeaderContent() {
                 >
                   {displayName}
                 </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
+                <Typography
+                  variant="caption"
+                  sx={{
                     color: 'text.secondary',
                     fontSize: '0.6rem',
                     lineHeight: 1,
@@ -128,10 +123,22 @@ export default function HeaderContent() {
           )}
         </Box>
       )}
-      
+
+      {/* ✅ Provider Info Section - Added to restore context while keeping Logo */}
+      {!downLG && isProvider && (
+          <Stack spacing={0.5} sx={{ mx: 2, borderRight: '2px solid', borderColor: 'divider', pr: 2, minWidth: 180 }}>
+             <Typography variant="subtitle2" color="primary.dark" fontWeight="800" sx={{ lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
+                {providerName || 'مقدم خدمة'}
+             </Typography>
+             <Typography variant="caption" color="text.secondary" fontWeight="600" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
+                مستشفى / مركز طبي
+             </Typography>
+          </Stack>
+      )}
+
       {/* ✅ Navigation Horizontal - القائمة الأفقية */}
       {!downLG && <HorizontalNavigation />}
-      
+
       <Box sx={{ width: 1, ml: 1 }} />
 
       <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75 }}>
@@ -142,7 +149,7 @@ export default function HeaderContent() {
             label={`مرحباً، ${user.fullName || user.username}`}
             variant="outlined"
             color={isProvider ? 'success' : 'primary'}
-            sx={{ 
+            sx={{
               borderRadius: 2,
               fontWeight: 500,
               '& .MuiChip-icon': { color: isProvider ? 'success.main' : 'primary.main' }
@@ -150,6 +157,7 @@ export default function HeaderContent() {
           />
         )}
         {localization}
+        <ThemeModeToggle />
         <Notification />
         {!downLG && <FullScreen />}
         {/* ✅ Customization moved to إعدادات النظام page */}

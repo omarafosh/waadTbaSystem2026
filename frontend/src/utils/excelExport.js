@@ -28,12 +28,12 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  */
 const getCompanySettings = async () => {
   const now = Date.now();
-  
+
   // Return cached data if still valid
   if (cachedCompanySettings && (now - cacheTimestamp) < CACHE_TTL) {
     return cachedCompanySettings;
   }
-  
+
   try {
     const response = await axios.get('/api/pdf/settings/active');
     cachedCompanySettings = response.data;
@@ -131,26 +131,26 @@ export const exportToExcel = async ({
 }) => {
   // Fetch company settings
   const company = await getCompanySettings();
-  
+
   // Create workbook
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'نظام وعد للتأمين الصحي';
   workbook.created = new Date();
-  
+
   // Create worksheet
   const worksheet = workbook.addWorksheet(sheetName, {
     views: [{ rightToLeft: true }], // RTL for Arabic
     properties: { defaultRowHeight: 20 }
   });
-  
+
   const totalColumns = columns.length;
-  
+
   // ========================================
   // HEADER SECTION
   // ========================================
-  
+
   let currentRow = 1;
-  
+
   // Row 1: Company Name
   worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
   const companyNameCell = worksheet.getCell(currentRow, 1);
@@ -158,7 +158,7 @@ export const exportToExcel = async ({
   Object.assign(companyNameCell, STYLES.companyName);
   worksheet.getRow(currentRow).height = 30;
   currentRow++;
-  
+
   // Row 2: Company Address (if available)
   if (company.address) {
     worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
@@ -169,13 +169,13 @@ export const exportToExcel = async ({
     worksheet.getRow(currentRow).height = 18;
     currentRow++;
   }
-  
+
   // Row 3: Contact Info (phone, email)
   const contactParts = [];
   if (company.phone) contactParts.push(`هاتف: ${company.phone}`);
   if (company.email) contactParts.push(`بريد: ${company.email}`);
   if (company.website) contactParts.push(`موقع: ${company.website}`);
-  
+
   if (contactParts.length > 0) {
     worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
     const contactCell = worksheet.getCell(currentRow, 1);
@@ -185,10 +185,10 @@ export const exportToExcel = async ({
     worksheet.getRow(currentRow).height = 18;
     currentRow++;
   }
-  
+
   // Empty row separator
   currentRow++;
-  
+
   // Row: Report Title
   worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
   const titleCell = worksheet.getCell(currentRow, 1);
@@ -196,7 +196,7 @@ export const exportToExcel = async ({
   Object.assign(titleCell, STYLES.reportTitle);
   worksheet.getRow(currentRow).height = 25;
   currentRow++;
-  
+
   // Row: Report Info (date, count)
   worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
   const infoCell = worksheet.getCell(currentRow, 1);
@@ -211,22 +211,22 @@ export const exportToExcel = async ({
   Object.assign(infoCell, STYLES.reportInfo);
   worksheet.getRow(currentRow).height = 20;
   currentRow++;
-  
+
   // Empty row before table
   currentRow++;
-  
+
   // ========================================
   // TABLE HEADERS
   // ========================================
-  
+
   const headerRow = currentRow;
-  
+
   // Set column definitions
   worksheet.columns = columns.map((col, index) => ({
     key: col.key,
     width: col.width || 15
   }));
-  
+
   // Add header row
   const headerRowObj = worksheet.getRow(headerRow);
   columns.forEach((col, index) => {
@@ -236,18 +236,18 @@ export const exportToExcel = async ({
   });
   headerRowObj.height = 28;
   currentRow++;
-  
+
   // ========================================
   // DATA ROWS
   // ========================================
-  
+
   data.forEach((row, rowIndex) => {
     const dataRowObj = worksheet.getRow(currentRow);
-    
+
     columns.forEach((col, colIndex) => {
       const cell = dataRowObj.getCell(colIndex + 1);
       let value = row[col.key];
-      
+
       // Format value based on type
       if (col.type === 'number' && value !== null && value !== undefined) {
         cell.value = Number(value);
@@ -264,28 +264,28 @@ export const exportToExcel = async ({
         cell.value = value ?? '-';
         cell.alignment = { horizontal: col.align || 'right', vertical: 'middle', wrapText: true };
       }
-      
+
       // Apply cell styles
       Object.assign(cell, STYLES.tableCell);
-      
+
       // Alternating row colors
       if (rowIndex % 2 === 1) {
         cell.fill = STYLES.tableCellEven.fill;
       }
     });
-    
+
     dataRowObj.height = 22;
     currentRow++;
   });
-  
+
   // ========================================
   // FOOTER SECTION
   // ========================================
-  
+
   // Empty row before footer
   currentRow++;
   currentRow++;
-  
+
   // Footer: Company footer text
   if (company.footerText) {
     worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
@@ -294,25 +294,25 @@ export const exportToExcel = async ({
     Object.assign(footerTextCell, STYLES.footer);
     currentRow++;
   }
-  
+
   // Footer: Generated info
   worksheet.mergeCells(currentRow, 1, currentRow, totalColumns);
   const generatedCell = worksheet.getCell(currentRow, 1);
   generatedCell.value = `تم إنشاء هذا التقرير بواسطة نظام وعد للتأمين الصحي - ${new Date().toLocaleDateString('ar-SA')}`;
   Object.assign(generatedCell, STYLES.footer);
-  
+
   // ========================================
   // DOWNLOAD FILE
   // ========================================
-  
+
   // Generate buffer
   const buffer = await workbook.xlsx.writeBuffer();
-  
+
   // Create blob and download
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   });
-  
+
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -321,7 +321,7 @@ export const exportToExcel = async ({
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
-  
+
   return true;
 };
 
@@ -338,22 +338,20 @@ export const exportToExcel = async ({
 export const exportMedicalServicesToExcel = async (data) => {
   const columns = [
     { key: 'code', header: 'الرمز', width: 15, align: 'center' },
-    { key: 'name', header: 'الاسم (عربي)', width: 35, align: 'right' },
-    { key: 'nameEn', header: 'الاسم (إنجليزي)', width: 35, align: 'left' },
+    { key: 'name', header: 'الاسم', width: 35, align: 'right' },
     { key: 'categoryName', header: 'التصنيف', width: 20, align: 'right' },
     { key: 'basePrice', header: 'السعر (د.ل)', width: 15, type: 'currency' },
     { key: 'requiresPA', header: 'موافقة مسبقة', width: 12, type: 'boolean' },
     { key: 'active', header: 'الحالة', width: 10, type: 'boolean' }
   ];
-  
-  // Transform data - handle nameEn display logic
+
+  // Transform data
   const transformedData = data.map(item => ({
     ...item,
-    nameEn: (!item.nameEn || item.nameEn === item.name) ? '-' : item.nameEn,
     active: item.active ? 'نشط' : 'غير نشط',
     requiresPA: item.requiresPA ? 'نعم' : 'لا'
   }));
-  
+
   return exportToExcel({
     title: 'قائمة الخدمات الطبية',
     titleEn: 'Medical Services List',
@@ -377,21 +375,19 @@ export const exportMedicalServicesToExcel = async (data) => {
 export const exportMedicalCategoriesToExcel = async (data) => {
   const columns = [
     { key: 'code', header: 'الرمز', width: 15, align: 'center' },
-    { key: 'name', header: 'الاسم (عربي)', width: 35, align: 'right' },
-    { key: 'nameEn', header: 'الاسم (إنجليزي)', width: 35, align: 'left' },
+    { key: 'name', header: 'الاسم', width: 35, align: 'right' },
     { key: 'parentName', header: 'التصنيف الأب', width: 25, align: 'right' },
     { key: 'active', header: 'الحالة', width: 12, type: 'boolean' }
   ];
-  
+
   // Transform data
   const transformedData = data.map(item => ({
     ...item,
-    name: item.name || item.nameAr || '-',
-    nameEn: (!item.nameEn || item.nameEn === (item.name || item.nameAr)) ? '-' : item.nameEn,
+    name: item.name || '-',
     parentName: item.parentName || '-',
     active: item.active ? 'نشط' : 'غير نشط'
   }));
-  
+
   return exportToExcel({
     title: 'قائمة التصنيفات الطبية',
     titleEn: 'Medical Categories List',

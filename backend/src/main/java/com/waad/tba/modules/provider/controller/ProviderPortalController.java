@@ -12,7 +12,7 @@ import com.waad.tba.modules.provider.service.ProviderPortalService;
 import com.waad.tba.modules.provider.service.ProviderClaimsService;
 import com.waad.tba.modules.provider.service.ProviderVisitService;
 import com.waad.tba.modules.provider.service.ProviderServiceService;
-import com.waad.tba.modules.provider.service.ProviderContractService;
+import com.waad.tba.modules.providercontract.service.ProviderContractService;
 import com.waad.tba.modules.providercontract.service.ProviderContractPricingItemService;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.security.AuthorizationService;
@@ -568,7 +568,6 @@ public class ProviderPortalController {
                 .serviceId(s.getId())
                 .serviceCode(s.getServiceCode())
                 .serviceName(s.getServiceName())
-                .serviceNameArabic(s.getServiceNameArabic())
                 .categoryCode(s.getCategoryCode())
                 .categoryName(s.getCategoryName())
                 .requiresPA(false) // PA requirement comes from BenefitPolicyRule, not MedicalService
@@ -794,16 +793,14 @@ public class ProviderPortalController {
                     if (item.getMedicalService() != null) {
                         medicalServiceId = item.getMedicalService().getId();  // CRITICAL: Use MedicalService ID
                         serviceCode = item.getMedicalService().getCode();
-                        serviceName = item.getMedicalService().getNameEn() != null ? 
-                            item.getMedicalService().getNameEn() : item.getMedicalService().getNameAr();
-                        serviceNameAr = item.getMedicalService().getNameAr();
+                        serviceName = item.getMedicalService().getName();
                     }
                     
                     // Get category name
                     if (item.getEffectiveCategory() != null) {
-                        categoryName = item.getEffectiveCategory().getNameAr();
+                        categoryName = item.getEffectiveCategory().getName();
                     } else if (item.getMedicalCategory() != null) {
-                        categoryName = item.getMedicalCategory().getNameAr();
+                        categoryName = item.getMedicalCategory().getName();
                     }
                     
                     return MyContractServiceDto.builder()
@@ -811,7 +808,6 @@ public class ProviderPortalController {
                         .medicalServiceId(medicalServiceId)  // CRITICAL: Include MedicalService ID
                         .serviceCode(serviceCode)
                         .serviceName(serviceName)
-                        .serviceNameAr(serviceNameAr)
                         .categoryName(categoryName)
                         .contractPrice(item.getContractPrice())
                         .currency(item.getCurrency())
@@ -917,7 +913,8 @@ public class ProviderPortalController {
                     if (serviceId == null) return false;
                     
                     // Check if this service requires pre-approval in the member's policy
-                    return benefitPolicyRuleService.requiresPreApproval(policyId, serviceId);
+                    // Passing null for encounterType as this is a general lookup
+                    return benefitPolicyRuleService.requiresPreApproval(policyId, serviceId, null);
                 })
                 .map(item -> {
                     String serviceCode = item.getServiceCode();
@@ -929,15 +926,13 @@ public class ProviderPortalController {
                     if (item.getMedicalService() != null) {
                         medicalServiceId = item.getMedicalService().getId();
                         serviceCode = item.getMedicalService().getCode();
-                        serviceName = item.getMedicalService().getNameEn() != null ? 
-                            item.getMedicalService().getNameEn() : item.getMedicalService().getNameAr();
-                        serviceNameAr = item.getMedicalService().getNameAr();
+                        serviceName = item.getMedicalService().getName();
                     }
                     
                     if (item.getEffectiveCategory() != null) {
-                        categoryName = item.getEffectiveCategory().getNameAr();
+                        categoryName = item.getEffectiveCategory().getName();
                     } else if (item.getMedicalCategory() != null) {
-                        categoryName = item.getMedicalCategory().getNameAr();
+                        categoryName = item.getMedicalCategory().getName();
                     }
                     
                     return MyContractServiceDto.builder()
@@ -945,7 +940,6 @@ public class ProviderPortalController {
                         .medicalServiceId(medicalServiceId)
                         .serviceCode(serviceCode)
                         .serviceName(serviceName)
-                        .serviceNameAr(serviceNameAr)
                         .categoryName(categoryName)
                         .contractPrice(item.getContractPrice())
                         .currency(item.getCurrency())
@@ -1007,7 +1001,6 @@ public class ProviderPortalController {
         private Long medicalServiceId;  // Medical Service ID - IMPORTANT for claim creation
         private String serviceCode;
         private String serviceName;
-        private String serviceNameAr;
         private String categoryName;
         private java.math.BigDecimal contractPrice;
         private String currency;
@@ -1028,7 +1021,6 @@ public class ProviderPortalController {
         private Long serviceId;
         private String serviceCode;
         private String serviceName;
-        private String serviceNameArabic;
         private String categoryCode;
         private String categoryName;
         private java.math.BigDecimal contractPrice;

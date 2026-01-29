@@ -53,9 +53,14 @@ public interface BenefitPolicyRepository extends JpaRepository<BenefitPolicy, Lo
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Find all policies for an employer
+     * Find all policies for an employer by ID
      */
     List<BenefitPolicy> findByEmployerOrganizationIdAndActiveTrue(Long employerOrgId);
+
+    /**
+     * Find all policies for an employer by Name (fallback/diagnostic)
+     */
+    List<BenefitPolicy> findByEmployerOrganizationNameAndActiveTrue(String employerName);
 
     /**
      * Find policies for an employer with a specific status

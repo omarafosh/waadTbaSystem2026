@@ -91,6 +91,7 @@ export const getMember = async (id) => {
  * @param {number} [params.organizationId] - Filter by organization
  * @param {string} [params.status] - Filter by status: ACTIVE, SUSPENDED, TERMINATED
  * @param {string} [params.type] - Filter by type: PRINCIPAL, DEPENDENT
+ * @param {boolean} [params.deleted] - Show deleted members
  * @returns {Promise<Object>} Paginated list of members
  */
 export const getAllMembers = async (params = {}) => {
@@ -107,9 +108,7 @@ export const getAllMembers = async (params = {}) => {
  * Advanced search for members
  * 
  * @param {Object} criteria - Search criteria
- * @param {string} [criteria.fullName] - Full name (searches both Arabic and English)
- * @param {string} [criteria.nameAr] - Arabic name filter
- * @param {string} [criteria.nameEn] - English name filter
+ * @param {string} [criteria.fullName] - Full name search
  * @param {string} [criteria.civilId] - Civil ID filter
  * @param {string} [criteria.barcode] - Barcode filter
  * @param {string} [criteria.cardNumber] - Card number filter
@@ -117,6 +116,7 @@ export const getAllMembers = async (params = {}) => {
  * @param {number} [criteria.benefitPolicyId] - Benefit policy filter
  * @param {string} [criteria.status] - Status filter
  * @param {string} [criteria.type] - Member type filter
+ * @param {boolean} [criteria.deleted] - Show deleted members
  * @param {number} [criteria.page=0] - Page number
  * @param {number} [criteria.size=20] - Page size
  * @returns {Promise<Object>} Search results
@@ -182,6 +182,22 @@ export const deleteMember = async (id) => {
 };
 
 /**
+ * Restore a deleted member
+ * 
+ * @param {number} id - Member ID
+ * @returns {Promise<Object>} Response
+ */
+export const restoreMember = async (id) => {
+  try {
+    const response = await api.put(`${UNIFIED_MEMBERS_BASE_URL}/${id}/restore`);
+    return response.data;
+  } catch (error) {
+    console.error('Error restoring member:', error);
+    throw error;
+  }
+};
+
+/**
  * Get dependents of a Principal member
  * 
  * @param {number} principalId - Principal member ID
@@ -232,13 +248,13 @@ export const importMembers = async (file) => {
     return response.data;
   } catch (error) {
     console.error('Error importing members:', error);
-    
+
     // Preserve server response data for better error display
     if (error.response?.data) {
       error.importResult = error.response.data.data; // The ExcelImportResult
       error.serverMessage = error.response.data.message;
     }
-    
+
     throw error;
   }
 };
@@ -301,6 +317,27 @@ export const MEMBER_TYPES = {
   DEPENDENT: 'DEPENDENT'
 };
 
+/**
+ * Upload Member Photo
+ * 
+ * @param {number} id - Member ID
+ * @param {File} file - Image file
+ * @returns {Promise<Object>} Response
+ */
+export const uploadPhoto = async (id, file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${UNIFIED_MEMBERS_BASE_URL}/${id}/photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading photo:', error);
+    throw error;
+  }
+};
+
 export default {
   createPrincipalMember,
   addDependent,
@@ -314,6 +351,7 @@ export default {
   countDependents,
   importMembers,
   downloadTemplate,
+  uploadPhoto,
   RELATIONSHIPS,
   GENDERS,
   MEMBER_STATUSES,

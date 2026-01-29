@@ -3,6 +3,7 @@ package com.waad.tba.modules.rbac.entity;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import com.waad.tba.modules.employer.entity.Employer;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -147,6 +148,27 @@ public class User {
     @Column(name = "can_view_benefit_policies")
     @Builder.Default
     private Boolean canViewBenefitPolicies = true;
+
+    /**
+     * Whether the user can see members from all companies contracted with the provider.
+     * Default: true (backwards compatibility and typical behavior).
+     */
+    @Column(name = "allow_all_companies")
+    @Builder.Default
+    private Boolean allowAllCompanies = true;
+
+    /**
+     * Specific list of companies/employers this user is permitted to see.
+     * Only used if allowAllCompanies is false.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_permitted_companies",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "employer_id")
+    )
+    @Builder.Default
+    private Set<Employer> permittedCompanies = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

@@ -13,17 +13,10 @@ public class ProviderMapper {
 
     /**
      * Maps ProviderCreateDto to Provider entity.
-     * Supports both legacy 'name' field and new 'nameArabic'/'nameEnglish' fields.
-     * If nameArabic/nameEnglish are provided, they take precedence over 'name'.
      */
     public Provider toEntity(ProviderCreateDto dto) {
-        // Support both legacy 'name' and new 'nameArabic'/'nameEnglish'
-        String nameAr = dto.getNameArabic() != null ? dto.getNameArabic() : dto.getName();
-        String nameEn = dto.getNameEnglish() != null ? dto.getNameEnglish() : dto.getName();
-        
         return Provider.builder()
-                .nameArabic(nameAr)
-                .nameEnglish(nameEn)
+                .name(dto.getName())
                 .licenseNumber(dto.getLicenseNumber())
                 .taxNumber(dto.getTaxNumber())
                 .city(dto.getCity())
@@ -43,21 +36,10 @@ public class ProviderMapper {
 
     /**
      * Updates Provider entity from ProviderUpdateDto.
-     * Supports both legacy 'name' field and new 'nameArabic'/'nameEnglish' fields.
      */
     public void updateEntityFromDto(Provider provider, ProviderUpdateDto dto) {
-        // Handle bilingual names - new fields take precedence
-        if (dto.getNameArabic() != null) {
-            provider.setNameArabic(dto.getNameArabic());
-        } else if (dto.getName() != null) {
-            // Legacy fallback: use 'name' for Arabic
-            provider.setNameArabic(dto.getName());
-        }
-        if (dto.getNameEnglish() != null) {
-            provider.setNameEnglish(dto.getNameEnglish());
-        } else if (dto.getName() != null && dto.getNameEnglish() == null && dto.getNameArabic() == null) {
-            // Legacy fallback: use 'name' for English too if no bilingual fields provided
-            provider.setNameEnglish(dto.getName());
+        if (dto.getName() != null) {
+            provider.setName(dto.getName());
         }
         if (dto.getLicenseNumber() != null) {
             provider.setLicenseNumber(dto.getLicenseNumber());
@@ -99,9 +81,17 @@ public class ProviderMapper {
 
     /**
      * Maps Provider entity to ProviderViewDto.
-     * Includes both bilingual fields and legacy 'name' for backward compatibility.
      */
     public ProviderViewDto toViewDto(Provider provider) {
+        return toViewDto(provider, null);
+    }
+
+    /**
+     * Maps Provider entity to ProviderViewDto with document status.
+     */
+    public ProviderViewDto toViewDto(Provider provider, Boolean hasDocuments) {
+        if (provider == null) return null;
+
         String typeLabel = provider.getProviderType() != null ? 
                 getProviderTypeLabel(provider.getProviderType()) : null;
         String networkStatusLabel = provider.getNetworkStatus() != null ? 
@@ -109,9 +99,7 @@ public class ProviderMapper {
         
         return ProviderViewDto.builder()
                 .id(provider.getId())
-                .nameArabic(provider.getNameArabic())
-                .nameEnglish(provider.getNameEnglish())
-                .name(provider.getName()) // Backward compatibility (returns Arabic)
+                .name(provider.getName())
                 .licenseNumber(provider.getLicenseNumber())
                 .taxNumber(provider.getTaxNumber())
                 .city(provider.getCity())
@@ -130,12 +118,17 @@ public class ProviderMapper {
                 .defaultDiscountRate(provider.getDefaultDiscountRate())
                 .createdAt(provider.getCreatedAt())
                 .updatedAt(provider.getUpdatedAt())
+                .contractCount(provider.getContracts() != null ? provider.getContracts().size() : 0)
+                .contractedEmployerNames(provider.getContracts() != null ? 
+                        provider.getContracts().stream()
+                                .map(c -> c.getEmployer() != null ? c.getEmployer().getName() : "Unknown")
+                                .collect(java.util.stream.Collectors.toList()) : java.util.Collections.emptyList())
+                .hasDocuments(hasDocuments)
                 .build();
     }
 
     /**
      * Maps Provider entity to ProviderSelectorDto for dropdown lists.
-     * Returns both bilingual names and legacy 'name' for compatibility.
      */
     public ProviderSelectorDto toSelectorDto(Provider provider) {
         if (provider == null) return null;
@@ -143,9 +136,7 @@ public class ProviderMapper {
         return ProviderSelectorDto.builder()
                 .id(provider.getId())
                 .code(provider.getLicenseNumber())
-                .name(provider.getName()) // Backward compatibility (returns Arabic)
-                .nameArabic(provider.getNameArabic())
-                .nameEnglish(provider.getNameEnglish())
+                .name(provider.getName())
                 .providerType(provider.getProviderType() != null 
                         ? getProviderTypeLabel(provider.getProviderType()) 
                         : null)

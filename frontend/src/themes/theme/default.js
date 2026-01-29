@@ -25,16 +25,16 @@ export default function Default(colors) {
 
   return {
     primary: {
-      lighter: blue[0],
-      100: blue[1],
-      200: blue[2],
-      light: blue[3],
-      400: blue[4],
-      main: blue[5],
-      dark: blue[6],
-      700: blue[7],
-      darker: blue[8],
-      900: blue[9],
+      lighter: '#e6f4ff',
+      100: '#bae0ff',
+      200: '#91caff',
+      light: '#69b1ff',
+      400: '#4096ff',
+      main: '#1677ff', // Brand Color from Logo
+      dark: '#0958d9',
+      700: '#003eb3',
+      darker: '#002c8c',
+      900: '#001d66',
       contrastText
     },
     secondary: {

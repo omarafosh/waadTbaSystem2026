@@ -15,11 +15,11 @@ import MainCard from 'components/MainCard';
 import { ModernPageHeader } from 'components/tba';
 import { usePreApprovalDetails } from 'hooks/usePreApprovals';
 import { FileUploader, AttachmentList } from 'components/upload';
-import { 
-  uploadPreAuthAttachment, 
-  getPreAuthAttachments, 
-  downloadPreAuthAttachment, 
-  deletePreAuthAttachment 
+import {
+  uploadPreAuthAttachment,
+  getPreAuthAttachments,
+  downloadPreAuthAttachment,
+  deletePreAuthAttachment
 } from 'services/api/files.service';
 
 // Insurance UX Components - Phase B2 Step 3
@@ -185,7 +185,7 @@ const PreApprovalView = () => {
     <>
       <ModernPageHeader
         title={`طلب موافقة مسبقة ${preApproval?.referenceNumber ?? `#${preApproval?.id}` ?? '-'}`}
-        subtitle={preApproval?.memberName ?? preApproval?.member?.fullNameArabic ?? '-'}
+        subtitle={preApproval?.memberName ?? preApproval?.member?.fullName ?? '-'}
         icon={PreApprovalIcon}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
@@ -272,7 +272,7 @@ const PreApprovalView = () => {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   <InfoRow label="رقم الطلب" value={preApproval?.referenceNumber || `PA-${preApproval?.id}`} />
-                  <InfoRow label="المؤمَّن عليه" value={preApproval?.memberName ?? preApproval?.member?.fullNameArabic} />
+                  <InfoRow label="المؤمَّن عليه" value={preApproval?.memberName ?? preApproval?.member?.fullName} />
                   <InfoRow label="الرقم الوطني" value={preApproval?.memberNationalNumber ?? preApproval?.member?.nationalNumber} />
                   <InfoRow label="رقم البطاقة" value={preApproval?.memberCardNumber ?? '-'} />
                   <InfoRow label="جهة العمل" value={preApproval?.member?.employerName ?? preApproval?.employerName ?? '-'} />
@@ -307,7 +307,7 @@ const PreApprovalView = () => {
                     <Typography variant="h6">المرفقات والمستندات</Typography>
                   </Stack>
                   <Divider sx={{ mb: 2 }} />
-                  
+
                   {/* Upload Section - Only for non-finalized statuses */}
                   {preApproval?.status !== 'APPROVED' && preApproval?.status !== 'REJECTED' && preApproval?.status !== 'CANCELLED' && (
                     <Box sx={{ mb: 3 }}>

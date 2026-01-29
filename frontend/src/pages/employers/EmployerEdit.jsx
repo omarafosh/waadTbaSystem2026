@@ -12,24 +12,24 @@ import { useEmployerDetails } from 'hooks/useEmployers';
 import { updateEmployer } from 'services/api/employers.service';
 
 const LABELS = {
-  list: 'الشركاء',
-  edit: 'تعديل شريك',
+  list: 'جهات العمل',
+  edit: 'تعديل جهة العمل',
   back: 'رجوع',
   backToList: 'رجوع إلى القائمة',
-  code: 'الرمز',
+  code: 'رمز جهة العمل',
   codePlaceholder: 'أدخل الرمز',
-  name: 'اسم الشريك',
-  namePlaceholder: 'أدخل اسم الشريك (عربي أو إنجليزي)',
+  name: 'اسم جهة العمل',
+  namePlaceholder: 'أدخل اسم جهة العمل (عربي أو إنجليزي)',
   active: 'نشط',
   cancel: 'إلغاء',
   save: 'حفظ',
   saving: 'جار الحفظ...',
   required: 'مطلوب',
   fixErrors: 'الرجاء تصحيح الأخطاء',
-  updatedSuccess: 'تم تحديث الشريك بنجاح',
-  saveError: 'فشل في تحديث الشريك',
+  updatedSuccess: 'تم تحديث جهة العمل بنجاح',
+  saveError: 'فشل في تحديث جهة العمل',
   notFound: 'لم يتم العثور على الشريك',
-  codeWarning: 'تغيير الرمز غير مستحسن - الرمز تم توليده تلقائياً'
+  codeWarning: 'هذا الرمز ثابت لأنه مرتبط بالترقيم الذكي للبطاقات.'
 };
 
 const EmployerEdit = () => {

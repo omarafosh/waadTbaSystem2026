@@ -86,14 +86,14 @@ public class UnifiedSearchService {
     private List<MemberSearchDto> searchByBarcode(String barcode) {
         log.info("Executing barcode search for: {}", barcode);
         
-        Optional<Member> memberOpt = memberRepository.findByBarcode(barcode);
+        List<Member> members = memberRepository.findByBarcode(barcode);
         
-        if (memberOpt.isEmpty()) {
+        if (members.isEmpty()) {
             log.warn("No member found with barcode: {}", barcode);
             return List.of();
         }
 
-        Member member = memberOpt.get();
+        Member member = members.get(0);
         MemberSearchDto dto = MemberSearchDto.fromMember(member, "BARCODE", null);
         
         log.info("Found member by barcode: {} (ID: {})", member.getFullName(), member.getId());
@@ -107,14 +107,14 @@ public class UnifiedSearchService {
     private List<MemberSearchDto> searchByCardNumber(String cardNumber) {
         log.info("Executing card number search for: {}", cardNumber);
         
-        Optional<Member> memberOpt = memberRepository.findByCardNumber(cardNumber);
+        List<Member> members = memberRepository.findByCardNumber(cardNumber);
         
-        if (memberOpt.isEmpty()) {
+        if (members.isEmpty()) {
             log.warn("No member found with card number: {}", cardNumber);
             return List.of();
         }
 
-        Member member = memberOpt.get();
+        Member member = members.get(0);
         MemberSearchDto dto = MemberSearchDto.fromMember(member, "CARD_NUMBER", null);
         
         log.info("Found member by card number: {} (ID: {})", member.getFullName(), member.getId());

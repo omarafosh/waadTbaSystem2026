@@ -32,9 +32,9 @@ export default function Header() {
   // header content
   const headerContent = useMemo(() => <HeaderContent />, []);
 
-  // common header - ✅ Reduced height to not cover page titles
+  // common header - ✅ Adjusted height for better spacing
   const mainHeader = (
-    <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 } }}>
+    <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: { xs: 60, sm: 68 }, height: { xs: 60, sm: 68 } }}>
       {/* ✅ Sidebar toggle button removed - using horizontal navigation */}
       {headerContent}
     </Toolbar>

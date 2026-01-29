@@ -193,7 +193,7 @@ export default function ProviderClaimsSubmission() {
 
   // SUPER_ADMIN check
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
-  
+
   // ARCHITECTURAL ENFORCEMENT: Block direct access (SUPER_ADMIN can bypass)
   const accessBlocked = !linkedVisitId && !isSuperAdmin;
 
@@ -291,46 +291,46 @@ export default function ProviderClaimsSubmission() {
       const response = await axiosClient.get('/provider/my-contract/services', {
         params: { size: 2000 } // Get all services in one request
       });
-      
+
       const data = response.data?.data || response.data;
       const items = data?.content || data?.items || data || [];
-      
+
       if (items.length === 0) {
         console.warn('No services found in active contract');
         setAvailableServices([]);
         return;
       }
-      
+
       // Map to component format
       setAvailableServices(
         items.map((item) => {
           // CRITICAL: Use medicalServiceId (not pricing item id) for claim creation
           const serviceId = item.medicalServiceId || item.id;
           console.log(`📋 Service: ${item.serviceCode}, medicalServiceId=${item.medicalServiceId}, id=${item.id}, using=${serviceId}`);
-          
+
           return {
             id: serviceId,  // This MUST be MedicalService ID
             code: item.serviceCode,
-            name: item.serviceName || item.serviceNameAr,
-            nameArabic: item.serviceNameAr || item.serviceName,
+            name: item.serviceName,
+            nameArabic: item.serviceName,
             category: item.categoryName || '',
             categoryCode: item.categoryCode || '',
             requiresPA: item.requiresPA || item.requiresPreAuth || false,
-            
+
             // Contract Price is key here
             price: item.contractPrice,
             basePrice: item.basePrice,
             contractId: item.contractId,
-            
+
             hasContract: item.hasContract !== false
           };
         })
       );
-      
+
       console.log(`✅ Loaded ${items.length} services from provider contract`);
     } catch (err) {
       console.error('Failed to fetch services:', err);
-      
+
       // Fallback: Try the my-services endpoint
       try {
         const response = await axiosClient.get('/provider/my-services');
@@ -339,8 +339,8 @@ export default function ProviderClaimsSubmission() {
           services.map((s) => ({
             id: s.serviceId || s.id,
             code: s.service_code || s.serviceCode || s.code,
-            name: s.service_name || s.serviceName || s.name,
-            nameArabic: s.service_name_arabic || s.serviceNameArabic || s.nameArabic || s.name_arabic || s.name,
+            name: s.serviceName || s.name,
+            nameArabic: s.serviceName || s.name,
             category: s.category_name || s.categoryName || s.category || '',
             categoryCode: s.category_code || s.categoryCode || '',
             requiresPA: s.requires_pre_auth ?? s.requiresPreAuth ?? s.requiresPA ?? false,
@@ -393,16 +393,16 @@ export default function ProviderClaimsSubmission() {
       // OPTIMIZATION: Check if price is already available in the fetched service list (Contract Source)
       const cachedService = availableServices.find(s => s.code === serviceCode);
       if (cachedService && cachedService.hasContract && cachedService.price !== undefined) {
-         setClaimLines((prev) =>
+        setClaimLines((prev) =>
           prev.map((line) =>
             line.id === lineId
               ? {
-                  ...line,
-                  unitPrice: cachedService.price,
-                  hasContract: true,
-                  loadingPrice: false,
-                  priceError: null
-                }
+                ...line,
+                unitPrice: cachedService.price,
+                hasContract: true,
+                loadingPrice: false,
+                priceError: null
+              }
               : line
           )
         );
@@ -427,11 +427,11 @@ export default function ProviderClaimsSubmission() {
             prev.map((line) =>
               line.id === lineId
                 ? {
-                    ...line,
-                    unitPrice: priceData.contractPrice,
-                    hasContract: true,
-                    loadingPrice: false
-                  }
+                  ...line,
+                  unitPrice: priceData.contractPrice,
+                  hasContract: true,
+                  loadingPrice: false
+                }
                 : line
             )
           );
@@ -441,12 +441,12 @@ export default function ProviderClaimsSubmission() {
             prev.map((line) =>
               line.id === lineId
                 ? {
-                    ...line,
-                    unitPrice: 0,
-                    hasContract: false,
-                    loadingPrice: false,
-                    priceError: LABELS.noContract
-                  }
+                  ...line,
+                  unitPrice: 0,
+                  hasContract: false,
+                  loadingPrice: false,
+                  priceError: LABELS.noContract
+                }
                 : line
             )
           );
@@ -456,12 +456,12 @@ export default function ProviderClaimsSubmission() {
           prev.map((line) =>
             line.id === lineId
               ? {
-                  ...line,
-                  unitPrice: 0,
-                  hasContract: false,
-                  loadingPrice: false,
-                  priceError: LABELS.noContract
-                }
+                ...line,
+                unitPrice: 0,
+                hasContract: false,
+                loadingPrice: false,
+                priceError: LABELS.noContract
+              }
               : line
           )
         );
@@ -516,23 +516,23 @@ export default function ProviderClaimsSubmission() {
     // This avoids an extra API call and uses the already-loaded contract price
     // ════════════════════════════════════════════════════════════════════════════
     const hasContractPrice = service.hasContract !== false && service.price !== undefined && service.price !== null;
-    
+
     console.log(`📋 Service selected: ${service.code}, id=${service.id}, price=${service.price}, hasContract=${hasContractPrice}`);
 
     setClaimLines((prev) =>
       prev.map((line) =>
         line.id === lineId
           ? {
-              ...line,
-              medicalServiceId: service.id,
-              serviceName: service.nameArabic || service.name,
-              serviceCode: service.code,
-              unitPrice: hasContractPrice ? service.price : 0,
-              hasContract: hasContractPrice,
-              loadingPrice: false,
-              priceError: hasContractPrice ? null : LABELS.noContract,
-              requiresPA: service.requiresPA || false
-            }
+            ...line,
+            medicalServiceId: service.id,
+            serviceName: service.name,
+            serviceCode: service.code,
+            unitPrice: hasContractPrice ? service.price : 0,
+            hasContract: hasContractPrice,
+            loadingPrice: false,
+            priceError: hasContractPrice ? null : LABELS.noContract,
+            requiresPA: service.requiresPA || false
+          }
           : line
       )
     );
@@ -661,14 +661,14 @@ export default function ProviderClaimsSubmission() {
           quantity: line.quantity || 1
         }))
       };
-      
+
       // DEBUG: Log payload to verify medicalServiceId values
       console.log('🚀 Claim Payload:', JSON.stringify(payload, null, 2));
-      console.log('📋 Claim Lines:', claimLines.map(l => ({ 
-        id: l.id, 
-        medicalServiceId: l.medicalServiceId, 
+      console.log('📋 Claim Lines:', claimLines.map(l => ({
+        id: l.id,
+        medicalServiceId: l.medicalServiceId,
         serviceCode: l.serviceCode,
-        serviceName: l.serviceName 
+        serviceName: l.serviceName
       })));
 
       const response = await axiosClient.post('/claims', payload);
@@ -680,8 +680,8 @@ export default function ProviderClaimsSubmission() {
         // Wait for ALL uploads to complete successfully before attempting submission
         await uploadAttachments(claimId);
       } else {
-         // Should be caught by validateForm, but double check
-         // If we are here and no files, proceed only if validation allowed it (which it shouldn't)
+        // Should be caught by validateForm, but double check
+        // If we are here and no files, proceed only if validation allowed it (which it shouldn't)
       }
 
       // ════════════════════════════════════════════════════════════════════════
@@ -702,13 +702,13 @@ export default function ProviderClaimsSubmission() {
       // Improved error message extraction
       const errorData = err.response?.data;
       let errorMsg = 'فشل في تقديم المطالبة';
-      
+
       if (errorData) {
         if (errorData.message) errorMsg = errorData.message;
         else if (errorData.error) errorMsg = errorData.error;
         else if (typeof errorData === 'string') errorMsg = errorData;
       }
-      
+
       setError(errorMsg);
     } finally {
       setSubmitting(false);
@@ -1050,7 +1050,7 @@ export default function ProviderClaimsSubmission() {
             <SectionHeader icon={MedicalServices} title={LABELS.diagnosis} />
             <Grid container spacing={2}>
               {/* NOTE: Pre-Authorization field removed - PA requirement comes from BenefitPolicyRule */}
-              
+
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth

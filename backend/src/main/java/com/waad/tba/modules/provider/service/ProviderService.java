@@ -6,6 +6,7 @@ import com.waad.tba.modules.provider.dto.ProviderUpdateDto;
 import com.waad.tba.modules.provider.dto.ProviderViewDto;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.mapper.ProviderMapper;
+import com.waad.tba.modules.provider.repository.ProviderDocumentRepository;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class ProviderService {
 
     private final ProviderRepository providerRepository;
+    private final ProviderDocumentRepository providerDocumentRepository;
     private final ProviderMapper providerMapper;
 
     public List<ProviderSelectorDto> getSelectorOptions() {
@@ -34,7 +36,7 @@ public class ProviderService {
 
     public List<ProviderViewDto> search(String query) {
         return providerRepository.search(query).stream()
-                .map(providerMapper::toViewDto)
+                .map(p -> providerMapper.toViewDto(p, providerDocumentRepository.existsByProviderIdAndActiveTrue(p.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -45,7 +47,7 @@ public class ProviderService {
 
         Provider provider = providerMapper.toEntity(dto);
         provider = providerRepository.save(provider);
-        return providerMapper.toViewDto(provider);
+        return providerMapper.toViewDto(provider, false);
     }
 
     public ProviderViewDto updateProvider(Long id, ProviderUpdateDto dto) {
@@ -54,14 +56,14 @@ public class ProviderService {
 
         providerMapper.updateEntityFromDto(provider, dto);
         provider = providerRepository.save(provider);
-        return providerMapper.toViewDto(provider);
+        return providerMapper.toViewDto(provider, providerDocumentRepository.existsByProviderIdAndActiveTrue(id));
     }
 
     @Transactional(readOnly = true)
     public ProviderViewDto getProvider(Long id) {
         Provider provider = providerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Provider not found with id: " + id));
-        return providerMapper.toViewDto(provider);
+        return providerMapper.toViewDto(provider, providerDocumentRepository.existsByProviderIdAndActiveTrue(id));
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +79,7 @@ public class ProviderService {
             providers = providerRepository.findAll(pageable);
         }
         
-        return providers.map(providerMapper::toViewDto);
+        return providers.map(p -> providerMapper.toViewDto(p, providerDocumentRepository.existsByProviderIdAndActiveTrue(p.getId())));
     }
 
     public void deleteProvider(Long id) {
@@ -90,7 +92,7 @@ public class ProviderService {
     @Transactional(readOnly = true)
     public List<ProviderViewDto> getAllActiveProviders() {
         return providerRepository.findAllActive().stream()
-                .map(providerMapper::toViewDto)
+                .map(p -> providerMapper.toViewDto(p, providerDocumentRepository.existsByProviderIdAndActiveTrue(p.getId())))
                 .collect(Collectors.toList());
     }
 

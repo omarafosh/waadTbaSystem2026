@@ -24,7 +24,7 @@ import java.util.Map;
  * Service for importing Medical Categories from Excel files
  * 
  * Expected Excel format:
- * | code | nameAr | nameEn | sortOrder | active |
+ * | code | nameAr | sortOrder | active |
  */
 @Slf4j
 @Service
@@ -109,7 +109,6 @@ public class MedicalCategoryExcelService {
     private void processRow(Row row, int rowNum, Map<String, Integer> columnMap, ImportSummary summary) {
         String code = getCellValueAsString(row, columnMap.get("code"));
         String nameAr = getCellValueAsString(row, columnMap.get("nameAr"));
-        String nameEn = getCellValueAsString(row, columnMap.get("nameEn"));
         // Note: sortOrder field removed from MedicalCategory entity
         Boolean active = getCellValueAsBoolean(row, columnMap.get("active"));
 
@@ -124,9 +123,6 @@ public class MedicalCategoryExcelService {
 
         if (existingCategory != null) {
             existingCategory.setName(nameAr.trim());
-            if (nameEn != null && !nameEn.trim().isEmpty()) {
-                existingCategory.setNameEn(nameEn.trim());
-            }
             if (active != null) {
                 existingCategory.setActive(active);
             }
@@ -140,7 +136,6 @@ public class MedicalCategoryExcelService {
             MedicalCategory newCategory = MedicalCategory.builder()
                     .code(code.trim())
                     .name(nameAr.trim())
-                    .nameEn(nameEn != null ? nameEn.trim() : null)
                     .active(active != null ? active : true)
                     .build();
             
@@ -160,8 +155,6 @@ public class MedicalCategoryExcelService {
                 columnMap.put("code", cell.getColumnIndex());
             } else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم") || columnName.equals("اسم")) {
                 columnMap.put("nameAr", cell.getColumnIndex());
-            } else if (columnName.equals("nameen") || columnName.equals("name_en") || columnName.equals("الاسم بالانجليزية")) {
-                columnMap.put("nameEn", cell.getColumnIndex());
             } else if (columnName.equals("sortorder") || columnName.equals("sort_order") || columnName.equals("الترتيب")) {
                 columnMap.put("sortOrder", cell.getColumnIndex());
             } else if (columnName.equals("active") || columnName.equals("نشط") || columnName.equals("الحالة")) {

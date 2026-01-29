@@ -9,7 +9,9 @@ package com.waad.tba.common.exception;
  * Used for startup validation and configuration checks.
  */
 public class SystemConfigurationException extends RuntimeException {
-
+    
+    private static final long serialVersionUID = 1L;
+    
     public SystemConfigurationException(String message) {
         super(message);
     }

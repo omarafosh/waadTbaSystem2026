@@ -2,6 +2,7 @@ package com.waad.tba.modules.rbac.service;
 
 import com.waad.tba.common.exception.ResourceNotFoundException;
 import com.waad.tba.modules.rbac.dto.*;
+import com.waad.tba.modules.employer.repository.EmployerRepository;
 import com.waad.tba.modules.rbac.entity.Role;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.modules.rbac.entity.UserAuditLog;
@@ -46,6 +47,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserSecurityService securityService;
     private final RbacGuardService rbacGuard;
+    private final EmployerRepository employerRepository;
 
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
@@ -90,6 +92,11 @@ public class UserService {
         User user = userMapper.toEntity(dto);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         
+        // Handle permitted companies for Providers
+        if (dto.getPermittedCompanyIds() != null && !dto.getPermittedCompanyIds().isEmpty()) {
+            user.setPermittedCompanies(new HashSet<>(employerRepository.findAllById(dto.getPermittedCompanyIds())));
+        }
+
         User savedUser = userRepository.save(user);
         
         // Send email verification
@@ -122,6 +129,16 @@ public class UserService {
 
         String oldEmail = user.getEmail();
         userMapper.updateEntityFromDto(user, dto);
+        
+        // Handle permitted companies for Providers
+        if (dto.getPermittedCompanyIds() != null) {
+            if (dto.getPermittedCompanyIds().isEmpty()) {
+                user.getPermittedCompanies().clear();
+            } else {
+                user.setPermittedCompanies(new HashSet<>(employerRepository.findAllById(dto.getPermittedCompanyIds())));
+            }
+        }
+
         User updatedUser = userRepository.save(user);
         
         // Audit log

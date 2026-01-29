@@ -107,13 +107,21 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
               r.medicalService.id = :serviceId
               OR (r.medicalCategory.id = :categoryId AND r.medicalService IS NULL)
           )
+          AND (r.encounterType = :encounterType OR r.encounterType IS NULL)
         ORDER BY 
-            CASE WHEN r.medicalService IS NOT NULL THEN 0 ELSE 1 END
+            CASE 
+                WHEN r.medicalService.id = :serviceId AND r.encounterType = :encounterType THEN 0
+                WHEN r.medicalService.id = :serviceId AND r.encounterType IS NULL THEN 1
+                WHEN r.medicalCategory.id = :categoryId AND r.encounterType = :encounterType THEN 2
+                WHEN r.medicalCategory.id = :categoryId AND r.encounterType IS NULL THEN 3
+                ELSE 4 
+            END ASC
         """)
     List<BenefitPolicyRule> findApplicableRulesForService(
             @Param("policyId") Long policyId,
             @Param("serviceId") Long serviceId,
-            @Param("categoryId") Long categoryId);
+            @Param("categoryId") Long categoryId,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType);
 
     /**
      * Find the best matching rule for a service within a policy.
@@ -127,14 +135,22 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
               r.medicalService.id = :serviceId
               OR (r.medicalCategory.id = :categoryId AND r.medicalService IS NULL)
           )
+          AND (r.encounterType = :encounterType OR r.encounterType IS NULL)
         ORDER BY 
-            CASE WHEN r.medicalService IS NOT NULL THEN 0 ELSE 1 END
+            CASE 
+                WHEN r.medicalService.id = :serviceId AND r.encounterType = :encounterType THEN 0
+                WHEN r.medicalService.id = :serviceId AND r.encounterType IS NULL THEN 1
+                WHEN r.medicalCategory.id = :categoryId AND r.encounterType = :encounterType THEN 2
+                WHEN r.medicalCategory.id = :categoryId AND r.encounterType IS NULL THEN 3
+                ELSE 4 
+            END ASC
         LIMIT 1
         """)
     Optional<BenefitPolicyRule> findBestRuleForService(
             @Param("policyId") Long policyId,
             @Param("serviceId") Long serviceId,
-            @Param("categoryId") Long categoryId);
+            @Param("categoryId") Long categoryId,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType);
 
     /**
      * Find active category rule for a policy
@@ -162,11 +178,13 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
         FROM BenefitPolicyRule r
         WHERE r.benefitPolicy.id = :policyId
           AND r.medicalService.id = :serviceId
+          AND (r.encounterType = :encounterType OR (:encounterType IS NULL AND r.encounterType IS NULL))
           AND (:excludeRuleId IS NULL OR r.id != :excludeRuleId)
         """)
     boolean existsServiceRule(
             @Param("policyId") Long policyId,
             @Param("serviceId") Long serviceId,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType,
             @Param("excludeRuleId") Long excludeRuleId);
 
     /**
@@ -178,11 +196,13 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
         WHERE r.benefitPolicy.id = :policyId
           AND r.medicalCategory.id = :categoryId
           AND r.medicalService IS NULL
+          AND (r.encounterType = :encounterType OR (:encounterType IS NULL AND r.encounterType IS NULL))
           AND (:excludeRuleId IS NULL OR r.id != :excludeRuleId)
         """)
     boolean existsCategoryRule(
             @Param("policyId") Long policyId,
             @Param("categoryId") Long categoryId,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType,
             @Param("excludeRuleId") Long excludeRuleId);
 
     // ═══════════════════════════════════════════════════════════════════════════

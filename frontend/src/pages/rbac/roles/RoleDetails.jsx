@@ -228,7 +228,7 @@ const PermissionModule = ({ module, permissions, assignedIds, onToggle, isProtec
                     <Stack direction="row" spacing={1} alignItems="center">
                       {isActive ? <CheckCircleIcon color="success" fontSize="small" /> : <SecurityIcon color="disabled" fontSize="small" />}
                       <Typography variant="body2" color={isActive ? 'success.dark' : 'text.secondary'}>
-                        {permission?.nameAr || ACTION_LABELS[action] || action}
+                        {ACTION_LABELS[action] || action}
                       </Typography>
                     </Stack>
                     <Tooltip title={isProtected ? 'لا يمكن تعديل صلاحيات الدور المحمي' : isActive ? 'إلغاء الصلاحية' : 'تفعيل الصلاحية'}>
@@ -348,7 +348,7 @@ const RoleDetails = () => {
         newSet.add({ permissionId, shouldAssign });
         return newSet;
       });
-      
+
       setHasUnsavedChanges(true);
     },
     [isValidId, isProtected, allPermissions]
@@ -433,20 +433,20 @@ const RoleDetails = () => {
     <Box>
       {/* ====== PAGE HEADER ====== */}
       <ModernPageHeader
-        title={role?.nameAr || role?.name || 'تفاصيل الدور'}
+        title={role?.name || 'تفاصيل الدور'}
         subtitle="إدارة صلاحيات الدور"
         icon={AdminPanelSettingsIcon}
         breadcrumbs={[
           { label: 'الرئيسية', path: '/' },
           { label: 'الصلاحيات', path: '/rbac' },
           { label: 'الأدوار', path: '/rbac/roles' },
-          { label: role?.nameAr || role?.name || 'تفاصيل' }
+          { label: role?.name || 'تفاصيل' }
         ]}
         actions={
           <Stack direction="row" spacing={2}>
             {hasUnsavedChanges && !isProtected && (
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
                 onClick={handleSaveChanges}
                 disabled={saving}
@@ -478,7 +478,7 @@ const RoleDetails = () => {
 
           <Box sx={{ flex: 1 }}>
             <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-              <Typography variant="h5">{role?.nameAr || role?.name || '-'}</Typography>
+              <Typography variant="h5">{role?.name || '-'}</Typography>
               {isProtected && <Chip label="دور محمي" size="small" color="error" icon={<LockIcon sx={{ fontSize: '14px !important' }} />} />}
             </Stack>
             <Typography variant="body2" color="text.secondary" gutterBottom>

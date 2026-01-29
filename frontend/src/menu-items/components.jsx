@@ -326,7 +326,7 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
  */
 
 const menuItem = [
-  
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 📊 DASHBOARD
   // ═══════════════════════════════════════════════════════════════════════════
@@ -359,51 +359,41 @@ const menuItem = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-members',
-    title: 'المؤمن عليهم',
-    titleEn: 'Insured',
+    title: 'المنتفعين',
+    titleEn: 'Beneficiaries',
     type: 'group',
     children: [
       {
         id: 'members',
-        title: 'إدارة المؤمن عليهم',
-        titleEn: 'Insured Management',
-        type: 'collapse',
+        title: 'المنتفعين',
+        titleEn: 'Beneficiaries',
+        type: 'item',
+        url: '/members',
         icon: PeopleAltIcon,
-        children: [
-          {
-            id: 'members-list',
-            title: 'قائمة المؤمن عليهم',
-            titleEn: 'Insured List',
-            type: 'item',
-            url: '/members',
-            icon: FormatListBulletedIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          }
-          // NOTE (2026-01-23): Removed old 'eligibility-check' - now in /members/eligibility page
-        ]
+        chip: {
+          label: '✅',
+          color: 'success',
+          size: 'small'
+        }
       }
     ]
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🏥 PROVIDER PORTAL (VISIT-CENTRIC FLOW 2026-01-14)
+  // 🏥 SERVICE PORTAL (VISIT-CENTRIC FLOW 2026-01-14)
   // ═══════════════════════════════════════════════════════════════════════════
   // ARCHITECTURAL RULE: No standalone Pre-Authorization access
   // Pre-Auth can ONLY be created from Visit Log
   {
     id: 'group-provider-portal',
-    title: 'بوابة مقدم الخدمة',
-    titleEn: 'Provider Portal',
+    title: 'بوابة الخدمة',
+    titleEn: 'Service Portal',
     type: 'group',
     children: [
       {
         id: 'provider-portal',
-        title: 'بوابة مقدم الخدمة',
-        titleEn: 'Provider Portal',
+        title: 'بوابة الخدمة',
+        titleEn: 'Service Portal',
         type: 'collapse',
         icon: LocalHospitalIcon,
         children: [
@@ -446,20 +436,20 @@ const menuItem = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-employers',
-    title: 'الشركاء (جهات العمل)',
+    title: 'جهات العمل',
     titleEn: 'Employers (Partners)',
     type: 'group',
     children: [
       {
         id: 'employers',
-        title: 'إدارة الشركاء',
+        title: 'إدارة جهات العمل',
         titleEn: 'Employers Management',
         type: 'collapse',
         icon: BusinessIcon,
         children: [
           {
             id: 'employers-list',
-            title: 'قائمة الشركاء',
+            title: 'قائمة جهات العمل',
             titleEn: 'Employers List',
             type: 'item',
             url: '/employers',
@@ -478,33 +468,6 @@ const menuItem = [
             url: '/benefit-policies',
             icon: PolicyIcon,
             permission: ['benefit_policies.view'],
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          },
-          {
-            id: 'employer-contracts',
-            title: 'عقود الشركاء',
-            titleEn: 'Employer Contracts',
-            type: 'item',
-            url: '/employers/contracts',
-            icon: HandshakeIcon,
-            permission: ['benefit_policies.view'],
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          },
-          {
-            id: 'employer-analytics',
-            title: 'تحليلات الشركاء',
-            titleEn: 'Employer Analytics',
-            type: 'item',
-            url: '/reports/employer-dashboard',
-            icon: AssessmentIcon,
             chip: {
               label: '✅',
               color: 'success',
@@ -740,8 +703,8 @@ const menuItem = [
           },
           {
             id: 'beneficiaries-report',
-            title: 'تقارير المؤمن عليهم',
-            titleEn: 'Insured Reports',
+            title: 'تقارير المنتفعين',
+            titleEn: 'Beneficiaries Reports',
             type: 'item',
             url: '/reports/beneficiaries',
             icon: PeopleAltIcon,
@@ -881,53 +844,18 @@ const menuItem = [
         ]
       },
       {
-        id: 'cities-networks',
-        title: 'المدن والشبكات',
-        titleEn: 'Cities & Networks',
-        type: 'item',
-        url: '/under-development',
-        icon: BusinessIcon,
-        chip: {
-          label: '⏳',
-          color: 'warning',
-          size: 'small'
-        }
-      },
-      {
         id: 'settings',
-        title: 'إعدادات عامة',
-        titleEn: 'General Settings',
-        type: 'collapse',
+        title: 'إعدادات الشركة',
+        titleEn: 'Company Settings',
+        type: 'item',
+        url: '/settings/company',
         icon: SettingsIcon,
         permission: ['settings.view'],
-        children: [
-          {
-            id: 'company-settings',
-            title: 'معلومات المؤسسة',
-            titleEn: 'Organization Information',
-            type: 'item',
-            url: '/settings/company',
-            icon: BusinessIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          },
-          {
-            id: 'system-configuration',
-            title: 'تكوين النظام',
-            titleEn: 'System Configuration',
-            type: 'item',
-            url: '/under-development',
-            icon: SettingsIcon,
-            chip: {
-              label: '⏳',
-              color: 'warning',
-              size: 'small'
-            }
-          }
-        ]
+        chip: {
+          label: '✅',
+          color: 'success',
+          size: 'small'
+        }
       }
     ]
   }

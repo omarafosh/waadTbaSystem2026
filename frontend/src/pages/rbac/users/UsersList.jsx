@@ -112,7 +112,7 @@ const UsersList = () => {
     setLoading(true);
     try {
       const users = await usersService.getAllUsers();
-      
+
       // Client-side filtering by search term
       let filtered = users;
       if (searchTerm) {
@@ -124,12 +124,12 @@ const UsersList = () => {
             u.email?.toLowerCase().includes(term)
         );
       }
-      
+
       // Client-side pagination
       const total = filtered.length;
       const start = page * rowsPerPage;
       const paginated = filtered.slice(start, start + rowsPerPage);
-      
+
       setUsers(paginated);
       setTotalElements(total);
     } catch (error) {
@@ -180,18 +180,18 @@ const UsersList = () => {
 
   const handleToggleConfirm = async () => {
     if (!toggleDialog.user) return;
-    
+
     setToggling(true);
     try {
       const response = await usersService.toggleUserStatus(toggleDialog.user.id);
-      
+
       openSnackbar({
         open: true,
         message: response?.message || 'تم تغيير حالة المستخدم بنجاح',
         variant: 'alert',
         alert: { color: 'success' }
       });
-      
+
       handleToggleClose();
       fetchUsers();
     } catch (error) {
@@ -362,7 +362,7 @@ const UsersList = () => {
                               {user.roles.slice(0, 3).map((role) => (
                                 <Chip
                                   key={role?.id || role?.name}
-                                  label={role?.nameAr || role?.name || '-'}
+                                  label={role?.name || '-'}
                                   size="small"
                                   color={getRoleColor(role?.name)}
                                   variant="outlined"

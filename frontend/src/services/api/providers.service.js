@@ -38,7 +38,7 @@ export const providersService = {
     try {
       const response = await axiosClient.get(BASE_URL, { params });
       const data = unwrap(response);
-      
+
       // Normalize backend response (items/total) to frontend format (content/totalElements)
       // Backend returns: { items: [], total: n, page: n, size: n }
       // Frontend expects: { content: [], totalElements: n }
@@ -64,7 +64,7 @@ export const providersService = {
           };
         }
       }
-      
+
       // Fallback: return as-is
       return data;
     } catch (error) {
@@ -97,17 +97,17 @@ export const providersService = {
       if (!data) throw new Error('بيانات المزود مطلوبة');
       if (data.email) validateEmail(data.email);
       if (data.phone) validatePhone(data.phone);
-      
+
       console.log('[providersService.create] Sending:', data);
       const response = await axiosClient.post(BASE_URL, data);
       const created = unwrap(response);
       console.log('[providersService.create] Response:', created);
-      
+
       // Ensure we got a valid provider with ID
       if (!created || !created.id) {
         console.warn('[providersService.create] Warning: Response missing id', created);
       }
-      
+
       return created;
     } catch (error) {
       throw handleProviderErrors(error);
@@ -217,7 +217,7 @@ export const providersService = {
   uploadExcel: async (file) => {
     try {
       if (!file) throw new Error('الملف مطلوب');
-      
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -225,9 +225,131 @@ export const providersService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 300000, // 5 minutes for large Excel files
+        timeout: 300000,
       });
 
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  // ==================== CONTRACTS ====================
+
+  /**
+   * Get provider contracts
+   */
+  getContracts: async (providerId) => {
+    try {
+      const response = await axiosClient.get(`${BASE_URL}/${providerId}/contracts`);
+      // Handle pagination wrapper if present
+      return response.data?.data?.content || response.data?.data || [];
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
+   * Create provider contract
+   */
+  createContract: async (providerId, data) => {
+    try {
+      const response = await axiosClient.post(`${BASE_URL}/${providerId}/contracts`, data);
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
+   * Delete provider contract
+   */
+  deleteContract: async (providerId, contractId) => {
+    try {
+      const response = await axiosClient.delete(`${BASE_URL}/${providerId}/contracts/${contractId}`);
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  // ==================== DOCUMENTS ====================
+
+  /**
+   * Get provider documents
+   */
+  getDocuments: async (providerId) => {
+    try {
+      const response = await axiosClient.get(`${BASE_URL}/${providerId}/documents`);
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
+   * Download provider document as blob
+   */
+  downloadDocument: async (url) => {
+    try {
+      // Clean up URL to prevent double prefixing by axios
+      // If it starts with /api/, remove it because axios baseURL adds it
+      let cleanUrl = url;
+      if (cleanUrl.startsWith('/api/')) {
+        cleanUrl = cleanUrl.substring(5); // Remove /api/
+      } else if (cleanUrl.startsWith('api/')) {
+        cleanUrl = cleanUrl.substring(4);
+      }
+
+      // Check for query params
+      if (cleanUrl.includes('?')) {
+        const [path, query] = cleanUrl.split('?');
+        const params = new URLSearchParams(query);
+        const key = params.get('key');
+
+        if (path.includes('files/download') && key) {
+          // Reconstruct request cleanly
+          const response = await axiosClient.get('/files/download', {
+            params: { key: key }, // Axios will encode this safely
+            responseType: 'blob'
+          });
+          return response.data;
+        }
+      }
+
+      // Fallback for direct URLs
+      const response = await axiosClient.get(cleanUrl, { responseType: 'blob' });
+      return response.data;
+    } catch (error) {
+      console.error('Download error:', error);
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
+   * Add provider document
+   * @param {number} providerId
+   * @param {Object} data - Document DTO
+   */
+  addDocument: async (providerId, data) => {
+    try {
+      const config = {};
+      if (data instanceof FormData) {
+        config.headers = { 'Content-Type': 'multipart/form-data' };
+      }
+      const response = await axiosClient.post(`${BASE_URL}/${providerId}/documents`, data, config);
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
+   * Delete provider document
+   */
+  deleteDocument: async (providerId, documentId) => {
+    try {
+      const response = await axiosClient.delete(`${BASE_URL}/${providerId}/documents/${documentId}`);
       return unwrap(response);
     } catch (error) {
       throw handleProviderErrors(error);

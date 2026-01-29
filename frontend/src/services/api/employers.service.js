@@ -23,12 +23,9 @@ import axiosClient from 'utils/axios';
  * ┌─────────────────┬──────────────────┬─────────────────┐
  * │ Frontend Field  │ Backend Field    │ Direction       │
  * ├─────────────────┼──────────────────┼─────────────────┤
- * │ employerCode    │ code             │ Request         │
- * │ nameAr          │ name             │ Request         │
- * │ nameEn          │ nameEn           │ Both            │
+ * │ code            │ code             │ Both            │
+ * │ name            │ name             │ Both            │
  * │ active          │ active           │ Both            │
- * │ code            │ code             │ Response        │
- * │ nameAr          │ name (@JsonProp) │ Response        │
  * └─────────────────┴──────────────────┴─────────────────┘
  *
  * @see EMPLOYER_API_CONTRACT.md
@@ -45,47 +42,28 @@ const BASE_URL = '/employers';
  * Normalize frontend request payload to backend canonical format
  *
  * Transformations:
- * - employerCode → code (if provided)
- * - nameAr → name (required field)
- * - nameEn → nameEn (optional)
+ * - name → name (required field)
  * - active → active (defaults to true)
  *
  * Auto-Code Generation:
- * - If neither 'code' nor 'employerCode' provided → backend auto-generates (EMP-01, EMP-02, ...)
+ * - If 'code' is not provided → backend auto-generates (EMP-01, EMP-02, ...)
  * - If provided → backend uses the provided value
  *
  * @param {Object} frontendDto - Frontend form data
- * @param {string} [frontendDto.employerCode] - Employer code (legacy name)
- * @param {string} [frontendDto.code] - Employer code (canonical name)
- * @param {string} frontendDto.nameAr - Arabic name (required)
- * @param {string} [frontendDto.name] - Arabic name (alternative)
- * @param {string} [frontendDto.nameEn] - English name (optional)
+ * @param {string} [frontendDto.code] - Employer code
+ * @param {string} frontendDto.name - Name (required)
  * @param {boolean} [frontendDto.active=true] - Active status
  * @returns {Object} Backend-compatible DTO
  *
  * @example
- * // Frontend sends (legacy names):
  * const frontendDto = {
- *   employerCode: 'EMP-CUSTOM',
- *   nameAr: 'شركة الواحة',
- *   nameEn: 'Al Waha Company',
+ *   code: 'EMP-CUSTOM',
+ *   name: 'شركة الواحة',
  *   active: true
  * };
  *
- * // Normalized to backend format:
  * const backendDto = normalizeEmployerRequest(frontendDto);
- * // Result: { code: 'EMP-CUSTOM', name: 'شركة الواحة', nameEn: 'Al Waha Company', active: true }
- *
- * @example
- * // Auto-code generation (no code provided):
- * const frontendDto = {
- *   nameAr: 'شركة النور',
- *   nameEn: 'Al Noor Services'
- * };
- *
- * const backendDto = normalizeEmployerRequest(frontendDto);
- * // Result: { name: 'شركة النور', nameEn: 'Al Noor Services', active: true }
- * // Backend will auto-generate: code = 'EMP-01' (or next available)
+ * // Result: { code: 'EMP-CUSTOM', name: 'شركة الواحة', active: true }
  */
 export const normalizeEmployerRequest = (frontendDto) => {
   if (!frontendDto) {
@@ -93,32 +71,28 @@ export const normalizeEmployerRequest = (frontendDto) => {
     return null;
   }
 
-  // Extract code (support both legacy 'employerCode' and canonical 'code')
-  // If both missing → null (backend will auto-generate)
-  const code = frontendDto.code || frontendDto.employerCode || null;
+  // Extract code (primary 'code')
+  const code = frontendDto.code || null;
 
-  // Extract name (Arabic) - required field
-  // Support both 'nameAr' (legacy) and 'name' (canonical)
-  const name = frontendDto.name || frontendDto.nameAr || null;
+  // Extract name - required field
+  const name = frontendDto.name || null;
 
   // Extract optional fields
-  const nameEn = frontendDto.nameEn || null;
   const active = frontendDto.active !== undefined ? frontendDto.active : true;
 
   // Build normalized payload
   const normalized = {
-    name, // Backend expects 'name' (Arabic)
-    nameEn,
+    name,
     active
   };
 
   // Only include code if provided (otherwise backend auto-generates)
-  if (code !== null && code.trim() !== '') {
+  if (code && code.trim() !== '') {
     normalized.code = code.trim();
   }
 
   console.debug('[EmployerService] Request normalized:', {
-    input: { code: frontendDto.code || frontendDto.employerCode, nameAr: frontendDto.nameAr },
+    input: { code: frontendDto.code, name: frontendDto.name },
     output: normalized
   });
 
@@ -129,32 +103,19 @@ export const normalizeEmployerRequest = (frontendDto) => {
  * Normalize backend response to frontend expected format
  *
  * Transformations:
- * - code → code (keep as-is)
- * - name → nameAr (Backend stores as 'name', serializes as 'nameAr' via @JsonProperty)
- * - nameEn → nameEn (keep as-is)
- * - active → active (keep as-is)
- * - Preserve audit timestamps (createdAt, updatedAt)
- *
- * Note: Backend Phase 2 returns 'nameAr' in response (via @JsonProperty),
- * so we just pass through the response as-is.
+ * - id, code, name, active, archived, createdAt, updatedAt
+ * - activePolicyName, activePolicyId
  *
  * @param {Object} backendDto - Backend response data
  * @param {number} backendDto.id - Employer ID
  * @param {string} backendDto.code - Employer code (e.g., 'EMP-01')
- * @param {string} backendDto.nameAr - Arabic name (serialized from 'name' field)
- * @param {string} [backendDto.nameEn] - English name
- * @param {boolean} backendDto.active - Active status
- * @param {string} [backendDto.createdAt] - Creation timestamp
- * @param {string} [backendDto.updatedAt] - Update timestamp
- * @returns {Object} Frontend-compatible DTO
+ * @param {string} backendDto.name - Unified name
  *
- * @example
  * // Backend returns:
  * const backendDto = {
  *   id: 1,
  *   code: 'EMP-01',
- *   nameAr: 'شركة الواحة',  // Via @JsonProperty
- *   nameEn: 'Al Waha Company',
+ *   name: 'شركة الواحة',
  *   active: true,
  *   createdAt: '2024-12-29T10:00:00',
  *   updatedAt: '2024-12-29T10:00:00'
@@ -162,7 +123,7 @@ export const normalizeEmployerRequest = (frontendDto) => {
  *
  * // Normalized to frontend format:
  * const frontendDto = normalizeEmployerResponse(backendDto);
- * // Result: Same structure (backend already sends 'nameAr')
+ * // Result: Same structure
  */
 export const normalizeEmployerResponse = (backendDto) => {
   if (!backendDto) {
@@ -170,23 +131,20 @@ export const normalizeEmployerResponse = (backendDto) => {
     return null;
   }
 
-  // Backend Phase 2 already returns 'nameAr' via @JsonProperty
-  // Add 'name' alias for UI components that expect 'name' field
-  const nameValue = backendDto.nameAr || backendDto.name;
   const normalized = {
     id: backendDto.id,
     code: backendDto.code,
-    name: nameValue, // Alias for UI compatibility
-    nameAr: nameValue, // Keep for backward compatibility
-    nameEn: backendDto.nameEn,
+    name: backendDto.name,
     active: backendDto.active,
     archived: backendDto.archived,
+    activePolicyName: backendDto.activePolicyName,
+    activePolicyId: backendDto.activePolicyId,
     createdAt: backendDto.createdAt,
     updatedAt: backendDto.updatedAt
   };
 
   console.debug('[EmployerService] Response normalized:', {
-    input: { code: backendDto.code, name: backendDto.name || backendDto.nameAr },
+    input: { code: backendDto.code, name: backendDto.name },
     output: normalized
   });
 
@@ -268,28 +226,18 @@ export const handleEmployerErrors = (error) => {
       errorResponse.message = 'يرجى تصحيح الأخطاء في النموذج';
       errorResponse.fieldErrors = data?.errors || {};
 
-      // Map backend field names to frontend field names
+      // No more field mapping needed as frontend and backend are unified
       if (errorResponse.fieldErrors) {
-        const mappedErrors = {};
-        Object.keys(errorResponse.fieldErrors).forEach((key) => {
-          if (key === 'name') {
-            mappedErrors.nameAr = errorResponse.fieldErrors[key];
-          } else if (key === 'code') {
-            mappedErrors.employerCode = errorResponse.fieldErrors[key];
-          } else {
-            mappedErrors[key] = errorResponse.fieldErrors[key];
-          }
-        });
-        errorResponse.fieldErrors = mappedErrors;
+        errorResponse.fieldErrors = data?.errors || {};
       }
       break;
 
     case 404: // Not Found
-      errorResponse.message = 'الشريك غير موجود';
+      errorResponse.message = 'جهة العمل غير موجودة';
       break;
 
     case 409: // Conflict (Duplicate Code)
-      errorResponse.message = 'رمز الشريك مستخدم بالفعل. يرجى اختيار رمز آخر.';
+      errorResponse.message = 'رمز جهة العمل مستخدم بالفعل. يرجى اختيار رمز آخر.';
       break;
 
     case 403: // Forbidden
@@ -347,10 +295,9 @@ const unwrapArray = (response) => {
 const validateEmployerDto = (dto) => {
   const errors = {};
 
-  // Check for required 'name' or 'nameAr'
-  const name = dto.name || dto.nameAr;
-  if (!name || name.trim() === '') {
-    errors.nameAr = 'الاسم بالعربية مطلوب';
+  // Check for required 'name'
+  if (!dto.name || dto.name.trim() === '') {
+    errors.name = 'اسم جهة العمل مطلوب';
   }
 
   return Object.keys(errors).length > 0 ? errors : null;
@@ -363,21 +310,15 @@ const validateEmployerDto = (dto) => {
 /**
  * Get all active employers
  *
+ * @param {Object} [params] - Query parameters
+ * @param {boolean} [params.deleted] - Include archived/deleted employers
  * @returns {Promise<Array>} List of employers (frontend format)
  * @throws {Error} Network or server error
- *
- * @example
- * const employers = await getEmployers();
- * console.log(employers);
- * // [
- * //   { id: 1, code: 'EMP-01', nameAr: 'شركة الواحة', ... },
- * //   { id: 2, code: 'EMP-02', nameAr: 'شركة النور', ... }
- * // ]
  */
-export const getEmployers = async () => {
+export const getEmployers = async (params = {}) => {
   try {
-    console.debug('[EmployerService] Fetching all employers...');
-    const response = await axiosClient.get(BASE_URL);
+    console.debug('[EmployerService] Fetching all employers...', params);
+    const response = await axiosClient.get(BASE_URL, { params });
     const rawData = unwrapArray(response);
     return normalizeEmployerArrayResponse(rawData);
   } catch (error) {
@@ -399,8 +340,7 @@ export const getEmployers = async () => {
  * // {
  * //   id: 1,
  * //   code: 'EMP-01',
- * //   nameAr: 'شركة الواحة',
- * //   nameEn: 'Al Waha Company',
+ * //   name: 'شركة الواحة',
  * //   active: true,
  * //   createdAt: '2024-12-29T10:00:00',
  * //   updatedAt: '2024-12-29T10:00:00'
@@ -428,9 +368,8 @@ export const getEmployerById = async (id) => {
  * - Error handling with user-friendly messages
  *
  * @param {Object} frontendDto - Employer data (frontend format)
- * @param {string} [frontendDto.employerCode] - Employer code (optional - auto-generated if missing)
- * @param {string} frontendDto.nameAr - Arabic name (required)
- * @param {string} [frontendDto.nameEn] - English name (optional)
+ * @param {string} [frontendDto.code] - Employer code (optional - auto-generated if missing)
+ * @param {string} frontendDto.name - Name (required)
  * @param {boolean} [frontendDto.active=true] - Active status
  * @returns {Promise<Object>} Created employer (frontend format)
  * @throws {Error} Validation, conflict, or server error
@@ -438,8 +377,7 @@ export const getEmployerById = async (id) => {
  * @example
  * // Create with auto-generated code:
  * const newEmployer = await createEmployer({
- *   nameAr: 'شركة الواحة',
- *   nameEn: 'Al Waha Company',
+ *   name: 'شركة الواحة',
  *   active: true
  * });
  * console.log(newEmployer.code); // 'EMP-01' (auto-generated)
@@ -447,9 +385,8 @@ export const getEmployerById = async (id) => {
  * @example
  * // Create with custom code:
  * const newEmployer = await createEmployer({
- *   employerCode: 'EMP-CUSTOM',
- *   nameAr: 'شركة النور',
- *   nameEn: 'Al Noor Services'
+ *   code: 'EMP-CUSTOM',
+ *   name: 'شركة النور'
  * });
  * console.log(newEmployer.code); // 'EMP-CUSTOM'
  *
@@ -512,18 +449,16 @@ export const createEmployer = async (frontendDto) => {
  *
  * @param {number} id - Employer ID
  * @param {Object} frontendDto - Updated employer data (frontend format)
- * @param {string} [frontendDto.employerCode] - Employer code
- * @param {string} frontendDto.nameAr - Arabic name (required)
- * @param {string} [frontendDto.nameEn] - English name
+ * @param {string} [frontendDto.code] - Employer code
+ * @param {string} frontendDto.name - Name (required)
  * @param {boolean} [frontendDto.active] - Active status
  * @returns {Promise<Object>} Updated employer (frontend format)
  * @throws {Error} Validation, not found, conflict, or server error
  *
  * @example
  * const updated = await updateEmployer(1, {
- *   employerCode: 'EMP-01',
- *   nameAr: 'شركة الواحة المحدودة',
- *   nameEn: 'Al Waha Company Ltd',
+ *   code: 'EMP-01',
+ *   name: 'شركة الواحة المحدودة',
  *   active: true
  * });
  */

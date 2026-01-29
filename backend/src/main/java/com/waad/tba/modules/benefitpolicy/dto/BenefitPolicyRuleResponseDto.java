@@ -1,6 +1,7 @@
 package com.waad.tba.modules.benefitpolicy.dto;
 
 import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicyRule;
+import com.waad.tba.modules.visit.entity.VisitType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,9 +15,41 @@ import java.time.LocalDateTime;
  */
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class BenefitPolicyRuleResponseDto {
+
+    public BenefitPolicyRuleResponseDto() {}
+
+    public BenefitPolicyRuleResponseDto(Long id, Long benefitPolicyId, String benefitPolicyName, String ruleType, 
+                                     Long medicalCategoryId, String medicalCategoryCode, String medicalCategoryNameAr, String medicalCategoryNameEn, 
+                                     Long medicalServiceId, String medicalServiceCode, String medicalServiceNameAr, String medicalServiceNameEn, 
+                                     Integer coveragePercent, Integer effectiveCoveragePercent, BigDecimal amountLimit, Integer timesLimit, 
+                                     Integer waitingPeriodDays, boolean requiresPreApproval, String label, String notes, 
+                                     VisitType encounterType, boolean active, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.benefitPolicyId = benefitPolicyId;
+        this.benefitPolicyName = benefitPolicyName;
+        this.ruleType = ruleType;
+        this.medicalCategoryId = medicalCategoryId;
+        this.medicalCategoryCode = medicalCategoryCode;
+        this.medicalCategoryNameAr = medicalCategoryNameAr;
+        this.medicalCategoryNameEn = medicalCategoryNameEn;
+        this.medicalServiceId = medicalServiceId;
+        this.medicalServiceCode = medicalServiceCode;
+        this.medicalServiceNameAr = medicalServiceNameAr;
+        this.medicalServiceNameEn = medicalServiceNameEn;
+        this.coveragePercent = coveragePercent;
+        this.effectiveCoveragePercent = effectiveCoveragePercent;
+        this.amountLimit = amountLimit;
+        this.timesLimit = timesLimit;
+        this.waitingPeriodDays = waitingPeriodDays;
+        this.requiresPreApproval = requiresPreApproval;
+        this.label = label;
+        this.notes = notes;
+        this.encounterType = encounterType;
+        this.active = active;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 
     private Long id;
     
@@ -51,6 +84,7 @@ public class BenefitPolicyRuleResponseDto {
     private String label;
     
     private String notes;
+    private VisitType encounterType;
     private boolean active;
     
     private LocalDateTime createdAt;
@@ -69,6 +103,7 @@ public class BenefitPolicyRuleResponseDto {
                 .waitingPeriodDays(rule.getWaitingPeriodDays())
                 .requiresPreApproval(rule.isRequiresPreApproval())
                 .notes(rule.getNotes())
+                .encounterType(rule.getEncounterType())
                 .active(rule.isActive())
                 .createdAt(rule.getCreatedAt())
                 .updatedAt(rule.getUpdatedAt())

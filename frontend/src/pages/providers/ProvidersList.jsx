@@ -1,13 +1,6 @@
 /**
- * Providers List Page - SIMPLIFIED IMPLEMENTATION
+ * Providers List Page - ENHANCED IMPLEMENTATION
  * Healthcare Providers (Hospitals, Clinics, Labs, Pharmacies)
- *
- * Architecture (2026-01-14 Cleanup):
- * ✅ Simple data table - No filters (removed as non-functional)
- * ✅ Auto-refresh on navigation back (useEffect on mount)
- * ❌ NO Excel import (removed)
- * ❌ NO filters (removed - were not working)
- * ❌ NO Excel export
  */
 
 import React, { useMemo, useCallback, useEffect, useState } from 'react';
@@ -15,14 +8,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // MUI Components
-import { Box, IconButton, Stack, Tooltip, Typography, Chip, Button, Skeleton } from '@mui/material';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TablePagination from '@mui/material/TablePagination';
+import {
+  Box, IconButton, Stack, Tooltip, Typography, Chip, Button, CircularProgress,
+  Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText, Divider
+} from '@mui/material';
 
 // MUI Icons
 import AddIcon from '@mui/icons-material/Add';
@@ -31,11 +20,20 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import DescriptionIcon from '@mui/icons-material/Description';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CloseIcon from '@mui/icons-material/Close';
+import HandshakeIcon from '@mui/icons-material/Handshake';
 
 // Project Components
 import MainCard from 'components/MainCard';
 import UnifiedPageHeader from 'components/UnifiedPageHeader';
 import PermissionGuard from 'components/PermissionGuard';
+import GenericDataTable from 'components/GenericDataTable';
+
+// Hooks
+import useTableState from 'hooks/useTableState';
 
 // Insurance UX Components
 import { NetworkBadge, CardStatusBadge } from 'components/insurance';
@@ -52,6 +50,7 @@ import { openSnackbar } from 'api/snackbar';
 
 const QUERY_KEY = 'providers';
 const MODULE_NAME = 'providers';
+const DEFAULT_SORT = { field: 'id', direction: 'desc' };
 
 // Provider Type Labels (Arabic)
 const PROVIDER_TYPE_LABELS_AR = {
@@ -100,6 +99,70 @@ const getProviderStatus = (provider) => {
 };
 
 // ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+/**
+ * Employers Cell Component
+ * Fetches and displays the list of allowed employers for a specific provider
+ */
+const ProviderEmployersCell = ({ providerId }) => {
+  const { data: contracts, isLoading } = useQuery({
+    queryKey: ['provider-contracts', providerId],
+    queryFn: () => providersService.getContracts(providerId),
+    staleTime: 60 * 1000, // Cache for 1 minute
+    retry: 1
+  });
+
+  if (isLoading) {
+    return <CircularProgress size={16} color="secondary" />;
+  }
+
+  // If no contracts, usually it means Standard Network (Available to all) OR None
+  // But based on logic, if array empty -> Standard/All or None. 
+  // Let's assume empty means "Default / Global" unless specified otherwise.
+  if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+    return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+  }
+
+  // Filter only active contracts
+  const activeContracts = contracts.filter(c => c.active !== false && c.status !== 'TERMINATED');
+
+  if (activeContracts.length === 0) {
+    return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+  }
+
+  const names = activeContracts.map(c => c.employerName || c.employer?.name || 'شركة غير معروفة');
+  const displayNames = names.slice(0, 2);
+  const remainingCount = names.length - 2;
+
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" gap={0.5}>
+      {displayNames.map((name, idx) => (
+        <Chip
+          key={idx}
+          label={name}
+          size="small"
+          variant="outlined"
+          sx={{ maxWidth: 120, fontSize: '0.7rem' }}
+        />
+      ))}
+      {remainingCount > 0 && (
+        <Tooltip title={names.slice(2).join('، ')}>
+          <Chip
+            label={`+${remainingCount}`}
+            size="small"
+            color="primary"
+            variant="filled"
+            sx={{ height: 20, fontSize: '0.65rem' }}
+          />
+        </Tooltip>
+      )}
+    </Stack>
+  );
+};
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -109,11 +172,20 @@ export default function ProvidersList() {
   const queryClient = useQueryClient();
 
   // ========================================
-  // PAGINATION STATE (Simple, no filters)
+  // TABLE & POPUP STATE
   // ========================================
 
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [employersDialog, setEmployersDialog] = useState({ open: false, names: [], providerName: '' });
+
+  const tableState = useTableState({
+    initialPageSize: 10,
+    defaultSort: DEFAULT_SORT
+  });
+
+  const { page, pageSize: rowsPerPage, sorting } = tableState;
+
+  const sortColumn = sorting?.[0]?.id;
+  const sortDirection = sorting?.[0]?.desc ? 'desc' : 'asc';
 
   // ========================================
   // AUTO-REFRESH ON NAVIGATION BACK
@@ -171,42 +243,193 @@ export default function ProvidersList() {
     [queryClient]
   );
 
+
+
   // ========================================
-  // PAGINATION HANDLERS
+  // DATA FETCHING WITH REACT QUERY
   // ========================================
 
-  const handleChangePage = useCallback((event, newPage) => {
-    setPage(newPage);
-  }, []);
+  // ========================================
+  // COLUMNS DEFINITION
+  // ========================================
 
-  const handleChangeRowsPerPage = useCallback((event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  }, []);
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'name',
+      header: 'اسم مقدم الخدمة',
+      enableSorting: true,
+      cell: ({ row }) => (
+        <Typography variant="body2" fontWeight={500}>
+          {row.original.name || '-'}
+        </Typography>
+      )
+    },
+    {
+      accessorKey: 'providerType',
+      header: 'النوع',
+      align: 'center',
+      cell: ({ row }) => (
+        <Chip
+          label={PROVIDER_TYPE_LABELS_AR[row.original.providerType] ?? row.original.providerType ?? '-'}
+          color={PROVIDER_TYPE_COLORS[row.original.providerType] || 'default'}
+          size="small"
+          variant="outlined"
+        />
+      )
+    },
+    {
+      accessorKey: 'id',
+      header: 'الرمز',
+      align: 'center',
+      enableSorting: true,
+      cell: ({ row }) => (
+        <Typography variant="body2" color="primary" fontWeight={500}>
+          {row.original.id || '-'}
+        </Typography>
+      )
+    },
+    {
+      accessorKey: 'city',
+      header: 'المدينة',
+      cell: ({ row }) => (
+        <Typography variant="body2">
+          {row.original.city ?? row.original.region ?? '-'}
+        </Typography>
+      )
+    },
+    {
+      accessorKey: 'phone',
+      header: 'الهاتف',
+      cell: ({ row }) => (
+        <Typography variant="body2" color="text.secondary" dir="ltr">
+          {row.original.phone ?? row.original.contactPhone ?? '-'}
+        </Typography>
+      )
+    },
+    {
+      accessorKey: 'network',
+      header: 'الشبكة',
+      align: 'center',
+      cell: ({ row }) => {
+        const tier = getNetworkTier(row.original);
+        return tier ? (
+          <NetworkBadge networkTier={tier} showLabel={true} size="small" language="ar" />
+        ) : (
+          <Typography variant="body2" color="text.secondary">-</Typography>
+        );
+      }
+    },
+    {
+      id: 'employers',
+      header: 'جهات العمل المسموحة',
+      size: 180,
+      align: 'center',
+      cell: ({ row }) => {
+        const count = row.original.contractCount || 0;
+        const names = row.original.contractedEmployerNames || [];
+
+        if (count === 0) {
+          return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+        }
+
+        return (
+          <Tooltip title="اضغط لعرض القائمة الكاملة">
+            <Button
+              size="small"
+              variant="text"
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEmployersDialog({ open: true, names, providerName: row.original.name });
+              }}
+              startIcon={<HandshakeIcon sx={{ fontSize: '1rem !important' }} />}
+              sx={{ fontWeight: 'bold' }}
+            >
+              {count} {count > 10 ? 'جهة' : 'جهات'} متعاقدة
+            </Button>
+          </Tooltip>
+        );
+      }
+    },
+    {
+      id: 'documents',
+      header: 'المستندات',
+      align: 'center',
+      size: 100,
+      cell: ({ row }) => {
+        const hasDocs = row.original.hasDocuments;
+        return (
+          <Tooltip title={hasDocs ? "توجد مستندات مرفوعة" : "لا توجد مستندات"}>
+            <Box>
+              {hasDocs ? (
+                <CheckCircleIcon color="success" fontSize="small" />
+              ) : (
+                <CancelIcon color="error" fontSize="small" sx={{ opacity: 0.5 }} />
+              )}
+              <DescriptionIcon sx={{ ml: 0.5, verticalAlign: 'middle', color: hasDocs ? 'primary.main' : 'text.disabled' }} fontSize="small" />
+            </Box>
+          </Tooltip>
+        );
+      }
+    },
+    {
+      accessorKey: 'status',
+      header: 'الحالة',
+      align: 'center',
+      cell: ({ row }) => (
+        <CardStatusBadge status={getProviderStatus(row.original)} size="small" language="ar" />
+      )
+    },
+    {
+      id: 'actions',
+      header: 'الإجراءات',
+      align: 'center',
+      cell: ({ row }) => (
+        <Stack direction="row" spacing={0.5} justifyContent="center" onClick={(e) => e.stopPropagation()}>
+          <Tooltip title="عرض">
+            <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleNavigateView(row.original.id); }}>
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="تعديل">
+            <IconButton size="small" color="info" onClick={(e) => { e.stopPropagation(); handleNavigateEdit(row.original.id); }}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <PermissionGuard requires="providers.delete">
+            <Tooltip title="حذف">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={(e) => { e.stopPropagation(); handleDelete(row.original.id, row.original.name); }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </PermissionGuard>
+        </Stack>
+      )
+    }
+  ], [handleNavigateView, handleNavigateEdit, handleDelete]);
 
   // ========================================
   // DATA FETCHING WITH REACT QUERY
   // ========================================
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: [QUERY_KEY, page, rowsPerPage],
+    queryKey: [QUERY_KEY, page, rowsPerPage, sortColumn, sortDirection],
     queryFn: async () => {
       console.log('[ProvidersList] Fetching providers - page:', page + 1, 'size:', rowsPerPage);
-      
+
       const params = {
         page: page + 1, // Backend uses 1-based pages
         size: rowsPerPage,
-        sort: 'id,desc' // Default sort by newest first
+        sort: sortColumn ? `${sortColumn},${sortDirection}` : 'id,desc'
       };
 
       const result = await providersService.getAll(params);
-      
-      console.log('[ProvidersList] API Response:', {
-        totalElements: result?.totalElements,
-        contentLength: result?.content?.length,
-        firstItem: result?.content?.[0]
-      });
-      
       return result;
     },
     staleTime: 30 * 1000, // 30 seconds
@@ -217,26 +440,7 @@ export default function ProvidersList() {
   const providers = useMemo(() => data?.content || [], [data]);
   const totalCount = data?.totalElements || 0;
 
-  // ========================================
-  // LOADING SKELETON
-  // ========================================
 
-  const LoadingSkeleton = () => (
-    <>
-      {[...Array(5)].map((_, i) => (
-        <TableRow key={i}>
-          <TableCell><Skeleton variant="text" width={150} /></TableCell>
-          <TableCell><Skeleton variant="rounded" width={80} height={24} /></TableCell>
-          <TableCell><Skeleton variant="text" width={60} /></TableCell>
-          <TableCell><Skeleton variant="text" width={80} /></TableCell>
-          <TableCell><Skeleton variant="text" width={100} /></TableCell>
-          <TableCell><Skeleton variant="rounded" width={70} height={24} /></TableCell>
-          <TableCell><Skeleton variant="rounded" width={60} height={24} /></TableCell>
-          <TableCell><Skeleton variant="rounded" width={100} height={32} /></TableCell>
-        </TableRow>
-      ))}
-    </>
-  );
 
   // ========================================
   // MAIN RENDER
@@ -269,7 +473,10 @@ export default function ProvidersList() {
       </PermissionGuard>
 
       {/* ====== DATA TABLE ====== */}
-      <MainCard>
+      <MainCard
+        content={false}
+        sx={{ height: 'calc(100vh - 250px)', display: 'flex', flexDirection: 'column' }}
+      >
         {/* Error State */}
         {error && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -284,156 +491,62 @@ export default function ProvidersList() {
 
         {/* Table */}
         {!error && (
-          <>
-            <TableContainer sx={{ maxHeight: 'calc(100vh - 350px)' }}>
-              <Table stickyHeader size="medium">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>اسم مقدم الخدمة</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="center">النوع</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="center">الرمز</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>المدينة</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>الهاتف</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="center">الشبكة</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="center">الحالة</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="center">الإجراءات</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {isLoading ? (
-                    <LoadingSkeleton />
-                  ) : providers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                        <Typography color="text.secondary">
-                          لا توجد مقدمي خدمات
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={handleNavigateAdd}
-                          sx={{ mt: 2 }}
-                        >
-                          إضافة مقدم خدمة
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    providers.map((provider) => (
-                      <TableRow
-                        key={provider.id}
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleNavigateView(provider.id)}
-                      >
-                        {/* Name */}
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500}>
-                            {provider.nameArabic || provider.name || '-'}
-                          </Typography>
-                          {provider.nameEnglish && provider.nameEnglish !== (provider.nameArabic || provider.name) && (
-                            <Typography variant="caption" color="text.secondary" dir="ltr" display="block">
-                              {provider.nameEnglish}
-                            </Typography>
-                          )}
-                        </TableCell>
-
-                        {/* Type */}
-                        <TableCell align="center">
-                          <Chip
-                            label={PROVIDER_TYPE_LABELS_AR[provider.providerType] ?? provider.providerType ?? '-'}
-                            color={PROVIDER_TYPE_COLORS[provider.providerType] || 'default'}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-
-                        {/* ID */}
-                        <TableCell align="center">
-                          <Typography variant="body2" color="primary" fontWeight={500}>
-                            {provider.id || '-'}
-                          </Typography>
-                        </TableCell>
-
-                        {/* City */}
-                        <TableCell>
-                          <Typography variant="body2">
-                            {provider.city ?? provider.region ?? '-'}
-                          </Typography>
-                        </TableCell>
-
-                        {/* Phone */}
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary" dir="ltr">
-                            {provider.phone ?? provider.contactPhone ?? '-'}
-                          </Typography>
-                        </TableCell>
-
-                        {/* Network Status */}
-                        <TableCell align="center">
-                          {getNetworkTier(provider) ? (
-                            <NetworkBadge networkTier={getNetworkTier(provider)} showLabel={true} size="small" language="ar" />
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">-</Typography>
-                          )}
-                        </TableCell>
-
-                        {/* Status */}
-                        <TableCell align="center">
-                          <CardStatusBadge status={getProviderStatus(provider)} size="small" language="ar" />
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <Tooltip title="عرض">
-                              <IconButton size="small" color="primary" onClick={() => handleNavigateView(provider.id)}>
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="تعديل">
-                              <IconButton size="small" color="info" onClick={() => handleNavigateEdit(provider.id)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <PermissionGuard requires="providers.delete">
-                              <Tooltip title="حذف">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleDelete(provider.id, provider.nameArabic || provider.name)}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </PermissionGuard>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            {/* Pagination */}
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={handleChangePage}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="عدد الصفوف:"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count !== -1 ? count : `أكثر من ${to}`}`}
-              sx={{ borderTop: 1, borderColor: 'divider' }}
-            />
-          </>
+          <GenericDataTable
+            columns={columns}
+            data={providers}
+            totalCount={totalCount}
+            isLoading={isLoading}
+            tableState={tableState}
+            emptyMessage="لا يوجد مقدمي خدمات"
+            onRowClick={(row) => handleNavigateView(row.id)}
+            headerVariant="primary"
+            enableFiltering={false}
+          />
         )}
       </MainCard>
+
+      {/* ====== EMPLOYERS POPUP DIALOG ====== */}
+      <Dialog
+        open={employersDialog.open}
+        onClose={() => setEmployersDialog({ ...employersDialog, open: false })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6">الجهات المتعاقدة</Typography>
+            <Typography variant="caption" color="text.secondary">{employersDialog.providerName}</Typography>
+          </Box>
+          <IconButton onClick={() => setEmployersDialog({ ...employersDialog, open: false })} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 0 }}>
+          <List dense sx={{ py: 0 }}>
+            {employersDialog.names.length > 0 ? (
+              employersDialog.names.map((name, index) => (
+                <ListItem key={index} divider={index < employersDialog.names.length - 1}>
+                  <ListItemText
+                    primary={name}
+                    primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                  />
+                </ListItem>
+              ))
+            ) : (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography color="text.secondary">لا توجد جهات متعاقدة</Typography>
+              </Box>
+            )}
+          </List>
+        </DialogContent>
+        <Divider />
+        <Box sx={{ p: 1.5, textAlign: 'right' }}>
+          <Button onClick={() => setEmployersDialog({ ...employersDialog, open: false })} size="small">
+            إغلاق
+          </Button>
+        </Box>
+      </Dialog>
     </Box>
   );
 }

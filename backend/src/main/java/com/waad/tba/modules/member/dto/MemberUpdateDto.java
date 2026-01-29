@@ -34,7 +34,6 @@ public class MemberUpdateDto {
 
     // Personal Information
     @Schema(description = "Full name", example = "أحمد محمد علي")
-    @JsonAlias({"nameAr", "name_ar", "fullNameArabic", "nameEn", "name_en", "fullNameEnglish"})
     private String fullName;
 
     @Schema(description = "National Number (الرقم الوطني)", example = "289123456789")

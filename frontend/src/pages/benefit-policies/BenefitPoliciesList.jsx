@@ -63,30 +63,27 @@ const BenefitPoliciesList = () => {
       accessorKey: 'policyCode',
       header: 'رمز السياسة',
       enableSorting: true,
-      enableColumnFilter: true,
+      enableColumnFilter: false,
       minWidth: 120,
       align: 'right',
-      meta: { filterType: 'text' },
       cell: ({ getValue }) => <Chip label={getValue() || '-'} size="small" variant="outlined" color="primary" />
     },
     {
       accessorKey: 'name',
       header: 'اسم السياسة',
       enableSorting: true,
-      enableColumnFilter: true,
+      enableColumnFilter: false,
       minWidth: 250,
       align: 'right',
-      meta: { filterType: 'text' },
       cell: ({ getValue }) => <Typography variant="body2" fontWeight={500}>{getValue() || '-'}</Typography>
     },
     {
       accessorKey: 'employerName',
       header: 'الشريك',
       enableSorting: true,
-      enableColumnFilter: true,
+      enableColumnFilter: false,
       minWidth: 200,
       align: 'right',
-      meta: { filterType: 'text' },
       cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
     },
     {
@@ -117,14 +114,13 @@ const BenefitPoliciesList = () => {
       accessorKey: 'status',
       header: 'الحالة',
       enableSorting: true,
-      enableColumnFilter: true,
+      enableColumnFilter: false,
       minWidth: 120,
       align: 'center',
-      meta: { filterType: 'text' },
       cell: ({ getValue }) => {
         const status = getValue();
         const config = STATUS_CONFIG[status] || { label: status, color: 'default' };
-        return <Chip label={config.label} color={config.color} size="small" />;
+        return <Chip label={config.label} color={config.color} size="small" />
       }
     },
     {
@@ -191,7 +187,7 @@ const BenefitPoliciesList = () => {
               totalCount={data?.totalElements || 0}
               isLoading={isLoading}
               tableState={tableState}
-              enableFiltering={true}
+              enableFiltering={false}
               enableSorting={true}
               enablePagination={true}
               stickyHeader={true}

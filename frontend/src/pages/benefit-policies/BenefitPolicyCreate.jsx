@@ -17,7 +17,10 @@ import {
   Divider,
   Container,
   Box,
-  CircularProgress
+  CircularProgress,
+  Tabs,
+  Tab,
+  Paper
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -32,7 +35,6 @@ import BusinessIcon from '@mui/icons-material/Business';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
-import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -43,6 +45,26 @@ import { PERMISSIONS } from 'constants/permissions.constants';
 // Services
 import { createBenefitPolicy } from 'services/api/benefit-policies.service';
 import { getEmployerSelectors } from 'services/api/employers.service';
+
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`benefit-policy-tabpanel-${index}`}
+      aria-labelledby={`benefit-policy-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 /**
  * Validation Schema - Yup
@@ -101,8 +123,13 @@ const BenefitPolicyCreate = () => {
   const navigate = useNavigate();
   const [employers, setEmployers] = useState([]);
   const [loadingEmployers, setLoadingEmployers] = useState(true);
-  const [refreshingEmployers, setRefreshingEmployers] = useState(false);
   const [generalError, setGeneralError] = useState(null);
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState(0);
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // Initial Form Values
   const initialValues = {
@@ -121,12 +148,8 @@ const BenefitPolicyCreate = () => {
   };
 
   // Fetch Employers Data Function
-  const fetchEmployers = async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshingEmployers(true);
-    } else {
-      setLoadingEmployers(true);
-    }
+  const fetchEmployers = async () => {
+    setLoadingEmployers(true);
     try {
       const data = await getEmployerSelectors();
       // Normalize data if needed, assuming API returns [{id, label}, ...]
@@ -136,19 +159,13 @@ const BenefitPolicyCreate = () => {
       // Error is handled silently for selector, just empty list
     } finally {
       setLoadingEmployers(false);
-      setRefreshingEmployers(false);
     }
   };
 
   // Fetch Employers on Mount
   useEffect(() => {
-    fetchEmployers(false);
+    fetchEmployers();
   }, []);
-
-  // Handle Refresh Employers
-  const handleRefreshEmployers = () => {
-    fetchEmployers(true);
-  };
 
   // Handle Form Submission
   const handleSubmit = async (values, { setSubmitting }) => {
@@ -211,42 +228,64 @@ const BenefitPolicyCreate = () => {
           >
             {({ values, errors, touched, handleChange, handleBlur, setFieldValue, isSubmitting }) => (
               <Form autoComplete="off">
-                <Grid container spacing={4}>
-                  
-                  {/* === Section 1: Basic Information === */}
-                  <Grid item xs={12}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <BusinessIcon color="primary" fontSize="small" />
-                      <Typography variant="h6" color="primary">
-                        البيانات الأساسية
-                      </Typography>
-                    </Stack>
-                    <Divider />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="اسم الوثيقة"
-                      name="name"
-                      placeholder="مثال: وثيقة التأمين الصحي - شركة الواحة"
-                      value={values.name}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.name && Boolean(errors.name)}
-                      helperText={touched.name && errors.name}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <PolicyIcon fontSize="small" color="action" />
-                          </InputAdornment>
-                        )
-                      }}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                  <Tabs value={activeTab} onChange={handleTabChange} aria-label="benefit policy tabs">
+                    <Tab 
+                      icon={<BusinessIcon />} 
+                      iconPosition="start" 
+                      label="البيانات الأساسية" 
+                      id="benefit-policy-tab-0"
+                      aria-controls="benefit-policy-tabpanel-0"
                     />
-                  </Grid>
+                    <Tab 
+                      icon={<AttachMoneyIcon />} 
+                      iconPosition="start" 
+                      label="التغطية والحدود المالية" 
+                      id="benefit-policy-tab-1"
+                      aria-controls="benefit-policy-tabpanel-1"
+                    />
+                    <Tab 
+                      icon={<CalendarTodayIcon />} 
+                      iconPosition="start" 
+                      label="فترة السريان" 
+                      id="benefit-policy-tab-2"
+                      aria-controls="benefit-policy-tabpanel-2"
+                    />
+                    <Tab 
+                      icon={<DescriptionIcon />} 
+                      iconPosition="start" 
+                      label="توضيحات إضافية" 
+                      id="benefit-policy-tab-3"
+                      aria-controls="benefit-policy-tabpanel-3"
+                    />
+                  </Tabs>
+                </Box>
 
-                  <Grid item xs={12} md={6}>
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                {/* === Tab 1: Basic Information === */}
+                <TabPanel value={activeTab} index={0}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="اسم الوثيقة"
+                        name="name"
+                        placeholder="مثال: وثيقة التأمين الصحي - شركة الواحة"
+                        value={values.name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.name && Boolean(errors.name)}
+                        helperText={touched.name && errors.name}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PolicyIcon fontSize="small" color="action" />
+                            </InputAdornment>
+                          )
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         select
@@ -257,9 +296,9 @@ const BenefitPolicyCreate = () => {
                         onBlur={handleBlur}
                         error={touched.employerOrgId && Boolean(errors.employerOrgId)}
                         helperText={(touched.employerOrgId && errors.employerOrgId) || "اختر المؤسسة صاحبة الوثيقة"}
-                        disabled={loadingEmployers || refreshingEmployers}
+                        disabled={loadingEmployers}
                       >
-                        {(loadingEmployers || refreshingEmployers) ? (
+                        {loadingEmployers ? (
                           <MenuItem value="" disabled>
                             <CircularProgress size={20} sx={{ mr: 1 }} /> جارٍ التحميل...
                           </MenuItem>
@@ -273,197 +312,169 @@ const BenefitPolicyCreate = () => {
                           <MenuItem value="" disabled>لا يوجد شركاء متاحين</MenuItem>
                         )}
                       </TextField>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleRefreshEmployers}
-                        disabled={loadingEmployers || refreshingEmployers}
-                        sx={{ minWidth: 50, height: 56 }}
-                        title="تحديث قائمة الشركاء"
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="رمز الوثيقة (اختياري)"
+                        name="policyCode"
+                        value={values.policyCode}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.policyCode && Boolean(errors.policyCode)}
+                        helperText={touched.policyCode && errors.policyCode || "اتركه فارغاً للتوليد التلقائي"}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        select
+                        label="حالة الوثيقة"
+                        name="status"
+                        value={values.status}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
                       >
-                        {refreshingEmployers ? <CircularProgress size={20} /> : <RefreshIcon />}
-                      </Button>
-                    </Stack>
+                        <MenuItem value="DRAFT">مسودة (Draft)</MenuItem>
+                        <MenuItem value="ACTIVE">نشط (Active)</MenuItem>
+                        <MenuItem value="INACTIVE">غير نشط (Inactive)</MenuItem>
+                      </TextField>
+                    </Grid>
                   </Grid>
+                </TabPanel>
 
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="رمز الوثيقة (اختياري)"
-                      name="policyCode"
-                      value={values.policyCode}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.policyCode && Boolean(errors.policyCode)}
-                      helperText={touched.policyCode && errors.policyCode || "اتركه فارغاً للتوليد التلقائي"}
-                    />
+                {/* === Tab 2: Coverage & Limits === */}
+                <TabPanel value={activeTab} index={1}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6} lg={6}>
+                      <TextField
+                        fullWidth
+                        label="السقف السنوي"
+                        name="annualLimit"
+                        type="number"
+                        value={values.annualLimit}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.annualLimit && Boolean(errors.annualLimit)}
+                        helperText={touched.annualLimit && errors.annualLimit}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6} lg={6}>
+                      <TextField
+                        fullWidth
+                        label="نسبة التغطية"
+                        name="defaultCoveragePercent"
+                        type="number"
+                        value={values.defaultCoveragePercent}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.defaultCoveragePercent && Boolean(errors.defaultCoveragePercent)}
+                        helperText={touched.defaultCoveragePercent && errors.defaultCoveragePercent}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">%</InputAdornment>
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6} lg={6}>
+                      <TextField
+                        fullWidth
+                        label="الحد للفرد"
+                        name="perMemberLimit"
+                        type="number"
+                        value={values.perMemberLimit}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.perMemberLimit && Boolean(errors.perMemberLimit)}
+                        helperText={touched.perMemberLimit && errors.perMemberLimit || "اختياري"}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6} lg={6}>
+                      <TextField
+                        fullWidth
+                        label="الحد للعائلة"
+                        name="perFamilyLimit"
+                        type="number"
+                        value={values.perFamilyLimit}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.perFamilyLimit && Boolean(errors.perFamilyLimit)}
+                        helperText={touched.perFamilyLimit && errors.perFamilyLimit || "اختياري"}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
+                        }}
+                      />
+                    </Grid>
                   </Grid>
+                </TabPanel>
 
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="حالة الوثيقة"
-                      name="status"
-                      value={values.status}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    >
-                      <MenuItem value="DRAFT">مسودة (Draft)</MenuItem>
-                      <MenuItem value="ACTIVE">نشط (Active)</MenuItem>
-                      <MenuItem value="INACTIVE">غير نشط (Inactive)</MenuItem>
-                    </TextField>
+                {/* === Tab 3: Period === */}
+                <TabPanel value={activeTab} index={2}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <DatePicker
+                        label="تاريخ البدء *"
+                        value={values.startDate}
+                        onChange={(value) => setFieldValue('startDate', value)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            error: touched.startDate && Boolean(errors.startDate),
+                            helperText: touched.startDate && errors.startDate
+                          }
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <DatePicker
+                        label="تاريخ الانتهاء *"
+                        value={values.endDate}
+                        onChange={(value) => setFieldValue('endDate', value)}
+                        minDate={values.startDate || dayjs()}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            error: touched.endDate && Boolean(errors.endDate),
+                            helperText: touched.endDate && errors.endDate
+                          }
+                        }}
+                      />
+                    </Grid>
                   </Grid>
+                </TabPanel>
 
-                  {/* === Section 2: Coverage & Limits === */}
-                  <Grid item xs={12} sx={{ mt: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <AttachMoneyIcon color="primary" fontSize="small" />
-                      <Typography variant="h6" color="primary">
-                        التغطية والحدود المالية
-                      </Typography>
-                    </Stack>
-                    <Divider />
+                {/* === Tab 4: Notes === */}
+                <TabPanel value={activeTab} index={3}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        label="ملاحظات"
+                        name="notes"
+                        value={values.notes}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        placeholder="أضف وصفاً تفصيلياً أو ملاحظات إضافية..."
+                      />
+                    </Grid>
                   </Grid>
+                </TabPanel>
 
-                  <Grid item xs={12} md={6} lg={3}>
-                    <TextField
-                      fullWidth
-                      label="السقف السنوي"
-                      name="annualLimit"
-                      type="number"
-                      value={values.annualLimit}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.annualLimit && Boolean(errors.annualLimit)}
-                      helperText={touched.annualLimit && errors.annualLimit}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6} lg={3}>
-                    <TextField
-                      fullWidth
-                      label="نسبة التغطية"
-                      name="defaultCoveragePercent"
-                      type="number"
-                      value={values.defaultCoveragePercent}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.defaultCoveragePercent && Boolean(errors.defaultCoveragePercent)}
-                      helperText={touched.defaultCoveragePercent && errors.defaultCoveragePercent}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">%</InputAdornment>
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6} lg={3}>
-                    <TextField
-                      fullWidth
-                      label="الحد للفرد"
-                      name="perMemberLimit"
-                      type="number"
-                      value={values.perMemberLimit}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.perMemberLimit && Boolean(errors.perMemberLimit)}
-                      helperText={touched.perMemberLimit && errors.perMemberLimit || "اختياري"}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6} lg={3}>
-                    <TextField
-                      fullWidth
-                      label="الحد للعائلة"
-                      name="perFamilyLimit"
-                      type="number"
-                      value={values.perFamilyLimit}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.perFamilyLimit && Boolean(errors.perFamilyLimit)}
-                      helperText={touched.perFamilyLimit && errors.perFamilyLimit || "اختياري"}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">د.ل</InputAdornment>
-                      }}
-                    />
-                  </Grid>
-
-                  {/* === Section 3: Period === */}
-                  <Grid item xs={12} sx={{ mt: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <CalendarTodayIcon color="primary" fontSize="small" />
-                      <Typography variant="h6" color="primary">
-                        فترة السريان
-                      </Typography>
-                    </Stack>
-                    <Divider />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <DatePicker
-                      label="تاريخ البدء *"
-                      value={values.startDate}
-                      onChange={(value) => setFieldValue('startDate', value)}
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          error: touched.startDate && Boolean(errors.startDate),
-                          helperText: touched.startDate && errors.startDate
-                        }
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <DatePicker
-                      label="تاريخ الانتهاء *"
-                      value={values.endDate}
-                      onChange={(value) => setFieldValue('endDate', value)}
-                      minDate={values.startDate || dayjs()}
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          error: touched.endDate && Boolean(errors.endDate),
-                          helperText: touched.endDate && errors.endDate
-                        }
-                      }}
-                    />
-                  </Grid>
-
-                  {/* === Section 4: Notes === */}
-                  <Grid item xs={12} sx={{ mt: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <DescriptionIcon color="primary" fontSize="small" />
-                      <Typography variant="h6" color="primary">
-                        توضيحات إضافية
-                      </Typography>
-                    </Stack>
-                    <Divider />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      label="ملاحظات"
-                      name="notes"
-                      value={values.notes}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      placeholder="أضف وصفاً تفصيلياً أو ملاحظات إضافية..."
-                    />
-                  </Grid>
-
-                  {/* === Actions === */}
-                  <Grid item xs={12}>
-                    <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                {/* === Actions === */}
+                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end', gap: 2, px: 3, pb: 2 }}>
                       <Button 
                         variant="outlined" 
                         color="inherit" 
@@ -483,10 +494,7 @@ const BenefitPolicyCreate = () => {
                       >
                         حفظ الوثيقة
                       </LoadingButton>
-                    </Stack>
-                  </Grid>
-
-                </Grid>
+                </Box>
               </Form>
             )}
           </Formik>

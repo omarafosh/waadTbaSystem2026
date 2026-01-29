@@ -92,7 +92,8 @@ public class CostCalculationService {
         // ═══════════════════════════════════════════════════════════════════════════════
         // NEW: Calculate weighted average coverage from claim lines using BenefitPolicyRule
         // ═══════════════════════════════════════════════════════════════════════════════
-        BigDecimal coPayPercent = calculateWeightedCopayFromLines(claim, member, networkType);
+        com.waad.tba.modules.visit.entity.VisitType encounterType = (claim.getVisit() != null) ? claim.getVisit().getVisitType() : null;
+        BigDecimal coPayPercent = calculateWeightedCopayFromLines(claim, member, networkType, encounterType);
         log.info("📊 Calculated weighted co-pay percent: {}% for claim {} (from {} lines)", 
             coPayPercent, claim.getId(), claim.getLines() != null ? claim.getLines().size() : 0);
         
@@ -175,7 +176,7 @@ public class CostCalculationService {
      * @param networkType Network type for adjustments
      * @return Weighted average co-pay percentage
      */
-    private BigDecimal calculateWeightedCopayFromLines(Claim claim, Member member, NetworkType networkType) {
+    private BigDecimal calculateWeightedCopayFromLines(Claim claim, Member member, NetworkType networkType, com.waad.tba.modules.visit.entity.VisitType encounterType) {
         List<ClaimLine> lines = claim.getLines();
         BenefitPolicy benefitPolicy = member != null ? member.getBenefitPolicy() : null;
         
@@ -195,7 +196,7 @@ public class CostCalculationService {
             }
             
             // Get coverage percent for this service from BenefitPolicyRule
-            int coveragePercent = getCoveragePercentForLine(line, member);
+            int coveragePercent = getCoveragePercentForLine(line, member, encounterType);
             
             // Co-Pay% = 100 - Coverage%
             int copayPercent = 100 - coveragePercent;
@@ -238,11 +239,11 @@ public class CostCalculationService {
      * @param member The member
      * @return Coverage percentage (0-100)
      */
-    private int getCoveragePercentForLine(ClaimLine line, Member member) {
+    private int getCoveragePercentForLine(ClaimLine line, Member member, com.waad.tba.modules.visit.entity.VisitType encounterType) {
         // Try to get coverage from BenefitPolicyCoverageService
         if (line.getMedicalService() != null) {
             Long serviceId = line.getMedicalService().getId();
-            int coverage = benefitPolicyCoverageService.getEffectiveCoveragePercent(member, serviceId);
+            int coverage = benefitPolicyCoverageService.getEffectiveCoveragePercent(member, serviceId, encounterType);
             
             if (coverage > 0) {
                 log.debug("✅ Coverage for service {} resolved from BenefitPolicyRule: {}%", 

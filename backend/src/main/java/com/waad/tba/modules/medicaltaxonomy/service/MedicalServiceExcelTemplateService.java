@@ -90,17 +90,7 @@ public class MedicalServiceExcelTemplateService {
                 .width(30)
                 .build(),
                 
-            // English Name - Optional
-            ExcelTemplateColumn.builder()
-                .name("name_en")
-                .nameAr("الاسم بالإنجليزية")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("Comprehensive Checkup")
-                .description("Service name in English (optional)")
-                .descriptionAr("اسم الخدمة بالإنجليزية (اختياري)")
-                .width(30)
-                .build(),
+
                 
             // Category - Mandatory Lookup
             ExcelTemplateColumn.builder()
@@ -171,15 +161,14 @@ public class MedicalServiceExcelTemplateService {
         List<List<String>> categoryData = categories.stream()
             .map(cat -> Arrays.<String>asList(
                 cat.getCode(),
-                cat.getName() != null ? cat.getName() : "",
-                cat.getNameEn() != null ? cat.getNameEn() : ""
+                cat.getName() != null ? cat.getName() : ""
             ))
             .collect(Collectors.toList());
         
         return List.of(
             ExcelLookupData.builder()
                 .sheetName("Categories / الفئات")
-                .headers(Arrays.asList("Code", "Name (AR)", "Name (EN)"))
+                .headers(Arrays.asList("Code", "Name (AR)"))
                 .data(categoryData)
                 .description("List of valid categories - Use exact name from this sheet")
                 .descriptionAr("قائمة الفئات الصالحة - استخدم الاسم المطابق تماماً من هذه الورقة")
@@ -268,7 +257,6 @@ public class MedicalServiceExcelTemplateService {
         // Read columns using helper
         String serviceCode = getCellValue(row, 0); // Column A
         String nameAr = getCellValue(row, 1);      // Column B
-        String nameEn = getCellValue(row, 2);      // Column C
         String categoryName = getCellValue(row, 3); // Column D
         String priceStr = getCellValue(row, 4);    // Column E
         String requiresApprovalStr = getCellValue(row, 5); // Column F
@@ -329,7 +317,6 @@ public class MedicalServiceExcelTemplateService {
         
         // Set/Update fields
         service.setName(nameAr.trim()); // name field is Arabic
-        service.setNameEn(nameEn != null ? nameEn.trim() : null);
         service.setCategoryId(category.getId());
         service.setBasePrice(priceLyd);
         service.setRequiresPA(requiresApproval);
@@ -353,9 +340,7 @@ public class MedicalServiceExcelTemplateService {
             if (cat.getName() != null) { // Name field is Arabic
                 cache.put(cat.getName().trim(), cat);
             }
-            if (cat.getNameEn() != null) {
-                cache.put(cat.getNameEn().trim(), cat);
-            }
+
         }
         
         return cache;

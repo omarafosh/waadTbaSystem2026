@@ -7,6 +7,8 @@ import java.util.List;
  */
 public class PasswordPolicyViolationException extends RuntimeException {
     
+    private static final long serialVersionUID = 1L;
+    
     private final List<String> violations;
     private final String messageAr;
     

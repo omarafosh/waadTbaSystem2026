@@ -87,7 +87,7 @@ public class MedicalServiceImportService {
         Map<String, MedicalCategory> cache = new HashMap<>();
         categoryRepository.findAll().forEach(c -> {
             cache.put(c.getName().trim().toLowerCase(), c);
-            if (c.getNameEn() != null) cache.put(c.getNameEn().trim().toLowerCase(), c);
+
             cache.put(c.getCode().trim().toLowerCase(), c);
         });
         return cache;

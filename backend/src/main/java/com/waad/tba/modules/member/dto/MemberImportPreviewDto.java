@@ -17,83 +17,83 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MemberImportPreviewDto {
-    
+
     /**
      * Unique batch ID for this import session
      */
     private String batchId;
-    
+
     /**
      * Original file name
      */
     private String fileName;
-    
+
     /**
      * Total rows found in Excel (excluding header)
      */
     private int totalRows;
-    
+
     /**
      * Rows that will be created (new card numbers)
      */
     private int newCount;
-    
+
     /**
      * Rows that will be updated (existing card numbers)
      */
     private int updateCount;
-    
+
     /**
      * Rows with non-critical warnings (will be imported)
      */
     private int warningCount;
-    
+
     /**
      * Rows with validation errors (will be skipped)
      */
     private int errorCount;
-    
+
     /**
      * Column headers detected in Excel
      */
     private List<String> detectedColumns;
-    
+
     /**
      * Mapped columns (Excel header → field)
      */
     private Map<String, String> columnMappings;
-    
+
     /**
      * Preview of first N rows (parsed data)
      */
     private List<MemberImportRowDto> previewRows;
-    
+
     /**
      * Validation errors found
      */
     private List<ImportValidationErrorDto> validationErrors;
-    
+
     /**
      * Is the preview ready to be confirmed?
      */
     private boolean canProceed;
-    
+
     /**
      * Key used for matching existing members
      */
     private String matchKeyUsed;
     private List<String> warnings;
-    
+
     /**
      * Available employers for selection (NEW)
      */
     private List<EmployerOptionDto> availableEmployers;
-    
+
     /**
      * Available benefit policies for selection (NEW)
      */
     private List<BenefitPolicyOptionDto> availableBenefitPolicies;
-    
+
     /**
      * Single row in preview
      */
@@ -113,12 +113,12 @@ public class MemberImportPreviewDto {
          * - WARNING: Row has non-critical issues but can be imported
          * - ERROR: Row has critical errors and will be skipped
          */
-        private String status;  // NEW, UPDATE, WARNING, ERROR
-        private Map<String, String> attributes;  // Extra columns
-        private List<String> errors;    // Critical errors (block import)
-        private List<String> warnings;  // Non-critical warnings (allow import)
+        private String status; // NEW, UPDATE, WARNING, ERROR
+        private Map<String, String> attributes; // Extra columns
+        private List<String> errors; // Critical errors (block import)
+        private List<String> warnings; // Non-critical warnings (allow import)
     }
-    
+
     /**
      * Validation error for a row
      */
@@ -131,9 +131,9 @@ public class MemberImportPreviewDto {
         private String field;
         private String value;
         private String message;
-        private String severity;  // ERROR, WARNING
+        private String severity; // ERROR, WARNING
     }
-    
+
     /**
      * Employer option for selection (NEW)
      */
@@ -145,10 +145,10 @@ public class MemberImportPreviewDto {
         private Long id;
         private String code;
         private String nameAr;
-        private String nameEn;
+        // private String nameEn;
         private Boolean active;
     }
-    
+
     /**
      * Benefit Policy option for selection (NEW)
      */
@@ -161,7 +161,7 @@ public class MemberImportPreviewDto {
         private String policyNumber;
         private String nameAr;
         private String nameEn;
-        private Long employerId;  // FK to filter policies by employer
+        private Long employerId; // FK to filter policies by employer
         private Boolean isActive;
     }
 }

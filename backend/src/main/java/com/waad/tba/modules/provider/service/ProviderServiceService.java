@@ -239,8 +239,6 @@ public class ProviderServiceService {
                 .providerId(entity.getProviderId())
                 .serviceCode(entity.getServiceCode())
                 .serviceName(medicalService.getName())           // Arabic name
-                .serviceNameEn(medicalService.getNameEn())       // English name
-                .serviceNameArabic(medicalService.getName())     // Arabic name (explicit)
                 .categoryCode(categoryCode)
                 .categoryName(categoryName)
                 .requiresPreAuth(false) // PA requirement comes from BenefitPolicyRule, not MedicalService
@@ -262,8 +260,6 @@ public class ProviderServiceService {
                     .providerId(entity.getProviderId())
                     .serviceCode(entity.getServiceCode())
                     .serviceName("خدمة غير موجودة")
-                    .serviceNameEn("Service not found")
-                    .serviceNameArabic("خدمة غير موجودة")
                     .categoryCode(null)
                     .categoryName(null)
                     .requiresPreAuth(true) // Default to true for safety

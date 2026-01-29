@@ -33,7 +33,6 @@ public class EmployerUpdateDto {
      * Accepts: 'name' or 'nameAr' (frontend compatibility)
      */
     @NotBlank(message = "Employer name is required")
-    @JsonAlias({"nameAr"})
     @Size(max = 200, message = "Employer name too long")
     private String name;
     

@@ -94,7 +94,7 @@ public class UnifiedMemberServiceTest {
         // Arrange
         when(organizationRepository.findById(1L)).thenReturn(Optional.of(mockEmployer));
         when(barcodeGenerator.generateUniqueBarcodeForPrincipal()).thenReturn("WAHA-2026-0001");
-        when(cardNumberGenerator.generateUniqueForPrincipal()).thenReturn("123456");
+        when(cardNumberGenerator.generateSmartCardNumber(any(Member.class))).thenReturn("123456");
         when(mapper.toEntity(any(MemberCreateDto.class))).thenReturn(mockPrincipal);
         when(memberRepository.save(any(Member.class))).thenReturn(mockPrincipal);
         when(mapper.toViewDto(any(Member.class), any())).thenReturn(MemberViewDto.builder().id(100L).barcode("WAHA-2026-0001").build());

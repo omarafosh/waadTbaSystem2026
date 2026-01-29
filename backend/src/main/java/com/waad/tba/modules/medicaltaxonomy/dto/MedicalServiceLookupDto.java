@@ -33,9 +33,7 @@ import lombok.NoArgsConstructor;
  * Searchable by:
  * - code
  * - nameAr
- * - nameEn
  * - categoryNameAr
- * - categoryNameEn
  * 
  * @author TBA WAAD System
  * @version 2025.1
@@ -62,10 +60,6 @@ public class MedicalServiceLookupDto {
      */
     private String nameAr;
 
-    /**
-     * English name (supplementary)
-     */
-    private String nameEn;
 
     /**
      * Category ID (for filtering)
@@ -77,17 +71,13 @@ public class MedicalServiceLookupDto {
      */
     private String categoryNameAr;
 
-    /**
-     * Category English name (for display)
-     */
-    private String categoryNameEn;
 
     /**
      * Display label combining code and name
      * Format: "[SVC-001] أشعة مقطعية"
      */
     public String getDisplayLabel() {
-        return String.format("[%s] %s", code, nameAr != null ? nameAr : nameEn);
+        return String.format("[%s] %s", code, nameAr);
     }
 
     /**
@@ -95,8 +85,7 @@ public class MedicalServiceLookupDto {
      * Format: "[SVC-001] أشعة مقطعية - الأشعة التشخيصية"
      */
     public String getFullDisplayLabel() {
-        String category = categoryNameAr != null ? categoryNameAr : 
-                         categoryNameEn != null ? categoryNameEn : "غير مصنف";
-        return String.format("[%s] %s - %s", code, nameAr != null ? nameAr : nameEn, category);
+        String category = categoryNameAr != null ? categoryNameAr : "غير مصنف";
+        return String.format("[%s] %s - %s", code, nameAr, category);
     }
 }

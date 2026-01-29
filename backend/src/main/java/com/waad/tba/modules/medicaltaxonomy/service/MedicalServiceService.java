@@ -65,7 +65,6 @@ public class MedicalServiceService {
         MedicalService service = MedicalService.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
-                .nameEn(dto.getNameEn())
                 .categoryId(dto.getCategoryId())
                 .description(dto.getDescription())
                 .basePrice(dto.getBasePrice())
@@ -192,10 +191,8 @@ public class MedicalServiceService {
                         .id(p.getId())
                         .code(p.getCode())
                         .nameAr(p.getNameAr())
-                        .nameEn(p.getNameEn())
                         .categoryId(p.getCategoryId())
                         .categoryNameAr(p.getCategoryNameAr())
-                        .categoryNameEn(p.getCategoryNameEn())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -245,9 +242,7 @@ public class MedicalServiceService {
         if (dto.getName() != null) {
             service.setName(dto.getName());
         }
-        if (dto.getNameEn() != null) {
-            service.setNameEn(dto.getNameEn());
-        }
+
         if (dto.getCategoryId() != null) {
             // Validate category exists and is active
             categoryRepository.findActiveById(dto.getCategoryId())
@@ -438,7 +433,6 @@ public class MedicalServiceService {
                 .id(service.getId())
                 .code(service.getCode())
                 .name(service.getName())
-                .nameEn(service.getNameEn())
                 .categoryId(service.getCategoryId())
                 .categoryName(category != null ? category.getName() : null)
                 .categoryCode(category != null ? category.getCode() : null)

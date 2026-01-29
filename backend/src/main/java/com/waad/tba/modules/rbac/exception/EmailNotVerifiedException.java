@@ -5,6 +5,8 @@ package com.waad.tba.modules.rbac.exception;
  */
 public class EmailNotVerifiedException extends RuntimeException {
     
+    private static final long serialVersionUID = 1L;
+    
     private final String username;
     private final String email;
     private final String messageAr;

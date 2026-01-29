@@ -63,17 +63,8 @@ public class MedicalService {
     @Builder.Default
     private MedicalServiceStatus status = MedicalServiceStatus.ACTIVE;
 
-    /**
-     * Arabic name (primary)
-     */
     @Column(name = "name_ar", nullable = false, length = 200)
     private String name;
-
-    /**
-     * English name (supplementary)
-     */
-    @Column(name = "name_en", length = 200)
-    private String nameEn;
 
     /**
      * Reference to medical category
@@ -122,12 +113,14 @@ public class MedicalService {
      */
     @Deprecated(since = "2026-01-22", forRemoval = false)
     @Column(name = "requires_pa", nullable = false)
+    @Builder.Default
     private boolean requiresPA = true;
 
     /**
      * Soft delete flag
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 
     /**

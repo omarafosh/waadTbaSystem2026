@@ -393,11 +393,6 @@ public class ProviderContractPricingExcelService {
             if (service.getName() != null && !service.getName().isBlank()) {
                 byName.put(service.getName().trim(), service);
             }
-            
-            // Index by nameEn (English name)
-            if (service.getNameEn() != null && !service.getNameEn().isBlank()) {
-                byName.put(service.getNameEn().trim(), service);
-            }
         }
 
         log.info("Built service maps: {} by code, {} by name entries (total services: {})", 

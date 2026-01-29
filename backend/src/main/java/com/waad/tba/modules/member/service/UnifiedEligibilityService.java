@@ -87,14 +87,21 @@ public class UnifiedEligibilityService {
     private EligibilityResultDto checkByBarcode(String barcode) {
         log.debug("Searching by barcode: {}", barcode);
 
-        Optional<Member> memberOpt = memberRepository.findByBarcode(barcode);
+        // Updated for NonUniqueResultException handling (duplicates in DB)
+        java.util.List<Member> members = memberRepository.findByBarcode(barcode);
 
-        if (memberOpt.isEmpty()) {
+        if (members.isEmpty()) {
             log.warn("⚠️ [NOT-FOUND] No member with barcode: {}", barcode);
             throw new MemberNotFoundException("Member not found with barcode: " + barcode);
         }
+        
+        // Handle duplicates: Take the first one (Ordered by ID DESC in Repo)
+        if (members.size() > 1) {
+            log.warn("⚠️ [DUPLICATE-DATA] Found {} members with barcode {}. Using most recent (ID={})", 
+                members.size(), barcode, members.get(0).getId());
+        }
 
-        Member member = memberOpt.get();
+        Member member = members.get(0);
         log.info("✅ [FOUND] Member ID: {}, Name: {}", member.getId(), member.getFullName());
 
         return buildEligibilityResult(member);
@@ -106,14 +113,21 @@ public class UnifiedEligibilityService {
     private EligibilityResultDto checkByCardNumber(String cardNumber) {
         log.debug("Searching by card number: {}", cardNumber);
 
-        Optional<Member> memberOpt = memberRepository.findByCardNumber(cardNumber);
+        // Updated for NonUniqueResultException handling (duplicates in DB)
+        java.util.List<Member> members = memberRepository.findByCardNumber(cardNumber);
 
-        if (memberOpt.isEmpty()) {
+        if (members.isEmpty()) {
             log.warn("⚠️ [NOT-FOUND] No member with card number: {}", cardNumber);
             throw new MemberNotFoundException("Member not found with card number: " + cardNumber);
         }
+        
+        // Handle duplicates: Take the first one (Ordered by ID DESC in Repo)
+        if (members.size() > 1) {
+            log.warn("⚠️ [DUPLICATE-DATA] Found {} members with card number {}. Using most recent (ID={})", 
+                members.size(), cardNumber, members.get(0).getId());
+        }
 
-        Member member = memberOpt.get();
+        Member member = members.get(0);
         log.info("✅ [FOUND] Member ID: {}, Name: {}", member.getId(), member.getFullName());
 
         return buildEligibilityResult(member);

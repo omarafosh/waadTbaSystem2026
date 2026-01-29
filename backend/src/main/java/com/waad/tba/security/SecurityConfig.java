@@ -65,8 +65,8 @@ public class SecurityConfig {
 
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints - Authentication
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // Public endpoints - Authentication & Branding
+                        .requestMatchers("/api/auth/**", "/api/companies/default").permitAll()
                         // Swagger / OpenAPI endpoints
                         .requestMatchers(
                                 "/v3/api-docs/**",

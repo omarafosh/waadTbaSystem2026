@@ -1,76 +1,33 @@
 // ==============================|| DEFAULT THEME - TYPOGRAPHY ||============================== //
 
-export default function Typography(fontFamily) {
+export default function Typography(fontFamily, fontSize = 12) {
+  // Construct font family string with Cairo and Tajawal as priorities if selected
+  const activeFont = fontFamily === 'Cairo' ? `'Cairo', sans-serif` : `'Tajawal', sans-serif`;
+
+  // Base Header Size (User requested Titles to be +2 from Base)
+  const baseHeaderSize = fontSize + 2;
+
   return {
-    htmlFontSize: 14,
-    fontFamily,
+    htmlFontSize: 16, // Fixed root ensures rems scale predictably relative to browser default
+    fontFamily: activeFont,
+    fontSize: fontSize,
     fontWeightLight: 300,
     fontWeightRegular: 400,
     fontWeightMedium: 500,
     fontWeightBold: 600,
-    h1: {
-      fontWeight: 600,
-      fontSize: '2.625rem', // 42px - increased from 38px
-      lineHeight: 1.25
-    },
-    h2: {
-      fontWeight: 600,
-      fontSize: '2.125rem', // 34px - increased from 30px
-      lineHeight: 1.3
-    },
-    h3: {
-      fontWeight: 600,
-      fontSize: '1.75rem', // 28px - increased from 24px
-      lineHeight: 1.35
-    },
-    h4: {
-      fontWeight: 600,
-      fontSize: '1.5rem', // 24px - increased from 20px
-      lineHeight: 1.4
-    },
-    h5: {
-      fontWeight: 600,
-      fontSize: '1.125rem', // 18px - increased from 16px
-      lineHeight: 1.5
-    },
-    h6: {
-      fontWeight: 500, // increased from 400 for better visibility
-      fontSize: '1rem', // 16px - increased from 14px
-      lineHeight: 1.6
-    },
-    caption: {
-      fontWeight: 400,
-      fontSize: '0.8125rem', // 13px - increased from 12px
-      lineHeight: 1.7
-    },
-    body1: {
-      fontSize: '1rem', // 16px - increased from 14px (main content)
-      lineHeight: 1.6
-    },
-    body2: {
-      fontSize: '0.875rem', // 14px - increased from 12px (secondary content)
-      lineHeight: 1.65
-    },
-    subtitle1: {
-      fontSize: '1rem', // 16px - increased from 14px
-      fontWeight: 600,
-      lineHeight: 1.6
-    },
-    subtitle2: {
-      fontSize: '0.875rem', // 14px - increased from 12px
-      fontWeight: 500,
-      lineHeight: 1.65
-    },
-    overline: {
-      fontSize: '0.75rem', // 12px
-      lineHeight: 1.7,
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px'
-    },
-    button: {
-      textTransform: 'capitalize',
-      fontSize: '0.9375rem', // 15px - slightly increased for better readability
-      fontWeight: 500
-    }
+    // Titles (Start at Base + 2 for H6, scale up)
+    h1: { fontSize: baseHeaderSize + 12, fontWeight: 700, lineHeight: 1.2 },
+    h2: { fontSize: baseHeaderSize + 8, fontWeight: 700, lineHeight: 1.3 },
+    h3: { fontSize: baseHeaderSize + 6, fontWeight: 600, lineHeight: 1.35 },
+    h4: { fontSize: baseHeaderSize + 4, fontWeight: 600, lineHeight: 1.4 },
+    h5: { fontSize: baseHeaderSize + 2, fontWeight: 600, lineHeight: 1.5 },
+    h6: { fontSize: baseHeaderSize, fontWeight: 600, lineHeight: 1.6 }, // Exactly Base + 2
+    // Body & Subtitles
+    subtitle1: { fontSize: fontSize + 1, fontWeight: 600, lineHeight: 1.6 }, // Medium emphasis
+    subtitle2: { fontSize: fontSize, fontWeight: 500, lineHeight: 1.65 }, // Table Headers often use this
+    body1: { fontSize: fontSize, lineHeight: 1.6 }, // Primary Text
+    body2: { fontSize: fontSize - 1, lineHeight: 1.65 }, // Secondary Text
+    button: { fontSize: fontSize, fontWeight: 500, textTransform: 'none' },
+    caption: { fontSize: fontSize - 2, lineHeight: 1.7 }
   };
 }

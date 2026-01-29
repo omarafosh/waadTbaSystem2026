@@ -42,4 +42,8 @@ public class UserCreateDto {
     private Boolean canViewReports;
     private Boolean canViewMembers;
     private Boolean canViewBenefitPolicies;
+
+    // Provider specific permissions
+    private Boolean allowAllCompanies;
+    private java.util.List<Long> permittedCompanyIds;
 }

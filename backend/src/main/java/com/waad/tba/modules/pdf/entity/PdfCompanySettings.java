@@ -33,7 +33,7 @@ public class PdfCompanySettings {
     @Column(name = "company_name", nullable = false, length = 255)
     private String companyName;
     
-    @Column(name = "logo_url", length = 512)
+    @Column(name = "logo_url", columnDefinition = "TEXT")
     private String logoUrl;
     
     @Lob

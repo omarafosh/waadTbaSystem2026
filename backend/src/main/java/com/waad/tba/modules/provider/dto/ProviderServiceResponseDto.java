@@ -34,14 +34,6 @@ public class ProviderServiceResponseDto {
     @JsonProperty("service_name")
     private String serviceName;
 
-    @Schema(description = "Service name (English)", example = "Cardiac Exam")
-    @JsonProperty("service_name_en")
-    private String serviceNameEn;
-    
-    @Schema(description = "Service name (Arabic Explicit)", example = "فحص القلب")
-    @JsonProperty("service_name_arabic")
-    private String serviceNameArabic;
-
     @Schema(description = "Category Code", example = "CAT-001")
     @JsonProperty("category_code")
     private String categoryCode;

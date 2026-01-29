@@ -8,7 +8,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles';
 
 // icons
 import Brightness4Icon from '@mui/icons-material/Brightness4'; // Moon
@@ -26,13 +26,14 @@ import AuthBackground from './AuthBackground';
 // ==============================|| AUTHENTICATION - WRAPPER ||============================== //
 
 export default function AuthWrapper({ children }) {
+  const { mode, systemMode } = useColorScheme();
   const theme = useTheme();
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const { companyName, getLogoSrc, hasLogo, settings } = useCompanySettings();
 
-  const handleThemeChange = () => {
-    setIsDarkMode((prev) => !prev);
-  };
+  // Handle 'system' mode correctly
+  const currentMode = mode === 'system' ? systemMode : mode;
+  const isDarkMode = currentMode === 'dark';
+
+  const { companyName, getLogoSrc, hasLogo, settings } = useCompanySettings();
 
   return (
     <Box
@@ -46,68 +47,20 @@ export default function AuthWrapper({ children }) {
         position: 'relative'
       }}
     >
-      {/* Theme Toggle Button */}
-      <Box sx={{ position: 'absolute', top: 20, right: 20, zIndex: 1200 }}>
-        <Tooltip title={isDarkMode ? "الوضع الفاتح" : "الوضع الداكن"}>
-          <IconButton
-            onClick={handleThemeChange}
-            sx={{
-              color: isDarkMode ? 'white' : 'primary.main',
-              bgcolor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-              '&:hover': {
-                bgcolor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'
-              }
-            }}
-          >
-            {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-          </IconButton>
-        </Tooltip>
-      </Box>
 
       {!isDarkMode && <AuthBackground />}
 
-      <Stack sx={{ minHeight: '100vh', justifyContent: 'center' }}>
-        {/* Logo & Company Name - Above Login Box */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          {hasLogo() ? (
-            <Box
-              component="img"
-              src={getLogoSrc()}
-              alt={companyName}
-              sx={{ 
-                height: { xs: 60, sm: 70 }, 
-                width: 'auto', 
-                objectFit: 'contain',
-                mb: 1.5,
-                filter: isDarkMode ? 'brightness(1.1)' : 'none'
-              }}
-            />
-          ) : (
-            <Logo />
-          )}
-          <Typography 
-            variant="h4" 
-            sx={{ 
-              fontWeight: 700,
-              color: isDarkMode ? 'white' : 'primary.main',
-              mb: 0.5
-            }}
-          >
-            {companyName || 'شركة وعد'}
-          </Typography>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary',
-              fontSize: '0.85rem'
-            }}
-          >
-            {settings?.businessType || 'لإدارة النفقات الطبية'}
-          </Typography>
-        </Box>
-
-        {/* Login Card */}
-        <Box>
+      <Stack sx={{ minHeight: '100vh' }}>
+        {/* Main Content Area (Login Card) */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            py: 2
+          }}
+        >
           <Grid
             container
             sx={{
@@ -121,8 +74,8 @@ export default function AuthWrapper({ children }) {
           </Grid>
         </Box>
 
-        {/* Footer */}
-        <Box sx={{ p: 3 }}>
+        {/* Footer - Pushed to Bottom */}
+        <Box sx={{ p: 2, mt: 'auto' }}>
           <AuthFooter />
         </Box>
       </Stack>

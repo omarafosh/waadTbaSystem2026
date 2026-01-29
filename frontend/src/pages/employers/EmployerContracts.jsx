@@ -63,14 +63,14 @@ const EmployerContracts = () => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalElements, setTotalElements] = useState(0);
-  
+
   // Pagination
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  
+
   // Sorting
   const [sortModel, setSortModel] = useState([{ field: 'createdAt', sort: 'desc' }]);
-  
+
   // Filters
   const [filters, setFilters] = useState({
     status: '',
@@ -79,18 +79,18 @@ const EmployerContracts = () => {
     endDate: null
   });
   const [employers, setEmployers] = useState([]);
-  
+
   // Dialogs
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState('create');
   const [selectedContract, setSelectedContract] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
-  
+
   // Actions Menu
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuContract, setMenuContract] = useState(null);
-  
+
   // Snackbar
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -124,9 +124,9 @@ const EmployerContracts = () => {
       }
 
       const response = await benefitPolicyService.list(params);
-      
+
       let data = response.data?.content || [];
-      
+
       // Client-side filtering for status and dates
       if (filters.status) {
         data = data.filter(c => c.status === filters.status);
@@ -408,8 +408,8 @@ const EmployerContracts = () => {
   return (
     <Box>
       <ModernPageHeader
-        title="عقود الشركاء"
-        subtitle="إدارة عقود التأمين الطبي للشركاء"
+        title="عقود جهات العمل"
+        subtitle="إدارة عقود التأمين الطبي لجهات العمل"
         icon={<AddIcon />}
         actionButton={{
           label: 'إنشاء عقد جديد',
@@ -450,7 +450,7 @@ const EmployerContracts = () => {
                 <MenuItem value="">الكل</MenuItem>
                 {employers.map((employer) => (
                   <MenuItem key={employer.id} value={employer.id}>
-                    {employer.nameAr || employer.name}
+                    {employer.name}
                   </MenuItem>
                 ))}
               </Select>

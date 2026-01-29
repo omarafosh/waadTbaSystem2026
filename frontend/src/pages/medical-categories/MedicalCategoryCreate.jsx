@@ -43,8 +43,7 @@ import { PERMISSIONS } from 'constants/permissions.constants';
 
 const INITIAL_FORM_STATE = {
   code: '',
-  name: '', // Arabic Name
-  nameEn: '', // English Name
+  name: '', // Name
   parentId: '', // Parent Category ID
   active: true
 };
@@ -68,7 +67,7 @@ const MedicalCategoryCreate = () => {
       try {
         const data = await getAllMedicalCategories();
         if (Array.isArray(data)) {
-            setCategories(data);
+          setCategories(data);
         }
       } catch (error) {
         console.error('Failed to load parent categories', error);
@@ -92,8 +91,7 @@ const MedicalCategoryCreate = () => {
     const newErrors = {};
 
     if (!form.code?.trim()) newErrors.code = 'الرمز مطلوب';
-    if (!form.name?.trim()) newErrors.name = 'الاسم العربي مطلوب';
-    if (!form.nameEn?.trim()) newErrors.nameEn = 'الاسم الإنجليزي مطلوب (اختياري لكن يفضل إضافته)';
+    if (!form.name?.trim()) newErrors.name = 'الاسم مطلوب';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -112,7 +110,6 @@ const MedicalCategoryCreate = () => {
         const payload = {
           code: form.code?.trim() || '',
           name: form.name?.trim() || '',
-          nameEn: form.nameEn?.trim() || null,
           parentId: form.parentId || null,
           active: form.active
         };
@@ -155,36 +152,36 @@ const MedicalCategoryCreate = () => {
 
           <Grid container spacing={3}>
             {/* Code & Active on same row */}
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  required
-                  label="رمز التصنيف"
-                  placeholder="مثال: CONSULTATION"
-                  value={form.code}
-                  onChange={handleChange('code')}
-                  error={!!errors.code}
-                  helperText={errors.code || 'رمز فريد (غير قابل للتغيير لاحقاً)'}
-                  disabled={submitting}
-                  dir="ltr"
-                  inputProps={{ style: { textAlign: 'right' } }} 
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6} display="flex" alignItems="center">
-                 <FormControlLabel
-                    control={<Switch checked={form.active} onChange={handleChange('active')} color="success" />}
-                    label={form.active ? 'نشط' : 'غير نشط'}
-                  />
-              </Grid>
-            
-            {/* Name Arabic */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 required
-                label="الاسم (عربي)"
-                placeholder="أدخل اسم التصنيف بالعربية"
+                label="رمز التصنيف"
+                placeholder="مثال: CONSULTATION"
+                value={form.code}
+                onChange={handleChange('code')}
+                error={!!errors.code}
+                helperText={errors.code || 'رمز فريد (غير قابل للتغيير لاحقاً)'}
+                disabled={submitting}
+                dir="ltr"
+                inputProps={{ style: { textAlign: 'right' } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6} display="flex" alignItems="center">
+              <FormControlLabel
+                control={<Switch checked={form.active} onChange={handleChange('active')} color="success" />}
+                label={form.active ? 'نشط' : 'غير نشط'}
+              />
+            </Grid>
+
+            {/* Name */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                required
+                label="الاسم"
+                placeholder="أدخل اسم التصنيف"
                 value={form.name}
                 onChange={handleChange('name')}
                 error={!!errors.name}
@@ -192,46 +189,30 @@ const MedicalCategoryCreate = () => {
                 disabled={submitting}
               />
             </Grid>
-            
-             {/* Name English */}
-             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="الاسم (إنجليزي - اختياري)"
-                placeholder="Enter English Name"
-                value={form.nameEn}
-                onChange={handleChange('nameEn')}
-                error={!!errors.nameEn}
-                helperText={errors.nameEn}
-                disabled={submitting}
-                dir="ltr"
-                 inputProps={{ style: { textAlign: 'right' } }}
-              />
-            </Grid>
 
             {/* Parent Category */}
             <Grid item xs={12} md={6}>
-               <TextField
-                  select
-                  fullWidth
-                  label="التصنيف الأب (اختياري)"
-                  value={form.parentId}
-                  onChange={handleChange('parentId')}
-                  subheader="اختر التصنيف الرئيسي إذا كان هذا فرعاً"
-                  SelectProps={{
-                      displayEmpty: true
-                  }}
-                  disabled={submitting}
-                 >
-                    <MenuItem value="">
-                        <em>(بدون أب - تصنيف رئيسي)</em>
-                    </MenuItem>
-                    {categories.map((cat) => (
-                        <MenuItem key={cat.id} value={cat.id}>
-                            {cat.name} ({cat.code})
-                        </MenuItem>
-                    ))}
-                 </TextField>
+              <TextField
+                select
+                fullWidth
+                label="التصنيف الأب (اختياري)"
+                value={form.parentId}
+                onChange={handleChange('parentId')}
+                subheader="اختر التصنيف الرئيسي إذا كان هذا فرعاً"
+                SelectProps={{
+                  displayEmpty: true
+                }}
+                disabled={submitting}
+              >
+                <MenuItem value="">
+                  <em>(بدون أب - تصنيف رئيسي)</em>
+                </MenuItem>
+                {categories.map((cat) => (
+                  <MenuItem key={cat.id} value={cat.id}>
+                    {cat.name} ({cat.code})
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
 
             {/* Actions */}

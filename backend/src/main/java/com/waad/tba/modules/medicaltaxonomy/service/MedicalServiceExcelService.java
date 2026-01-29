@@ -27,7 +27,7 @@ import java.util.Map;
  * Service for importing Medical Services from Excel files
  * 
  * Expected Excel format:
- * | code | nameAr | nameEn | categoryCode | priceLyd | requiresApproval | active |
+ * | code | nameAr | categoryCode | priceLyd | requiresApproval | active |
  * 
  * Business Rules:
  * - code: unique, required
@@ -135,7 +135,6 @@ public class MedicalServiceExcelService {
         // Extract data from row
         String code = getCellValueAsString(row, columnMap.get("code"));
         String nameAr = getCellValueAsString(row, columnMap.get("nameAr"));
-        String nameEn = getCellValueAsString(row, columnMap.get("nameEn"));
         String categoryCode = getCellValueAsString(row, columnMap.get("categoryCode"));
         BigDecimal price = getCellValueAsDecimal(row, columnMap.get("priceLyd"));
         Boolean requiresApproval = getCellValueAsBoolean(row, columnMap.get("requiresApproval"));
@@ -164,9 +163,6 @@ public class MedicalServiceExcelService {
         if (existingService != null) {
             // Update existing service
             existingService.setName(nameAr.trim());
-            if (nameEn != null && !nameEn.trim().isEmpty()) {
-                existingService.setNameEn(nameEn.trim());
-            }
             if (category != null) {
                 existingService.setCategoryId(category.getId());
             }
@@ -194,7 +190,6 @@ public class MedicalServiceExcelService {
             MedicalService newService = MedicalService.builder()
                     .code(code.trim())
                     .name(nameAr.trim())
-                    .nameEn(nameEn != null ? nameEn.trim() : null)
                     .categoryId(category.getId())
                     .basePrice(price)
                     .requiresPA(requiresApproval != null ? requiresApproval : false)
@@ -222,8 +217,6 @@ public class MedicalServiceExcelService {
                 columnMap.put("code", cell.getColumnIndex());
             } else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم") || columnName.equals("اسم") || columnName.equals("name") || columnName.equals("الاسم بالعربية")) {
                 columnMap.put("nameAr", cell.getColumnIndex());
-            } else if (columnName.equals("nameen") || columnName.equals("name_en") || columnName.equals("الاسم بالانجليزية") || columnName.equals("englishname") || columnName.equals("الاسم بالإنجليزية")) {
-                columnMap.put("nameEn", cell.getColumnIndex());
             } else if (columnName.equals("categorycode") || columnName.equals("category_code") || columnName.equals("رمز التصنيف") || columnName.equals("category") || columnName.equals("التصنيف") || columnName.equals("الفئة") || columnName.equals("اسم التصنيف") || columnName.equals("categoryname")) {
                 columnMap.put("categoryCode", cell.getColumnIndex());
             } else if (columnName.equals("pricelyd") || columnName.equals("price_lyd") || columnName.equals("price") || columnName.equals("السعر") || columnName.equals("baseprice") || columnName.equals("السعر (دينار)")) {
@@ -272,10 +265,6 @@ public class MedicalServiceExcelService {
             // البحث بالاسم العربي
             if (category.getName() != null) {
                 cache.put(category.getName().trim(), category);
-            }
-            // البحث بالاسم الإنجليزي
-            if (category.getNameEn() != null) {
-                cache.put(category.getNameEn().trim(), category);
             }
         }
         

@@ -50,6 +50,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DomainIcon from '@mui/icons-material/Domain';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -91,7 +92,10 @@ const INITIAL_FORM = {
   canViewVisits: true,
   canViewReports: true,
   canViewMembers: true,
-  canViewBenefitPolicies: true
+  canViewBenefitPolicies: true,
+  // Provider specific permissions
+  allowAllCompanies: true,
+  permittedCompanies: []
 };
 
 // ============================================================================
@@ -403,7 +407,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                   <Box sx={{ flex: 1 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="subtitle2" fontWeight="medium">
-                        {role?.nameAr || role?.name || '-'}
+                        {role?.name || '-'}
                       </Typography>
                       <Chip
                         label={roleName}
@@ -470,7 +474,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
             noOptionsText="لا يوجد شركاء"
             sx={{ mb: 3 }}
           />
-          
+
           {/* Custom Permissions Section */}
           <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mb: 2 }}>
             <Typography variant="body2" fontWeight="medium" gutterBottom>
@@ -480,7 +484,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
               حدد ما يمكن لهذا المستخدم رؤيته وإدارته في النظام
             </Typography>
           </Alert>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <FormControlLabel
@@ -503,7 +507,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                 }
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={
@@ -525,7 +529,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                 }
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={
@@ -547,7 +551,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                 }
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={
@@ -569,7 +573,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                 }
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={
@@ -606,7 +610,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
           <Autocomplete
             fullWidth
             options={allProviders}
-            getOptionLabel={(option) => option?.nameArabic || option?.nameEnglish || ''}
+            getOptionLabel={(option) => option?.name || ''}
             value={allProviders.find((p) => p.id === form.providerId) || null}
             onChange={(event, newValue) => {
               setForm((prev) => ({ ...prev, providerId: newValue?.id || null }));
@@ -626,9 +630,9 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
             renderOption={(props, option) => (
               <Box component="li" {...props}>
                 <Stack>
-                  <Typography variant="body2">{option.nameArabic}</Typography>
+                  <Typography variant="body2">{option.name}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {option.nameEnglish} - {option.providerType}
+                    {option.providerType}
                   </Typography>
                 </Stack>
               </Box>
@@ -637,6 +641,81 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
             loadingText="جاري التحميل..."
             noOptionsText="لا توجد مقدمي خدمة"
           />
+        </Box>
+      )}
+
+      {/* Provider Company Visibility */}
+      {hasProviderRole && (
+        <Box sx={{ mt: 3, pt: 3, borderTop: '1px dashed', borderColor: 'info.main' }}>
+          <Alert severity="info" icon={<DomainIcon />} sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="medium" gutterBottom>
+              نطاق الوصول للشركات (Provider Visibility)
+            </Typography>
+            <Typography variant="caption">
+              حدد الشركات التي يمكن لهذا الموظف رؤية أعضائها والتحقق من أهليتهم
+            </Typography>
+          </Alert>
+
+          <Stack spacing={3}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.allowAllCompanies}
+                  onChange={(e) => setForm({ ...form, allowAllCompanies: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">الوصول الكامل لجميع الشركات</Typography>
+                  <Typography variant="caption" color="text.secondary">يمكنه البحث عن أعضاء كافة الشركات المتعاقد معها المستشفى</Typography>
+                </Box>
+              }
+            />
+
+            {!form.allowAllCompanies && (
+              <Collapse in={!form.allowAllCompanies}>
+                <Box sx={{ pl: 4, mt: 1 }}>
+                  <Autocomplete
+                    multiple
+                    options={allEmployers}
+                    getOptionLabel={(option) => option?.label || option?.code || ''}
+                    value={form.permittedCompanies || []}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    onChange={(event, newValue) => {
+                      setForm({ ...form, permittedCompanies: newValue });
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="اختر الشركات المسموح بها"
+                        placeholder="ابحث عن شركة..."
+                        helperText="سيتمكن الموظف من الوصول لأعضاء هذه الشركات فقط"
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          key={option.id}
+                          variant="outlined"
+                          label={option.label}
+                          size="small"
+                          color="primary"
+                          {...getTagProps({ index })}
+                        />
+                      ))
+                    }
+                  />
+                  {(!form.permittedCompanies || form.permittedCompanies.length === 0) && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                      * يجب اختيار شركة واحدة على الأقل في حال إيقاف خيار "الوصول الكامل"
+                    </Typography>
+                  )}
+                </Box>
+              </Collapse>
+            )}
+          </Stack>
         </Box>
       )}
 
@@ -652,7 +731,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
               return (
                 <Chip
                   key={roleId}
-                  label={role?.nameAr || role?.name || roleId}
+                  label={role?.name || roleId}
                   color={getRoleColor(role?.name)}
                   size="small"
                   onDelete={() => handleToggleRole(roleId)}
@@ -838,6 +917,9 @@ const UserCreate = () => {
       // Add providerId only if PROVIDER role is selected
       if (hasProviderRole && form.providerId) {
         payload.providerId = form.providerId;
+        // Add company permissions
+        payload.allowAllCompanies = form.allowAllCompanies;
+        payload.permittedCompanyIds = form.permittedCompanies?.map(c => c.id) || [];
       }
 
       // Step 1: Create user (without roles)

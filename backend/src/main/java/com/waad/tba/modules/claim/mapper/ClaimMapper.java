@@ -15,7 +15,7 @@ import com.waad.tba.modules.preauthorization.repository.PreAuthorizationReposito
 import com.waad.tba.modules.provider.dto.EffectivePriceResponseDto;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
-import com.waad.tba.modules.provider.service.ProviderContractService;
+import com.waad.tba.modules.providercontract.service.ProviderContractService;
 import com.waad.tba.modules.visit.entity.Visit;
 import com.waad.tba.modules.visit.repository.VisitRepository;
 import lombok.RequiredArgsConstructor;
@@ -111,7 +111,7 @@ public class ClaimMapper {
                 .visit(visit)
                 .insuranceOrganization(insuranceOrg)
                 .providerId(providerId)
-                .providerName(provider.getNameArabic() != null ? provider.getNameArabic() : provider.getNameEnglish())
+                .providerName(provider.getName())
                 .doctorName(dto.getDoctorName())
                 .diagnosisCode(dto.getDiagnosisCode())
                 .diagnosisDescription(dto.getDiagnosisDescription())
@@ -161,7 +161,8 @@ public class ClaimMapper {
             // ═══════════════════════════════════════════════════════════════════════════
             // NEW: Check if service requires pre-approval from BenefitPolicyRule
             // ═══════════════════════════════════════════════════════════════════════════
-            boolean requiresPA = benefitPolicyCoverageService.requiresPreApprovalFromPolicy(member, medicalService.getId());
+            boolean requiresPA = benefitPolicyCoverageService.requiresPreApprovalFromPolicy(
+                    member, medicalService.getId(), visit.getVisitType());
             if (requiresPA) {
                 servicesRequiringPA.add(medicalService.getName() + " (" + medicalService.getCode() + ")");
             }

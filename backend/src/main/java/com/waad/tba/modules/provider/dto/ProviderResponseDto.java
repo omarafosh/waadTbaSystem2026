@@ -20,20 +20,8 @@ public class ProviderResponseDto {
     private Long id;
     
     /**
-     * Provider name in Arabic (الاسم بالعربية)
+     * Provider name (Unified)
      */
-    private String nameArabic;
-    
-    /**
-     * Provider name in English
-     */
-    private String nameEnglish;
-    
-    /**
-     * Display name (Arabic name for backward compatibility)
-     * @deprecated Use nameArabic/nameEnglish instead
-     */
-    @Deprecated
     private String name;
     
     private String licenseNumber;

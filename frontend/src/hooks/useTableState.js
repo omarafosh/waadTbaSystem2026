@@ -16,7 +16,8 @@
  * });
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 /**
  * @typedef {Object} TableStateConfig
@@ -38,63 +39,112 @@ export const useTableState = (config = {}) => {
     initialFilters = {}
   } = config;
 
-  // ========================================
-  // PAGINATION STATE
-  // ========================================
-
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(initialPageSize);
-
-  const handlePageChange = useCallback((newPage) => {
-    setPage(newPage);
-  }, []);
-
-  const handlePageSizeChange = useCallback((newPageSize) => {
-    setPageSize(newPageSize);
-    setPage(0); // Reset to first page when changing page size
-  }, []);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ========================================
-  // SORTING STATE
+  // PAGINATION STATE (Synced with URL)
   // ========================================
 
-  const [sorting, setSorting] = useState(() => {
+  const page = parseInt(searchParams.get('page') || '0', 10);
+  
+  // Size Priority: URL -> localStorage -> Config
+  const pageSize = useMemo(() => {
+    const fromUrl = searchParams.get('size');
+    if (fromUrl) return parseInt(fromUrl, 10);
+    
+    const fromStorage = localStorage.getItem('table_page_size');
+    if (fromStorage) return parseInt(fromStorage, 10);
+    
+    return initialPageSize;
+  }, [searchParams, initialPageSize]);
+
+  const setPage = useCallback((newPage) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newPage > 0) {
+        newParams.set('page', newPage.toString());
+      } else {
+        newParams.delete('page');
+      }
+      return newParams;
+    });
+  }, [setSearchParams]);
+
+  const setPageSize = useCallback((newPageSize) => {
+    localStorage.setItem('table_page_size', newPageSize.toString());
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('size', newPageSize.toString());
+      newParams.delete('page'); // Reset to first page
+      return newParams;
+    });
+  }, [setSearchParams]);
+
+  // ========================================
+  // SORTING STATE (Synced with URL)
+  // ========================================
+
+  const sorting = useMemo(() => {
+    const sortParam = searchParams.get('sort');
+    if (sortParam) {
+      const [id, dir] = sortParam.split(',');
+      return [{ id, desc: dir === 'desc' }];
+    }
     if (defaultSort) {
       return [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
     }
     return [];
-  });
+  }, [searchParams, defaultSort]);
 
-  const handleSortingChange = useCallback((updater) => {
-    setSorting(updater);
-  }, []);
+  const setSorting = useCallback((updater) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      
+      // Calculate new sorting value based on updater
+      const currentSortParam = newParams.get('sort');
+      let currentSort = [];
+      if (currentSortParam) {
+          const [id, dir] = currentSortParam.split(',');
+          currentSort = [{ id, desc: dir === 'desc' }];
+      } else if (defaultSort) {
+          currentSort = [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
+      }
+
+      const nextSorting = typeof updater === 'function' ? updater(currentSort) : updater;
+
+      if (nextSorting && nextSorting.length > 0) {
+        const { id, desc } = nextSorting[0];
+        newParams.set('sort', `${id},${desc ? 'desc' : 'asc'}`);
+      } else {
+        newParams.delete('sort');
+      }
+      return newParams;
+    });
+  }, [setSearchParams, defaultSort]);
 
   // ========================================
-  // FILTERING STATE
+  // FILTERING STATE (Local State Only - Can be enhanced later)
   // ========================================
 
   const [columnFilters, setColumnFilters] = useState(initialFilters);
 
   const handleFilterChange = useCallback((columnId, value) => {
     setColumnFilters((prev) => {
-      if (value === '' || value === null || value === undefined) {
-        // Remove filter if value is empty
+       // ... logic same as before
+       if (value === '' || value === null || value === undefined) {
         const newFilters = { ...prev };
         delete newFilters[columnId];
         return newFilters;
       }
-      return {
-        ...prev,
-        [columnId]: value
-      };
+      return { ...prev, [columnId]: value };
     });
-    setPage(0); // Reset to first page when filtering
-  }, []);
+    setPage(0);
+  }, [setPage]);
 
   const handleClearFilters = useCallback(() => {
     setColumnFilters({});
     setPage(0);
-  }, []);
+  }, [setPage]);
 
   // ========================================
   // ROW SELECTION STATE (Optional)
@@ -115,12 +165,18 @@ export const useTableState = (config = {}) => {
   // ========================================
 
   const resetTableState = useCallback(() => {
-    setPage(0);
-    setPageSize(initialPageSize);
-    setSorting(defaultSort ? [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }] : []);
     setColumnFilters(initialFilters);
     setRowSelection({});
-  }, [initialPageSize, defaultSort, initialFilters]);
+    
+    // Clear URL Params for state
+    setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        newParams.delete('page');
+        newParams.delete('size');
+        newParams.delete('sort');
+        return newParams;
+    });
+  }, [initialFilters, setSearchParams]);
 
   // ========================================
   // COMPUTED VALUES
@@ -142,12 +198,12 @@ export const useTableState = (config = {}) => {
     // Pagination
     page,
     pageSize,
-    setPage: handlePageChange,
-    setPageSize: handlePageSizeChange,
+    setPage: setPage,
+    setPageSize: setPageSize,
 
     // Sorting
     sorting,
-    setSorting: handleSortingChange,
+    setSorting: setSorting,
 
     // Filtering
     columnFilters,

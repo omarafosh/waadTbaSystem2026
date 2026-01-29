@@ -36,17 +36,8 @@ public class MedicalCategory {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
-    /**
-     * Arabic name (primary)
-     */
     @Column(name = "name_ar", nullable = false, length = 200)
     private String name;
-
-    /**
-     * English name (supplementary)
-     */
-    @Column(name = "name_en", length = 200)
-    private String nameEn;
 
     /**
      * Parent category for hierarchy support
@@ -60,6 +51,7 @@ public class MedicalCategory {
      * Soft delete flag
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 
     /**

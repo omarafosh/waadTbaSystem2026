@@ -8,6 +8,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 // project imports
 import { CSS_VAR_PREFIX, DEFAULT_THEME_MODE, ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
+import { useCompanySettings } from 'contexts/CompanySettingsContext';
 import CustomShadows from './custom-shadows';
 import componentsOverride from './overrides';
 import { buildPalette } from './palette';
@@ -17,8 +18,13 @@ import Typography from './typography';
 
 export default function ThemeCustomization({ children }) {
   const { state } = useConfig();
+  const { settings } = useCompanySettings();
 
-  const themeTypography = useMemo(() => Typography(state.fontFamily), [state.fontFamily]);
+  // Prioritize local user preference (state), then company settings, then default
+  const fontFamily = state.fontFamily || settings?.fontFamily;
+  const fontSize = state.fontSize || settings?.fontSize || 12;
+
+  const themeTypography = useMemo(() => Typography(fontFamily, fontSize), [fontFamily, fontSize]);
 
   const palette = useMemo(() => buildPalette(state.presetColor), [state.presetColor]);
 

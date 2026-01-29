@@ -121,9 +121,10 @@ public class BenefitPolicyRuleController {
                            "Service-specific rules take priority over category rules.")
     public ResponseEntity<ApiResponse<BenefitPolicyRuleResponseDto>> getCoverageForService(
             @PathVariable Long policyId,
-            @PathVariable Long serviceId) {
+            @PathVariable Long serviceId,
+            @RequestParam(required = false) com.waad.tba.modules.visit.entity.VisitType encounterType) {
         
-        Optional<BenefitPolicyRuleResponseDto> result = ruleService.findCoverageForService(policyId, serviceId);
+        Optional<BenefitPolicyRuleResponseDto> result = ruleService.findCoverageForService(policyId, serviceId, encounterType);
         
         if (result.isEmpty()) {
             return ResponseEntity.ok(ApiResponse.success("Service not covered under this policy", null));
@@ -137,11 +138,12 @@ public class BenefitPolicyRuleController {
     @Operation(summary = "Quick check if a service is covered")
     public ResponseEntity<ApiResponse<Map<String, Object>>> checkServiceCoverage(
             @PathVariable Long policyId,
-            @PathVariable Long serviceId) {
+            @PathVariable Long serviceId,
+            @RequestParam(required = false) com.waad.tba.modules.visit.entity.VisitType encounterType) {
         
-        boolean isCovered = ruleService.isServiceCovered(policyId, serviceId);
-        int coveragePercent = ruleService.getCoveragePercent(policyId, serviceId);
-        boolean requiresPreApproval = ruleService.requiresPreApproval(policyId, serviceId);
+        boolean isCovered = ruleService.isServiceCovered(policyId, serviceId, encounterType);
+        int coveragePercent = ruleService.getCoveragePercent(policyId, serviceId, encounterType);
+        boolean requiresPreApproval = ruleService.requiresPreApproval(policyId, serviceId, encounterType);
         
         Map<String, Object> result = Map.of(
             "covered", isCovered,

@@ -42,168 +42,192 @@ public class CardNumberGeneratorService {
     
     private final MemberRepository memberRepository;
 
+    private final com.waad.tba.common.service.SystemSettingsService systemSettingsService;
+
     /**
-     * Generate base card number for PRINCIPAL member.
-     * 
-     * Format: NNNNNN (6 digits, zero-padded)
-     * Example: 000001, 000123, 012345
-     * 
-     * Uses database sequence for atomic increments.
-     * 
-     * @return Base card number for principal
+     * Requirement 1: Generate Smart Card Number
+     * Format: Configurable via System Settings (CARD_NUMBER_FORMAT)
+     * Default: [PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]
      */
     @Transactional
-    public String generateForPrincipal() {
-        // Get next sequence value
+    public String generateSmartCardNumber(Member member) {
+        if (member == null) {
+            throw new IllegalArgumentException("Member cannot be null");
+        }
+
+        // 1. Get Format from Settings
+        String format = systemSettingsService.getSetting("CARD_NUMBER_FORMAT", "[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]");
+
+        // 0. Dependent Strategy: Inherit from Parent
+        if (member.getParent() != null) {
+            Member parent = member.getParent();
+            String parentCard = parent.getCardNumber();
+            
+            // Safety check: if parent has no card yet (shouldn't happen in new flow), fallback to base generation using parent data? 
+            // Better to rely on parent card.
+            if (parentCard != null && !parentCard.isEmpty()) {
+                String suffix = determineRelationshipSuffix(member);
+                // Ensure suffix has a separator if not present, but standard requirement is usually dash
+                // Format: PARENT_CARD-SUFFIX
+                return parentCard + "-" + suffix; 
+            }
+        }
+
+        // 2. Prepare Tokens
+        String proCode = determineProviderCode(member);
+        String year = String.valueOf(java.time.Year.now().getValue());
+        
+        // Emp No or ID Part
+        String empNo = member.getEmployeeNumber();
+        if (empNo == null || empNo.trim().isEmpty()) {
+             // If no employee number, fallback to internal ID sequence
+             empNo = determineIdPart(member);
+        }
+        
+        // Suffix Logic
+        String suffix = determineRelationshipSuffix(member);
+
+        // 3. Replace Tokens (Case Insensitive Support)
+        String smartCardNumber = format
+                .replace("[PRO]", proCode)
+                .replace("{PRO}", proCode)
+                .replace("[YEAR]", year)
+                .replace("{YEAR}", year)
+                .replace("[EMP_NO]", empNo)
+                .replace("{EMP_NO}", empNo)
+                .replace("[REL_SUFFIX]", suffix)
+                .replace("{REL_SUFFIX}", suffix)
+                .replace("[R]", suffix) // Backward compatibility
+                .replace("{R}", suffix)
+                .replace("[COMP]", determineCompanyCode(member))
+                .replace("{COMP}", determineCompanyCode(member))
+                .replace("[ID]", determineIdPart(member))
+                .replace("{ID}", determineIdPart(member));
+        
+        // Update member fields for auditing
+        member.setProviderCode(proCode);
+        member.setIsSmartCard(true);
+        
+        log.info("Generated Enterprise Smart Card Number: {} (Format: {})", smartCardNumber, format);
+        
+        return smartCardNumber;
+    }
+
+    /**
+     * Determines the relationship suffix for a dependent member.
+     * Includes a sequence number to ensure uniqueness when multiple dependents
+     * have the same relationship type (e.g., multiple sons: S1, S2, S3).
+     * 
+     * Format: [REL_CODE][SEQ] where:
+     * - REL_CODE: W=Wife, H=Husband, S=Son, D=Daughter, F=Father, M=Mother, O=Other
+     * - SEQ: Sequence number (1, 2, 3...) for same relationship types
+     * 
+     * @param member The dependent member
+     * @return Suffix string (e.g., "W", "S1", "S2", "D1")
+     */
+    private String determineRelationshipSuffix(Member member) {
+        if (member.isPrincipal()) {
+            return ""; // Principal has no suffix
+        }
+        
+        // Get the relationship code
+        String relCode = getRelationshipCode(member.getRelationship());
+        
+        // For dependents, calculate sequence number among siblings with same relationship
+        int sequenceNumber = calculateRelationshipSequence(member);
+        
+        // If only one dependent of this type, omit the number for cleaner format
+        // Otherwise, append the sequence number
+        if (sequenceNumber <= 1) {
+            return relCode;
+        }
+        return relCode + sequenceNumber;
+    }
+    
+    /**
+     * Get the single-character code for a relationship type.
+     */
+    private String getRelationshipCode(Member.Relationship relationship) {
+        if (relationship == null) {
+            return "O";
+        }
+        switch (relationship) {
+            case WIFE: return "W";
+            case HUSBAND: return "H";
+            case SON: return "S";
+            case DAUGHTER: return "D";
+            case FATHER: return "F";
+            case MOTHER: return "M";
+            default: return "O";
+        }
+    }
+    
+    /**
+     * Calculate the sequence number for a dependent among siblings with the same relationship type.
+     * 
+     * Example: If principal has 3 sons, they get sequences 1, 2, 3.
+     * The sequence is determined by counting existing dependents with same relationship
+     * under the same parent and adding 1.
+     * 
+     * @param member The dependent member being created
+     * @return Sequence number (1-based)
+     */
+    private int calculateRelationshipSequence(Member member) {
+        if (member.getParent() == null || member.getRelationship() == null) {
+            return 1;
+        }
+        
+        Long parentId = member.getParent().getId();
+        Member.Relationship relationship = member.getRelationship();
+        
+        // Count existing dependents with same parent and relationship
+        // This counts siblings already saved to database
+        java.util.List<Member> existingSiblings = memberRepository.findByParentIdAndRelationship(parentId, relationship);
+        
+        // If the member already has an ID (update case), don't count itself
+        if (member.getId() != null) {
+            existingSiblings = existingSiblings.stream()
+                .filter(m -> !m.getId().equals(member.getId()))
+                .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Return next sequence number
+        return existingSiblings.size() + 1;
+    }
+
+    private String determineProviderCode(Member member) {
+        // Requirement: First 3 chars of provider/organization
+        if (member.getEmployerOrganization() != null && member.getEmployerOrganization().getCode() != null) {
+             String code = member.getEmployerOrganization().getCode();
+             return code.length() >= 3 ? code.substring(0, 3).toUpperCase() : code.toUpperCase();
+        }
+        return "TBA";
+    }
+
+    private String determineCompanyCode(Member member) {
+        if (member.getEmployerOrganization() != null && member.getEmployerOrganization().getCode() != null) {
+            return member.getEmployerOrganization().getCode().toUpperCase();
+        }
+        return "GEN"; 
+    }
+
+    private String determineIdPart(Member member) {
+        // Generate from sequence if Employee Number is missing
+        Number nextVal = (Number) entityManager
+            .createNativeQuery("SELECT nextval('seq_smart_card_random_id')")
+            .getSingleResult();
+        return String.format("%06d", nextVal.longValue());
+    }
+
+    /**
+     * Legacy support (Deprecated)
+     */
+    @Deprecated
+    @Transactional
+    public String generateForPrincipalLegacy() {
         Number nextVal = (Number) entityManager
             .createNativeQuery("SELECT nextval('member_card_number_seq')")
             .getSingleResult();
-        long seq = nextVal.longValue();
-        
-        // Format: NNNNNN (6 digits)
-        String cardNumber = String.format("%06d", seq);
-        
-        log.info("Generated card number for PRINCIPAL: {}", cardNumber);
-        return cardNumber;
-    }
-
-    /**
-     * Generate card number for DEPENDENT member.
-     * 
-     * Format: {principal_card_number}-{suffix}
-     * Example: 000123-01, 000123-02, 000123-03
-     * 
-     * Suffix is auto-calculated based on existing dependents count.
-     * 
-     * @param principal The principal member (parent)
-     * @return Card number with suffix
-     */
-    @Transactional(readOnly = true)
-    public String generateForDependent(Member principal) {
-        if (principal == null) {
-            throw new IllegalArgumentException("Principal member cannot be null");
-        }
-        
-        if (principal.isDependent()) {
-            throw new IllegalArgumentException(
-                "Cannot generate dependent card number: provided member is already a dependent. " +
-                "Dependents cannot have sub-dependents."
-            );
-        }
-        
-        String principalCardNumber = principal.getCardNumber();
-        if (principalCardNumber == null || principalCardNumber.trim().isEmpty()) {
-            throw new IllegalStateException(
-                "Principal member must have a card number before creating dependents"
-            );
-        }
-        
-        // Count existing dependents for this principal
-        long dependentsCount = memberRepository.countByParentId(principal.getId());
-        
-        // Calculate next suffix (starts at 01)
-        int nextSuffix = (int) dependentsCount + 1;
-        
-        // Format: {principal_card}-{suffix}
-        String cardNumber = String.format("%s-%02d", principalCardNumber, nextSuffix);
-        
-        log.info("Generated card number for DEPENDENT of principal {}: {}", 
-                 principal.getId(), cardNumber);
-        
-        return cardNumber;
-    }
-
-    /**
-     * Generate unique card number for principal with collision prevention.
-     * 
-     * Recommended for use in high-concurrency environments.
-     * 
-     * @return Guaranteed unique card number
-     * @throws IllegalStateException if unable to generate unique card number
-     */
-    @Transactional
-    public String generateUniqueForPrincipal() {
-        String cardNumber;
-        int attempts = 0;
-        final int MAX_ATTEMPTS = 100;
-        
-        do {
-            cardNumber = generateForPrincipal();
-            attempts++;
-            
-            if (attempts >= MAX_ATTEMPTS) {
-                log.error("Failed to generate unique card number for Principal after {} attempts", MAX_ATTEMPTS);
-                throw new IllegalStateException(
-                    "Unable to generate unique card number for Principal after " + MAX_ATTEMPTS + " attempts. " +
-                    "This indicates a critical system issue."
-                );
-            }
-            
-            // Check if card number already exists
-        } while (memberRepository.existsByCardNumber(cardNumber));
-        
-        if (attempts > 1) {
-            log.warn("Generated unique card number for Principal after {} attempts: {}", attempts, cardNumber);
-        } else {
-            log.debug("Generated unique card number for Principal on first attempt: {}", cardNumber);
-        }
-        
-        return cardNumber;
-    }
-
-    /**
-     * Validate card number format.
-     * 
-     * Valid formats:
-     * - Principal: NNNNNN (exactly 6 digits)
-     * - Dependent: NNNNNN-NN (6 digits, hyphen, 2 digits)
-     * 
-     * @param cardNumber Card number to validate
-     * @return true if valid, false otherwise
-     */
-    public boolean isValidCardNumberFormat(String cardNumber) {
-        if (cardNumber == null || cardNumber.trim().isEmpty()) {
-            return false;
-        }
-        
-        // Principal format: exactly 6 digits
-        if (cardNumber.matches("^\\d{6}$")) {
-            return true;
-        }
-        
-        // Dependent format: 6 digits, hyphen, 2 digits
-        if (cardNumber.matches("^\\d{6}-\\d{2}$")) {
-            return true;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Check if card number belongs to a principal (no suffix).
-     * 
-     * @param cardNumber Card number to check
-     * @return true if principal card number, false if dependent
-     */
-    public boolean isPrincipalCardNumber(String cardNumber) {
-        if (cardNumber == null) {
-            return false;
-        }
-        return cardNumber.matches("^\\d{6}$");
-    }
-
-    /**
-     * Extract base card number from dependent card number.
-     * 
-     * Example: "000123-01" → "000123"
-     * 
-     * @param dependentCardNumber Dependent's card number
-     * @return Base card number (principal's card number)
-     */
-    public String extractBaseCardNumber(String dependentCardNumber) {
-        if (dependentCardNumber == null || !dependentCardNumber.contains("-")) {
-            return dependentCardNumber;
-        }
-        return dependentCardNumber.split("-")[0];
+        return String.format("%06d", nextVal.longValue());
     }
 }

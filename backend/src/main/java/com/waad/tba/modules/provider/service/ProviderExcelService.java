@@ -108,8 +108,7 @@ public class ProviderExcelService {
     }
 
     private void processRow(Row row, int rowNum, Map<String, Integer> columnMap, ImportSummary summary) {
-        String nameArabic = getCellValueAsString(row, columnMap.get("nameArabic"));
-        String nameEnglish = getCellValueAsString(row, columnMap.get("nameEnglish"));
+        String name = getCellValueAsString(row, columnMap.get("name"));
         String licenseNumber = getCellValueAsString(row, columnMap.get("licenseNumber"));
         String providerTypeStr = getCellValueAsString(row, columnMap.get("providerType"));
         String city = getCellValueAsString(row, columnMap.get("city"));
@@ -118,8 +117,8 @@ public class ProviderExcelService {
         Boolean active = getCellValueAsBoolean(row, columnMap.get("active"));
 
         // Validate required fields
-        if (nameArabic == null || nameArabic.trim().isEmpty()) {
-            throw new BusinessRuleException("الاسم بالعربية (nameArabic) مطلوب");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessRuleException("الاسم (name) مطلوب");
         }
         if (licenseNumber == null || licenseNumber.trim().isEmpty()) {
             throw new BusinessRuleException("رقم الترخيص (licenseNumber) مطلوب");
@@ -138,13 +137,10 @@ public class ProviderExcelService {
         Provider existingProvider = providerRepository.findByLicenseNumber(licenseNumber.trim()).orElse(null);
 
         if (existingProvider != null) {
-            // Update existing provider with bilingual names
-            existingProvider.setNameArabic(nameArabic != null && !nameArabic.trim().isEmpty() 
-                ? nameArabic.trim() 
-                : existingProvider.getNameArabic());
-            existingProvider.setNameEnglish(nameEnglish != null && !nameEnglish.trim().isEmpty() 
-                ? nameEnglish.trim() 
-                : existingProvider.getNameEnglish());
+            // Update existing provider
+            existingProvider.setName(name != null && !name.trim().isEmpty() 
+                ? name.trim() 
+                : existingProvider.getName());
             existingProvider.setProviderType(providerType);
             if (city != null && !city.trim().isEmpty()) {
                 existingProvider.setCity(city.trim());
@@ -165,16 +161,9 @@ public class ProviderExcelService {
             log.debug("[ProviderExcel] Updated provider: {}", licenseNumber);
             
         } else {
-            // Insert new provider with bilingual names
-            String nameArValue = (nameArabic != null && !nameArabic.trim().isEmpty()) 
-                ? nameArabic.trim() 
-                : (nameEnglish != null && !nameEnglish.trim().isEmpty() ? nameEnglish.trim() : "");
-            String nameEnValue = (nameEnglish != null && !nameEnglish.trim().isEmpty()) 
-                ? nameEnglish.trim() 
-                : (nameArabic != null && !nameArabic.trim().isEmpty() ? nameArabic.trim() : "");
+            // Insert new provider
             Provider newProvider = Provider.builder()
-                    .nameArabic(nameArValue)
-                    .nameEnglish(nameEnValue)
+                    .name(name.trim())
                     .licenseNumber(licenseNumber.trim())
                     .providerType(providerType)
                     .city(city != null ? city.trim() : null)
@@ -214,10 +203,8 @@ public class ProviderExcelService {
         for (Cell cell : headerRow) {
             String columnName = cell.getStringCellValue().trim().toLowerCase();
             
-            if (columnName.equals("namearabic") || columnName.equals("name_arabic") || columnName.equals("الاسم") || columnName.equals("اسم")) {
-                columnMap.put("nameArabic", cell.getColumnIndex());
-            } else if (columnName.equals("nameenglish") || columnName.equals("name_english") || columnName.equals("name") || columnName.equals("الاسم بالانجليزية")) {
-                columnMap.put("nameEnglish", cell.getColumnIndex());
+            if (columnName.equals("name") || columnName.equals("provider_name") || columnName.equals("name_arabic") || columnName.equals("namearabic") || columnName.equals("الاسم") || columnName.equals("اسم مقدم الخدمة")) {
+                columnMap.put("name", cell.getColumnIndex());
             } else if (columnName.equals("licensenumber") || columnName.equals("license_number") || columnName.equals("license") || columnName.equals("رقم الترخيص")) {
                 columnMap.put("licenseNumber", cell.getColumnIndex());
             } else if (columnName.equals("providertype") || columnName.equals("provider_type") || columnName.equals("type") || columnName.equals("النوع")) {
@@ -239,8 +226,8 @@ public class ProviderExcelService {
     private void validateRequiredColumns(Map<String, Integer> columnMap) {
         List<String> missing = new ArrayList<>();
         
-        if (!columnMap.containsKey("nameArabic")) {
-            missing.add("nameArabic (الاسم)");
+        if (!columnMap.containsKey("name")) {
+            missing.add("name (الاسم)");
         }
         if (!columnMap.containsKey("licenseNumber")) {
             missing.add("licenseNumber (رقم الترخيص)");

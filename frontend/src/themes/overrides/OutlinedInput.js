@@ -23,13 +23,17 @@ export default function OutlinedInput(theme) {
   return {
     MuiOutlinedInput: {
       styleOverrides: {
-        input: { padding: '10.5px 14px 10.5px 12px' },
+        input: { padding: '10.5px 14px 10.5px 12px', height: '40px', boxSizing: 'border-box' },
         notchedOutline: {
           borderColor: varsPalette.grey?.[300] ?? theme.palette.grey?.[300],
           ...theme.applyStyles('dark', { borderColor: varsPalette.grey?.[200] ?? theme.palette.grey?.[200] })
         },
-        root: { ...getColor({ variant: 'primary', theme }), '&.Mui-error': { ...getColor({ variant: 'error', theme }) } },
-        inputSizeSmall: { padding: '7.5px 8px 7.5px 12px' },
+        root: {
+          height: '40px',
+          ...getColor({ variant: 'primary', theme }),
+          '&.Mui-error': { ...getColor({ variant: 'error', theme }) }
+        },
+        inputSizeSmall: { padding: '7.5px 8px 7.5px 12px', height: '40px', boxSizing: 'border-box' },
         inputMultiline: { padding: 0 },
         colorSecondary: getColor({ variant: 'secondary', theme }),
         colorError: getColor({ variant: 'error', theme }),

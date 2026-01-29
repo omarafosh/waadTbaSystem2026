@@ -16,11 +16,14 @@ import com.waad.tba.modules.member.entity.Member;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecificationExecutor<Member> {
     
-    Optional<Member> findByCivilId(String civilId);
+    @Query("SELECT m FROM Member m WHERE m.civilId = :civilId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByCivilId(@Param("civilId") String civilId);
     
-    Optional<Member> findByNationalNumber(String nationalNumber);
+    @Query("SELECT m FROM Member m WHERE m.nationalNumber = :nationalNumber AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByNationalNumber(@Param("nationalNumber") String nationalNumber);
     
-    Optional<Member> findByCardNumber(String cardNumber);
+    @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByCardNumber(@Param("cardNumber") String cardNumber);
     
     /**
      * Find member by barcode (used for QR scanning and eligibility check).
@@ -28,15 +31,16 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      * to avoid LazyInitializationException and ensure eligibility data is complete.
      */
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"employerOrganization", "benefitPolicy"})
-    Optional<Member> findByBarcode(String barcode);
+    @Query("SELECT m FROM Member m WHERE m.barcode = :barcode AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByBarcode(@Param("barcode") String barcode);
     
     /**
      * Find member by card number with eager loading of employer and policy.
      * Used for eligibility checks when searching by card number instead of barcode.
      */
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"employerOrganization", "benefitPolicy"})
-    @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber")
-    Optional<Member> findByCardNumberWithDetails(@Param("cardNumber") String cardNumber);
+    @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByCardNumberWithDetails(@Param("cardNumber") String cardNumber);
     
     // Removed deprecated findByQrCodeValue to fix startup error (property qrCodeValue doesn't exist)
     
@@ -242,12 +246,14 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     /**
      * Find member by civil ID and employer organization ID
      */
-    Optional<Member> findByCivilIdAndEmployerOrganizationId(String civilId, Long employerOrgId);
+    @Query("SELECT m FROM Member m WHERE m.civilId = :civilId AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByCivilIdAndEmployerOrganizationId(@Param("civilId") String civilId, @Param("employerOrgId") Long employerOrgId);
 
     /**
      * Find member by card number and employer organization ID
      */
-    Optional<Member> findByCardNumberAndEmployerOrganizationId(String cardNumber, Long employerOrgId);
+    @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByCardNumberAndEmployerOrganizationId(@Param("cardNumber") String cardNumber, @Param("employerOrgId") Long employerOrgId);
 
     /**
      * Find members by phone containing search term

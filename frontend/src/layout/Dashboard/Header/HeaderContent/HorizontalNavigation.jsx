@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useAuth from 'hooks/useAuth';
 
 // Material-UI
 import {
@@ -28,9 +29,11 @@ import useRBACSidebar from 'hooks/useRBACSidebar';
 export default function HorizontalNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth(); // Hook to check user role
   const { sidebarGroups } = useRBACSidebar();
   const [anchorEls, setAnchorEls] = useState({});
 
+  // ... (handlers remain the same) ...
   // فتح dropdown menu
   const handleMenuOpen = (groupId, event) => {
     setAnchorEls({ ...anchorEls, [groupId]: event.currentTarget });
@@ -127,7 +130,7 @@ export default function HorizontalNavigation() {
             </Typography>
           </Stack>
         </Box>
-        
+
         {/* عناصر المجموعة */}
         {collapse.children.map(child => {
           if (child.type === 'item') {
@@ -139,9 +142,22 @@ export default function HorizontalNavigation() {
     );
   };
 
+  // Filter groups based on context
+  // FIX: Only filter if user is strictly a PROVIDER. Admins should see full menu even in portal routes.
+  const isProviderRole = user?.roles?.includes('PROVIDER');
+  const isProviderPortalRoute = location.pathname === '/provider' || location.pathname.startsWith('/provider/');
+
+  // Show only Provider Menu if: User is Provider AND is in Provider Portal routes
+  // If Admin is in Provider Portal, they see full menu (Separation of concern)
+  const shouldFilterForProvider = isProviderRole && isProviderPortalRoute;
+
+  const filteredGroups = shouldFilterForProvider
+    ? sidebarGroups?.filter(group => ['group-provider-portal'].includes(group.id))
+    : sidebarGroups;
+
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
-      {sidebarGroups?.map((group) => {
+      {filteredGroups?.map((group) => {
         if (!group.children || group.children.length === 0) return null;
 
         const groupActive = isGroupActive(group);
@@ -165,19 +181,22 @@ export default function HorizontalNavigation() {
               endIcon={!hasDirectUrl ? <KeyboardArrowDown sx={{ fontSize: '1rem' }} /> : null}
               sx={{
                 color: groupActive ? 'primary.main' : 'text.primary',
-                backgroundColor: groupActive ? alpha('#1976d2', 0.08) : 'transparent',
-                px: 1.5,
-                py: 0.5,
-                fontWeight: groupActive ? 600 : 500,
-                fontSize: '0.75rem',
+                backgroundColor: groupActive ? alpha('#1976d2', 0.1) : 'transparent',
+                px: 2,
+                height: 48,
+                fontWeight: groupActive ? 700 : 500,
+                fontSize: '0.8125rem',
                 textTransform: 'none',
                 minWidth: 'auto',
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  backgroundColor: groupActive ? alpha('#1976d2', 0.12) : 'action.hover'
+                  backgroundColor: groupActive ? alpha('#1976d2', 0.15) : 'action.hover'
                 },
-                borderBottom: groupActive ? '2px solid' : 'none',
+                borderBottom: groupActive ? '3px solid' : 'none',
                 borderColor: 'primary.main',
-                borderRadius: groupActive ? '4px 4px 0 0' : 1
+                borderRadius: '6px 6px 0 0',
+                display: 'flex',
+                alignItems: 'center'
               }}
             >
               {group.title}

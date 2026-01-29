@@ -24,7 +24,8 @@ import {
   CircularProgress,
   Alert,
   Box,
-  Chip
+  Chip,
+  Paper
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -75,16 +76,16 @@ const AddDependent = () => {
     try {
       setLoading(true);
       const data = await getMember(principalId);
-      
+
       if (data.type !== 'PRINCIPAL') {
-        setFetchError('يمكن إضافة تابع فقط للعضو الأصيل');
+        setFetchError('يمكن إضافة تابع فقط للمنتفع الرئيسي');
         return;
       }
-      
+
       setPrincipal(data);
     } catch (error) {
       console.error('Error fetching principal:', error);
-      setFetchError(error.response?.data?.message || 'فشل في تحميل بيانات العضو الأصيل');
+      setFetchError(error.response?.data?.message || 'فشل في تحميل بيانات المنتفع الرئيسي');
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ const AddDependent = () => {
   const handleFieldChange = (field) => (event) => {
     const value = event.target.value;
     setForm((prev) => ({ ...prev, [field]: value }));
-    
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -210,150 +211,153 @@ const AddDependent = () => {
     <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_MEMBERS]}>
       <ModernPageHeader
         title="إضافة تابع جديد"
-        subtitle={`إضافة تابع للعضو الأصيل: ${principal?.fullName}`}
+        subtitle={`إضافة تابع للمنتفع الرئيسي: ${principal?.fullName}`}
         icon={<PersonAddIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
-          { label: 'الأعضاء', href: '/members' },
+          { label: 'المنتفعين', href: '/members' },
           { label: principal?.fullName, href: `/members/${principalId}` },
           { label: 'إضافة تابع' }
         ]}
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              onClick={() => navigate(`/members/${principalId}`)}
-            >
-              إلغاء
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-              onClick={handleSubmit}
-              disabled={saving}
-            >
-              إضافة التابع
-            </Button>
-          </Stack>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(`/members/${principalId}`)}
+          >
+            رجوع
+          </Button>
         }
       />
 
-      <Grid container spacing={3}>
-        {/* Principal Info Card */}
-        <Grid item xs={12}>
-          <MainCard>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Typography variant="body1">
-                <strong>العضو الأصيل:</strong> {principal?.fullName}
-              </Typography>
-              <Chip label={principal?.cardNumber} size="small" color="primary" />
-              {principal?.barcode && (
-                <Chip label={principal.barcode} size="small" variant="outlined" />
-              )}
-              <Chip 
-                label={`${principal?.dependents?.length || 0} تابع حالياً`} 
-                size="small" 
-                color="info" 
-              />
-            </Stack>
-          </MainCard>
-        </Grid>
-
-        {/* Dependent Form */}
-        <Grid item xs={12}>
-          <MainCard title="بيانات التابع">
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  required
-                  label="الاسم الكامل"
-                  value={form.fullName}
-                  onChange={handleFieldChange('fullName')}
-                  error={!!errors.fullName}
-                  helperText={errors.fullName}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth required error={!!errors.relationship}>
-                  <InputLabel>صلة القرابة</InputLabel>
-                  <Select
-                    value={form.relationship}
-                    onChange={handleFieldChange('relationship')}
-                    label="صلة القرابة"
-                  >
-                    {Object.entries(RELATIONSHIPS).map(([key, value]) => (
-                      <MenuItem key={key} value={value}>
-                        {value === 'WIFE' ? 'زوجة' :
-                         value === 'HUSBAND' ? 'زوج' :
-                         value === 'SON' ? 'ابن' :
-                         value === 'DAUGHTER' ? 'ابنة' :
-                         value === 'FATHER' ? 'أب' :
-                         value === 'MOTHER' ? 'أم' :
-                         value === 'BROTHER' ? 'أخ' :
-                         value === 'SISTER' ? 'أخت' : value}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.relationship && <FormHelperText>{errors.relationship}</FormHelperText>}
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="الرقم الوطني"
-                  value={form.nationalNumber}
-                  onChange={handleFieldChange('nationalNumber')}
-                  placeholder="اختياري"
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <DatePicker
-                  label="تاريخ الميلاد *"
-                  value={form.birthDate}
-                  onChange={handleDateChange('birthDate')}
-                  maxDate={dayjs()}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: !!errors.birthDate,
-                      helperText: errors.birthDate
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth required error={!!errors.gender}>
-                  <InputLabel>الجنس</InputLabel>
-                  <Select
-                    value={form.gender}
-                    onChange={handleFieldChange('gender')}
-                    label="الجنس"
-                  >
-                    {Object.entries(GENDERS).map(([key, value]) => (
-                      <MenuItem key={key} value={value}>
-                        {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
-                </FormControl>
-              </Grid>
-            </Grid>
-          </MainCard>
-        </Grid>
-
+      <Stack spacing={3}>
         {/* Help Info */}
-        <Grid item xs={12}>
-          <Alert severity="info">
-            <Typography variant="body2">
-              <strong>ملاحظة:</strong> سيتم توليد رقم البطاقة للتابع تلقائياً بناءً على رقم بطاقة العضو الأصيل 
-              (مثال: إذا كان رقم الأصيل 000123، سيكون رقم التابع 000123-01، 000123-02، الخ)
+        <Alert severity="info" sx={{ '& .MuiAlert-message': { width: '100%' } }}>
+          <Typography variant="body2">
+            يمكنك إضافة التابعين الآن. التابعون لا يملكون Barcode خاص بهم.
+          </Typography>
+        </Alert>
+
+        {/* Principal Info Summary (Optional, but good for context) */}
+        <MainCard content={false} sx={{ p: 2, bgcolor: 'primary.lighter', border: '1px dashed', borderColor: 'primary.main' }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="subtitle2" color="primary.main">
+              <strong>إضافة تابع للمنتفع الرئيسي:</strong> {principal?.fullName}
             </Typography>
-          </Alert>
-        </Grid>
-      </Grid>
+            <Chip label={principal?.cardNumber} size="small" color="primary" />
+          </Stack>
+        </MainCard>
+
+        {/* Dependent Form - Matches UnifiedMemberCreate Style */}
+        <Paper variant="outlined" sx={{ p: 3, bgcolor: 'background.paper' }}>
+          <Typography variant="subtitle2" sx={{ mb: 3, fontWeight: 'bold' }}>إضافة تابع جديد</Typography>
+
+          <Grid container spacing={2} alignItems="flex-start">
+            {/* Full Name - Wider */}
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                required
+                label="الاسم الكامل"
+                value={form.fullName}
+                onChange={handleFieldChange('fullName')}
+                error={!!errors.fullName}
+                helperText={errors.fullName}
+                size="small"
+              />
+            </Grid>
+
+            {/* Relationship */}
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth required error={!!errors.relationship} size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>القرابة</InputLabel>
+                <Select
+                  value={form.relationship}
+                  onChange={handleFieldChange('relationship')}
+                  label="القرابة"
+                >
+                  {Object.entries(RELATIONSHIPS).map(([key, value]) => (
+                    <MenuItem key={key} value={value}>
+                      {value === 'WIFE' ? 'زوجة' :
+                        value === 'HUSBAND' ? 'زوج' :
+                          value === 'SON' ? 'ابن' :
+                            value === 'DAUGHTER' ? 'ابنة' :
+                              value === 'FATHER' ? 'أب' :
+                                value === 'MOTHER' ? 'أم' :
+                                  value === 'BROTHER' ? 'أخ' :
+                                    value === 'SISTER' ? 'أخت' : value}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.relationship && <FormHelperText>{errors.relationship}</FormHelperText>}
+              </FormControl>
+            </Grid>
+
+            {/* Gender */}
+            <Grid item xs={12} md={1.5}>
+              <FormControl fullWidth required error={!!errors.gender} size="small" sx={{ minWidth: 100 }}>
+                <InputLabel>الجنس</InputLabel>
+                <Select
+                  value={form.gender}
+                  onChange={handleFieldChange('gender')}
+                  label="الجنس"
+                >
+                  {Object.entries(GENDERS).map(([key, value]) => (
+                    <MenuItem key={key} value={value}>
+                      {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+              </FormControl>
+            </Grid>
+
+            {/* Birth Date */}
+            <Grid item xs={12} md={2}>
+              <DatePicker
+                label="تاريخ الميلاد *"
+                value={form.birthDate}
+                onChange={handleDateChange('birthDate')}
+                maxDate={dayjs()}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                    error: !!errors.birthDate,
+                    helperText: errors.birthDate
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* National ID */}
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="الرقم الوطني"
+                value={form.nationalNumber}
+                onChange={handleFieldChange('nationalNumber')}
+                placeholder="اختياري"
+                size="small"
+              />
+            </Grid>
+
+            {/* Action Button */}
+            <Grid item xs={12} md={1.5}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                onClick={handleSubmit}
+                disabled={saving}
+                sx={{ height: 40, whiteSpace: 'nowrap' }}
+              >
+                إضافة التابع
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Stack>
     </RBACGuard>
   );
 };

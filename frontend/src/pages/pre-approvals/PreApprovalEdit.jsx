@@ -192,7 +192,7 @@ const PreApprovalEdit = () => {
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={members}
-                getOptionLabel={(option) => `${option.fullNameArabic || option.fullName} (${option.nationalNumber || '-'})`}
+                getOptionLabel={(option) => `${option.fullName} (${option.nationalNumber || '-'})`}
                 loading={loadingMembers}
                 value={members.find((m) => m.id === formData.memberId) || null}
                 onChange={handleMemberChange}

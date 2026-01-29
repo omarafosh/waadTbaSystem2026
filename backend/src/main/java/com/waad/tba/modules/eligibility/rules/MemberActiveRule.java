@@ -65,6 +65,8 @@ public class MemberActiveRule implements EligibilityRule {
 
         switch (status) {
             case ACTIVE:
+            case DRAFT:
+            case PENDING_VERIFICATION:
                 return RuleResult.pass();
             
             case SUSPENDED:

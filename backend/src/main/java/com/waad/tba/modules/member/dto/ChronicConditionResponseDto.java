@@ -37,8 +37,7 @@ public class ChronicConditionResponseDto {
 
     private ChronicConditionType conditionType;
     private String conditionCode;
-    private String conditionNameAr;
-    private String conditionNameEn;
+    private String conditionName;
     private String customConditionName;
     private String displayName;
     private String icd10Code;
@@ -53,8 +52,7 @@ public class ChronicConditionResponseDto {
 
     private ChronicCoverageStatus coverageStatus;
     private String coverageStatusCode;
-    private String coverageStatusLabelAr;
-    private String coverageStatusLabelEn;
+    private String coverageStatusLabel;
     private String coverageReason;
     private Integer waitingPeriodDays;
     private LocalDate waitingPeriodEndDate;
@@ -126,8 +124,7 @@ public class ChronicConditionResponseDto {
                 // Condition Details
                 .conditionType(condType)
                 .conditionCode(condType != null ? condType.getCode() : null)
-                .conditionNameAr(condType != null ? condType.getNameAr() : null)
-                .conditionNameEn(condType != null ? condType.getNameEn() : null)
+                .conditionName(condType != null ? condType.getNameAr() : null)
                 .customConditionName(entity.getCustomConditionName())
                 .displayName(entity.getDisplayName())
                 .icd10Code(entity.getIcd10Code() != null ? entity.getIcd10Code() : 
@@ -140,8 +137,7 @@ public class ChronicConditionResponseDto {
                 // Coverage
                 .coverageStatus(covStatus)
                 .coverageStatusCode(covStatus != null ? covStatus.getCode() : null)
-                .coverageStatusLabelAr(covStatus != null ? covStatus.getLabelAr() : null)
-                .coverageStatusLabelEn(covStatus != null ? covStatus.getLabelEn() : null)
+                .coverageStatusLabel(covStatus != null ? covStatus.getLabelAr() : null)
                 .coverageReason(entity.getCoverageReason())
                 .waitingPeriodDays(entity.getWaitingPeriodDays())
                 .waitingPeriodEndDate(entity.getWaitingPeriodEndDate())

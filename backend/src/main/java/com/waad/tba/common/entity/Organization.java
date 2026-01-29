@@ -28,6 +28,10 @@ public class Organization {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
+    @Builder.Default
+    @Column(length = 20)
+    private String barcodePrefix = "WAAD";
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrganizationType type;

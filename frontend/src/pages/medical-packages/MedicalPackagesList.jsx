@@ -78,22 +78,13 @@ const MedicalPackagesList = () => {
       cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue() || '-'}</Typography>
     },
     {
-      accessorKey: 'nameAr',
-      header: 'الاسم (عربي)',
+      accessorKey: 'name',
+      header: 'الاسم',
       enableSorting: true,
       enableColumnFilter: false,
       minWidth: 180,
       align: 'right',
       cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'nameEn',
-      header: 'الاسم (إنجليزي)',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 180,
-      align: 'left',
-      cell: ({ getValue }) => <Typography variant="body2" color="text.secondary" dir="ltr" textAlign="left">{getValue() || '-'}</Typography>
     },
     {
       accessorKey: 'description',

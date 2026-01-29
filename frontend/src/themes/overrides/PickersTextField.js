@@ -28,8 +28,11 @@ export default function PickersTextField(theme) {
       },
       styleOverrides: {
         root: {
+          height: '40px',
           '& .MuiPickersInputBase-sectionsContainer': {
-            padding: '10.5px 14px 10.5px 0px'
+            padding: '0 14px 0 0px',
+            height: '40px',
+            alignItems: 'center'
           },
           '& .MuiPickersOutlinedInput-notchedOutline': {
             borderColor: varsPalette.grey?.[300] ?? theme.palette.grey?.[300],
@@ -50,7 +53,9 @@ export default function PickersTextField(theme) {
               props: { size: 'small' },
               style: {
                 '& .MuiPickersInputBase-sectionsContainer': {
-                  padding: '7.5px 8px 7.5px 0px'
+                  padding: '0 8px 0 0px',
+                  height: '40px',
+                  alignItems: 'center'
                 }
               }
             }

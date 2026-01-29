@@ -2,6 +2,7 @@ package com.waad.tba.modules.benefitpolicy.entity;
 
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
+import com.waad.tba.modules.visit.entity.VisitType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -33,17 +34,18 @@ import java.time.LocalDateTime;
     @Index(name = "idx_bpr_policy", columnList = "benefit_policy_id"),
     @Index(name = "idx_bpr_category", columnList = "medical_category_id"),
     @Index(name = "idx_bpr_service", columnList = "medical_service_id"),
-    @Index(name = "idx_bpr_active", columnList = "active")
+    @Index(name = "idx_bpr_active", columnList = "active"),
+    @Index(name = "idx_bpr_encounter_type", columnList = "encounter_type")
 }, uniqueConstraints = {
-    // Prevent duplicate category rules within same policy
+    // Prevent duplicate category rules within same policy + context
     @UniqueConstraint(
-        name = "uk_bpr_policy_category",
-        columnNames = {"benefit_policy_id", "medical_category_id"}
+        name = "uk_bpr_policy_category_context",
+        columnNames = {"benefit_policy_id", "medical_category_id", "encounter_type"}
     ),
-    // Prevent duplicate service rules within same policy
+    // Prevent duplicate service rules within same policy + context
     @UniqueConstraint(
-        name = "uk_bpr_policy_service",
-        columnNames = {"benefit_policy_id", "medical_service_id"}
+        name = "uk_bpr_policy_service_context",
+        columnNames = {"benefit_policy_id", "medical_service_id", "encounter_type"}
     )
 })
 @Data
@@ -142,6 +144,14 @@ public class BenefitPolicyRule {
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     @Column(length = 500)
     private String notes;
+
+    /**
+     * The type of encounter this rule applies to (OPD, ER, IPD, etc.)
+     * If null, the rule applies to ALL encounter types.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "encounter_type", length = 30)
+    private VisitType encounterType;
 
     /**
      * Whether this rule is active

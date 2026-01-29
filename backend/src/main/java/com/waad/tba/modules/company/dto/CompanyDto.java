@@ -81,6 +81,31 @@ public class CompanyDto {
      */
     private String taxNumber;
 
+    /**
+     * System default currency.
+     */
+    private String currency;
+
+    /**
+     * Smart Card Numbering Format.
+     */
+    private String cardNumberFormat;
+
+    /**
+     * Preferred system font family.
+     */
+    private String fontFamily;
+
+    /**
+     * System font size.
+     */
+    private Integer fontSize;
+
+    /**
+     * Barcode Prefix (Admin Only).
+     */
+    private String barcodePrefix;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

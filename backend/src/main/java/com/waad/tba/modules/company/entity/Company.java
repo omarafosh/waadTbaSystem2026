@@ -63,7 +63,7 @@ public class Company {
      * Company logo URL/path.
      * Can be relative path to uploaded file or full URL.
      */
-    @Column(name = "logo_url", length = 500)
+    @Column(name = "logo_url", columnDefinition = "TEXT")
     private String logoUrl;
 
     /**
@@ -101,6 +101,37 @@ public class Company {
      */
     @Column(name = "tax_number", length = 50)
     private String taxNumber;
+
+    /**
+     * System default currency.
+     */
+    @Column(name = "currency", length = 10)
+    private String currency;
+
+    /**
+     * Smart Card Numbering Format.
+     */
+    @Column(name = "card_number_format", length = 200)
+    private String cardNumberFormat;
+
+    /**
+     * Preferred system font family.
+     */
+    @Column(name = "font_family", length = 50)
+    private String fontFamily;
+
+    /**
+     * System font size (default 12).
+     */
+    @Column(name = "font_size")
+    private Integer fontSize = 12;
+
+    /**
+     * Barcode Prefix (e.g., WAAD).
+     */
+    @Builder.Default
+    @Column(name = "barcode_prefix", length = 20)
+    private String barcodePrefix = "WAAD";
 
     @CreatedDate
     @Column(updatable = false)

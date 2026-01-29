@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 // material-ui
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 
 // project imports
@@ -8,20 +8,24 @@ import MainCard from 'components/MainCard';
 
 // ==============================|| AUTHENTICATION - CARD WRAPPER ||============================== //
 
-export default function AuthCard({ children, isDarkMode = true, ...other }) {
+export default function AuthCard({ children, isDarkMode: isDarkModeProp, ...other }) {
   const theme = useTheme();
+  const { mode, systemMode } = useColorScheme();
+
+  const currentMode = mode === 'system' ? systemMode : mode;
+  const isDarkMode = isDarkModeProp !== undefined ? isDarkModeProp : currentMode === 'dark';
 
   return (
     <MainCard
       sx={{
-        maxWidth: { xs: 400, sm: 475 },
+        maxWidth: { xs: 380, sm: 420 },
         margin: { xs: 2.5, md: 3 },
         '& > *': { flexGrow: 1, flexBasis: '50%' },
         backdropFilter: 'blur(20px)',
 
         // Conditional Styles
         background: isDarkMode
-          ? 'rgba(15, 29, 50, 0.6)'
+          ? alpha(theme.palette.grey[900], 0.7)
           : alpha(theme.palette.background.paper, 0.9),
 
         border: isDarkMode
@@ -57,7 +61,7 @@ export default function AuthCard({ children, isDarkMode = true, ...other }) {
       boxShadow
       shadow={isDarkMode ? `0 8px 32px rgba(0,0,0,0.5)` : `0 8px 32px ${alpha(theme.palette.common.black, 0.1)}`}
     >
-      <Box sx={{ p: { xs: 2, sm: 3, md: 4, xl: 5 } }}>{children}</Box>
+      <Box sx={{ p: { xs: 2.5, md: 3 } }}>{children}</Box>
     </MainCard>
   );
 }

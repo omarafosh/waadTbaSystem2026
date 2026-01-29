@@ -65,6 +65,11 @@ public class EligibilityCheckRequest {
     private String serviceCode;
 
     /**
+     * The type of encounter (OUTPATIENT, INPATIENT, EMERGENCY, etc.)
+     */
+    private com.waad.tba.modules.visit.entity.VisitType encounterType;
+
+    /**
      * Convenient factory method for simple checks
      */
     public static EligibilityCheckRequest of(Long memberId, LocalDate serviceDate) {

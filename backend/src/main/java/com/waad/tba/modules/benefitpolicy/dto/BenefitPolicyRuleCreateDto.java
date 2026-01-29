@@ -75,4 +75,9 @@ public class BenefitPolicyRuleCreateDto {
      */
     @Builder.Default
     private Boolean active = true;
+
+    /**
+     * The type of encounter this rule applies to
+     */
+    private com.waad.tba.modules.visit.entity.VisitType encounterType;
 }

@@ -11,14 +11,14 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 
 // icons
-import { 
-  Assessment, 
-  Receipt, 
-  LocalHospital, 
-  People, 
-  BarChart, 
-  PieChart, 
-  TrendingUp, 
+import {
+  Assessment,
+  Receipt,
+  LocalHospital,
+  People,
+  BarChart,
+  PieChart,
+  TrendingUp,
   Construction,
   Business,
   Policy,
@@ -73,7 +73,7 @@ const availableReports = [
     id: 'employer-dashboard',
     title: 'لوحة الشريك',
     titleEn: 'Employer Dashboard',
-    description: 'تحليلات شاملة للشركاء والمؤمن عليهم',
+    description: 'تحليلات شاملة للشركاء والمنتفعين',
     icon: Business,
     color: '#9c27b0',
     path: '/reports/employer-dashboard',
@@ -98,7 +98,7 @@ const upcomingReports = [
     id: 'member-statements',
     title: 'كشوف حساب الأعضاء',
     titleEn: 'Member Statements',
-    description: 'كشوف حساب تفصيلية للمؤمن عليهم',
+    description: 'كشوف حساب تفصيلية للمنتفعين',
     icon: People,
     color: '#ed6c02',
     path: '/reports/coming-soon/member-statements',
@@ -147,8 +147,8 @@ export default function ReportsPage() {
 
   return (
     <>
-      <ModernPageHeader 
-        title="التقارير" 
+      <ModernPageHeader
+        title="التقارير"
         subtitle="مركز التقارير والتحليلات"
         icon={Assessment}
         breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'التقارير' }]}
@@ -187,7 +187,7 @@ export default function ReportsPage() {
                         >
                           <IconComponent sx={{ color: report.color, fontSize: 32 }} />
                         </Box>
-                        
+
                         <Box>
                           <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
                             {report.title}
@@ -251,7 +251,7 @@ export default function ReportsPage() {
                         >
                           <IconComponent sx={{ color: report.color, fontSize: 28 }} />
                         </Box>
-                        
+
                         <Box>
                           <Typography variant="h6" sx={{ fontWeight: 600 }}>
                             {report.title}
@@ -266,12 +266,12 @@ export default function ReportsPage() {
                         </Typography>
 
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Chip 
-                            label="قيد التطوير" 
-                            size="small" 
-                            color="warning" 
+                          <Chip
+                            label="قيد التطوير"
+                            size="small"
+                            color="warning"
                             icon={<Construction sx={{ fontSize: 14 }} />}
-                            sx={{ fontSize: '0.7rem' }} 
+                            sx={{ fontSize: '0.7rem' }}
                           />
                           <ArrowForward sx={{ color: report.color, fontSize: 18, opacity: 0.7 }} />
                         </Stack>

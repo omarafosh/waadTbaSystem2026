@@ -25,7 +25,6 @@ public class MemberViewDto {
 
     // Personal Information
     @Schema(description = "Full name", example = "أحمد محمد علي")
-    @JsonAlias({"nameAr", "name_ar", "fullNameArabic", "nameEn", "name_en", "fullNameEnglish"})
     private String fullName;
 
     @Schema(description = "National Number (الرقم الوطني)", example = "289123456789")
@@ -136,6 +135,16 @@ public class MemberViewDto {
 
     @Schema(description = "Active flag", example = "true")
     private Boolean active;
+
+    // Enterprise Smart Card Fields
+    private String relationshipCode;
+    private String providerCode;
+    private String companyCode;
+    private String internalIdPart;
+    private LocalDateTime cardActivatedAt;
+    private Boolean isSmartCard;
+    private String secondaryStatus;
+    private String profilePhotoPath;
 
     // Audit
     @Schema(description = "Created by", example = "admin")

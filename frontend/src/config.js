@@ -78,7 +78,7 @@ export const DEFAULT_THEME_MODE = ThemeMode.SYSTEM;
 // ==============================|| THEME CONFIG ||============================== //
 
 const config = {
-  fontFamily: `'Cairo', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif`,
+  fontFamily: `'Tajwal', 'Cairo', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif`,
   i18n: 'ar', // Phase D1.5: Arabic as default language
   menuOrientation: MenuOrientation.VERTICAL,
   container: true,

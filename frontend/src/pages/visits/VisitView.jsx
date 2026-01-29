@@ -135,8 +135,8 @@ const VisitView = () => {
   // Derive values defensively
   const visitStatus = getVisitStatus(visit);
   const networkTier = getNetworkTier(visit?.provider);
-  const memberName = visit?.member?.fullName ?? visit?.member?.nameAr ?? visit?.member?.nameEn ?? '—';
-  const providerName = visit?.provider?.nameAr ?? visit?.provider?.nameEn ?? visit?.provider?.name ?? '—';
+  const memberName = visit?.member?.fullName ?? '—';
+  const providerName = visit?.provider?.name ?? '—';
   const services = Array.isArray(visit?.services) ? visit.services : [];
 
   // Enhanced InfoRow with icon support and defensive coding
@@ -255,8 +255,7 @@ const VisitView = () => {
             }
             contentSX={{ pt: 2 }}
           >
-            <InfoRow label="الاسم بالعربية" value={visit?.provider?.nameAr ?? '—'} icon={BusinessIcon} />
-            <InfoRow label="الاسم بالإنجليزية" value={visit?.provider?.nameEn ?? '—'} />
+            <InfoRow label="اسم مقدم الخدمة" value={visit?.provider?.name ?? '—'} icon={BusinessIcon} />
             <InfoRow label="معرف المقدم" value={visit?.providerId ?? visit?.provider?.id ?? '—'} />
             {/* Network Status */}
             <Box sx={{ mb: 2 }}>
@@ -299,8 +298,7 @@ const VisitView = () => {
                   <TableHead>
                     <TableRow sx={{ bgcolor: 'grey.50' }}>
                       <TableCell sx={{ fontWeight: 600 }}>الرمز</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>الاسم بالعربية</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>الاسم بالإنجليزية</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>اسم الخدمة</TableCell>
                       <TableCell align="center" sx={{ fontWeight: 600 }}>
                         السعر
                       </TableCell>
@@ -313,8 +311,7 @@ const VisitView = () => {
                     {services.map((service, idx) => (
                       <TableRow key={service?.id ?? idx}>
                         <TableCell>{service?.code ?? '—'}</TableCell>
-                        <TableCell>{service?.nameAr ?? '—'}</TableCell>
-                        <TableCell>{service?.nameEn ?? '—'}</TableCell>
+                        <TableCell>{service?.name ?? '—'}</TableCell>
                         <TableCell align="center">{typeof service?.price === 'number' ? `${service.price.toFixed(2)} د.ل` : '—'}</TableCell>
                         <TableCell align="center">
                           {service?.requiresApproval ? (

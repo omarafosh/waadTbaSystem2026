@@ -174,7 +174,7 @@ const ProviderContractView = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
-  
+
   // File input ref for price list import
   const fileInputRef = useRef(null);
 
@@ -288,7 +288,7 @@ const ProviderContractView = () => {
       try {
         await downloadPricingTemplate(id);
         enqueueSnackbar('تم تحميل القالب بنجاح. يرجى ملء الأعمدة الإلزامية ثم رفع الملف.', { variant: 'success' });
-        
+
         setTimeout(() => {
           fileInputRef.current?.click();
         }, 500);
@@ -454,7 +454,7 @@ const ProviderContractView = () => {
 
   const handleAddPricingSubmit = useCallback(() => {
     if (!pricingForm.medicalServiceId || !pricingForm.basePrice || !pricingForm.contractPrice) return;
-    
+
     addPricingMutation.mutate({
       medicalServiceId: pricingForm.medicalServiceId.id,
       medicalCategoryId: pricingForm.medicalCategoryId?.id || null,
@@ -478,7 +478,7 @@ const ProviderContractView = () => {
 
   const handleEditPricingSubmit = useCallback(() => {
     if (!pricingForm.basePrice || !pricingForm.contractPrice) return;
-    
+
     updatePricingMutation.mutate({
       medicalCategoryId: pricingForm.medicalCategoryId?.id || null,
       basePrice: parseFloat(pricingForm.basePrice),
@@ -541,7 +541,7 @@ const ProviderContractView = () => {
       {/* Page Header */}
       <ModernPageHeader
         title={`عقد: ${contract.contractCode}`}
-        subtitle={contract.providerName || contract.provider?.nameAr || 'عقد مقدم خدمة'}
+        subtitle={contract.providerName || contract.provider?.name || 'عقد مقدم خدمة'}
         icon={ContractIcon}
         breadcrumbs={[
           { label: 'الرئيسية', path: '/dashboard' },
@@ -638,7 +638,7 @@ const ProviderContractView = () => {
         <Grid item xs={12} md={4}>
           <MainCard title="مقدم الخدمة" secondary={<ProviderIcon color="primary" />}>
             <List disablePadding>
-              <InfoRow label="الاسم" value={contract.providerName || contract.provider?.name || contract.provider?.nameAr || '-'} />
+              <InfoRow label="الاسم" value={contract.providerName || contract.provider?.name || '-'} />
               <InfoRow label="المدينة" value={contract.provider?.city || '-'} />
               <InfoRow label="رقم الهاتف" value={contract.provider?.phone || '-'} />
             </List>
@@ -683,10 +683,10 @@ const ProviderContractView = () => {
                 )
               }}
             />
-            
+
             {/* Add System Service Button */}
             <RBACGuard requiredPermissions={['MANAGE_PROVIDER_CONTRACTS']}>
-               <Button
+              <Button
                 variant="contained"
                 color="secondary"
                 onClick={handleOpenAddPricing}
@@ -709,7 +709,7 @@ const ProviderContractView = () => {
                 استيراد قائمة الأسعار
               </Button>
             </RBACGuard>
-            
+
             {/* Hidden file input for uploading filled template */}
             <input
               ref={fileInputRef}
@@ -746,7 +746,7 @@ const ProviderContractView = () => {
                   </TableRow>
                 ) : pricingItems.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
                         {pricingSearch ? 'لم يتم العثور على بنود مطابقة' : 'لا توجد بنود تسعير'}
                       </Typography>
@@ -763,16 +763,13 @@ const ProviderContractView = () => {
                       <TableCell>
                         <Stack spacing={0}>
                           <Typography variant="body2">
-                            {item.serviceName || item.medicalService?.nameAr || item.serviceNameAr || item.service?.nameAr || '-'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {item.medicalService?.nameEn || item.serviceNameEn || item.service?.nameEn || ''}
+                            {item.serviceName || item.medicalService?.name || '-'}
                           </Typography>
                         </Stack>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {item.effectiveCategory?.nameAr || item.medicalCategory?.nameAr || item.categoryName || item.category?.nameAr || '-'}
+                          {item.effectiveCategory?.name || item.medicalCategory?.name || item.categoryName || '-'}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">{formatCurrency(item.basePrice)}</TableCell>
@@ -946,14 +943,14 @@ const ProviderContractView = () => {
                 });
               }}
               renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="التصنيف الطبي (اختياري)" 
+                <TextField
+                  {...params}
+                  label="التصنيف الطبي (اختياري)"
                   helperText="اختر تصنيفاً مختلفاً عن التصنيف الافتراضي للخدمة"
                 />
               )}
             />
-            
+
             <TextField
               label="السعر الأساسي"
               type="number"
@@ -963,7 +960,7 @@ const ProviderContractView = () => {
               required
               helperText="السعر المرجعي للخدمة"
             />
-            
+
             <TextField
               label="سعر العقد (المتفق عليه)"
               type="number"
@@ -977,7 +974,7 @@ const ProviderContractView = () => {
                   : ''
               }
             />
-            
+
             <TextField
               label="ملاحظات"
               fullWidth
@@ -1005,32 +1002,27 @@ const ProviderContractView = () => {
         <DialogTitle>تعديل سعر الخدمة</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 3 }}>
-            {selectedPricingItem ? `تعديل السعر للخدمة: ${selectedPricingItem.serviceName || selectedPricingItem.medicalService?.nameAr}` : 'تعديل السعر'}
+            {selectedPricingItem ? `تعديل السعر للخدمة: ${selectedPricingItem.serviceName || selectedPricingItem.medicalService?.name}` : 'تعديل السعر'}
           </DialogContentText>
           <Stack spacing={3}>
-             <TextField
+            <TextField
               label="الخدمة"
               fullWidth
-              value={selectedPricingItem ? (selectedPricingItem.serviceName || selectedPricingItem.medicalService?.nameAr) : ''}
+              value={selectedPricingItem ? (selectedPricingItem.serviceName || selectedPricingItem.medicalService?.name) : ''}
               disabled
             />
 
             {/* Category Override (Optional) */}
             <Autocomplete
               options={medicalCategories || []}
-              getOptionLabel={(option) => option.nameAr || option.nameEn || option.name || ''}
+              getOptionLabel={(option) => option.name || ''}
               groupBy={(option) => option.parentId ? 'تصنيف فرعي' : 'تصنيف رئيسي'}
               renderOption={(props, option) => (
                 <li {...props}>
                   <Stack>
                     <Typography variant="body2" fontWeight={option.parentId ? 400 : 600}>
-                      {option.code} - {option.nameAr}
+                      {option.code} - {option.name}
                     </Typography>
-                    {option.nameEn && (
-                      <Typography variant="caption" color="text.secondary">
-                        {option.nameEn}
-                      </Typography>
-                    )}
                   </Stack>
                 </li>
               )}
@@ -1042,14 +1034,14 @@ const ProviderContractView = () => {
                 });
               }}
               renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="التصنيف الطبي (اختياري)" 
+                <TextField
+                  {...params}
+                  label="التصنيف الطبي (اختياري)"
                   helperText="يمكنك تغيير التصنيف لهذه الخدمة"
                 />
               )}
             />
-            
+
             <TextField
               label="السعر الأساسي"
               type="number"
@@ -1058,7 +1050,7 @@ const ProviderContractView = () => {
               onChange={(e) => setPricingForm({ ...pricingForm, basePrice: e.target.value })}
               required
             />
-            
+
             <TextField
               label="سعر العقد الجديد"
               type="number"
@@ -1072,7 +1064,7 @@ const ProviderContractView = () => {
                   : ''
               }
             />
-            
+
             <TextField
               label="ملاحظات"
               fullWidth
@@ -1100,9 +1092,9 @@ const ProviderContractView = () => {
         <DialogTitle color="error">حذف الخدمة</DialogTitle>
         <DialogContent>
           <DialogContentText>
-             هل أنت متأكد من حذف هذه الخدمة من العقد؟
-             <br />
-             <strong>{selectedPricingItem?.serviceName || selectedPricingItem?.medicalService?.nameAr}</strong>
+            هل أنت متأكد من حذف هذه الخدمة من العقد؟
+            <br />
+            <strong>{selectedPricingItem?.serviceName || selectedPricingItem?.medicalService?.name}</strong>
           </DialogContentText>
         </DialogContent>
         <DialogActions>

@@ -93,16 +93,8 @@ public class ProviderExcelTemplateService {
                 .width(15)
                 .build(),
                 
-            ExcelTemplateColumn.builder()
-                .name("name_english")
-                .nameAr("الاسم بالإنجليزية")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("Al Salam Hospital")
-                .description("Provider name in English")
-                .descriptionAr("اسم مقدم الخدمة بالإنجليزية")
-                .width(30)
-                .build(),
+                
+
                 
             ExcelTemplateColumn.builder()
                 .name("phone")
@@ -248,8 +240,7 @@ public class ProviderExcelTemplateService {
             "provider_type", "نوع المقدم", "type", "النوع"));
         indices.put("city", parserService.findColumnIndex(headerRow, 
             "city", "المدينة"));
-        indices.put("name_english", parserService.findColumnIndex(headerRow, 
-            "name_english", "الاسم بالإنجليزية"));
+
         indices.put("phone", parserService.findColumnIndex(headerRow, 
             "phone", "رقم الهاتف", "الهاتف"));
         indices.put("email", parserService.findColumnIndex(headerRow, 
@@ -340,20 +331,8 @@ public class ProviderExcelTemplateService {
         // Auto-generate license number
         String licenseNumber = generateLicenseNumber(providerType);
         
-        String nameEnglish = getCellValue(row, columnIndices.get("name_english"));
-        if (nameEnglish == null || nameEnglish.trim().isEmpty()) {
-            nameEnglish = providerName; // Fallback to Arabic name if English is missing
-        }
-
-        String nameArabicValue = (providerName != null && !providerName.trim().isEmpty()) 
-            ? providerName.trim() 
-            : (nameEnglish != null && !nameEnglish.trim().isEmpty() ? nameEnglish : "");
-        String nameEnglishValue = (nameEnglish != null && !nameEnglish.trim().isEmpty()) 
-            ? nameEnglish.trim() 
-            : nameArabicValue;
         Provider provider = Provider.builder()
-            .nameArabic(nameArabicValue)
-            .nameEnglish(nameEnglishValue)
+            .name(providerName.trim())
             .licenseNumber(licenseNumber)
             .providerType(providerType)
             .city(city != null ? city.trim() : null)

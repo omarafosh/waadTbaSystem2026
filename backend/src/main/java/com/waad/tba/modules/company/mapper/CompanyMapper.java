@@ -30,6 +30,11 @@ public class CompanyMapper {
                 .website(entity.getWebsite())
                 .businessType(entity.getBusinessType())
                 .taxNumber(entity.getTaxNumber())
+                .currency(entity.getCurrency())
+                .cardNumberFormat(entity.getCardNumberFormat())
+                .fontFamily(entity.getFontFamily())
+                .fontSize(entity.getFontSize())
+                .barcodePrefix(entity.getBarcodePrefix())
                 // Timestamps
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -55,6 +60,11 @@ public class CompanyMapper {
                 .website(dto.getWebsite())
                 .businessType(dto.getBusinessType())
                 .taxNumber(dto.getTaxNumber())
+                .currency(dto.getCurrency())
+                .cardNumberFormat(dto.getCardNumberFormat())
+                .fontFamily(dto.getFontFamily())
+                .fontSize(dto.getFontSize())
+                .barcodePrefix(dto.getBarcodePrefix())
                 .build();
     }
 
@@ -78,5 +88,12 @@ public class CompanyMapper {
         entity.setWebsite(dto.getWebsite());
         entity.setBusinessType(dto.getBusinessType());
         entity.setTaxNumber(dto.getTaxNumber());
+        entity.setCurrency(dto.getCurrency());
+        entity.setCardNumberFormat(dto.getCardNumberFormat());
+        entity.setFontFamily(dto.getFontFamily());
+        entity.setFontSize(dto.getFontSize());
+        if (dto.getBarcodePrefix() != null) {
+            entity.setBarcodePrefix(dto.getBarcodePrefix());
+        }
     }
 }

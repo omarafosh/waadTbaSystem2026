@@ -49,7 +49,7 @@ public class VisitMapper {
         if (entity.getProviderId() != null) {
             Provider provider = providerRepository.findById(entity.getProviderId()).orElse(null);
             if (provider != null) {
-                providerName = provider.getNameArabic() != null ? provider.getNameArabic() : provider.getNameEnglish();
+                providerName = provider.getName();
             }
         }
         

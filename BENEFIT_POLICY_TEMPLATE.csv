@@ -1,0 +1,8 @@
+Type,Code,Name_AR,Name_EN,Coverage_Percent,Copay_Fixed_Amount,Max_Limit,Requires_PreAuth,Waiting_Period_Days,Notes
+CATEGORY,CONSULTATION,استشارات طبية,Medical Consultation,100,0,500,FALSE,0,
+CATEGORY,LAB,تحاليل مخبرية,Laboratory,80,0,1000,FALSE,0,
+CATEGORY,XRAY,أشعة,Radiology,80,0,1000,TRUE,0,
+CATEGORY,PHARMACY,أدوية,Pharmacy,80,5,5000,FALSE,0,
+SERVICE,DENTAL_CLEAN,تنظيف أسنان,Dental Cleaning,50,0,200,TRUE,0,Limit 1 per year
+SERVICE,DENTAL_FILLING,حشو أسنان,Dental Filling,80,0,500,FALSE,0,
+CATEGORY,MATERNITY,ولادة,Maternity,100,0,10000,TRUE,270,Waiting 9 months

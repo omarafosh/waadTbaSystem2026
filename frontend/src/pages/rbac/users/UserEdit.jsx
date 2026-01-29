@@ -33,7 +33,8 @@ import {
   Paper,
   Stack,
   Chip,
-  Collapse
+  Collapse,
+  Autocomplete
 } from '@mui/material';
 
 // MUI Icons
@@ -50,6 +51,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyIcon from '@mui/icons-material/Key';
+import BusinessIcon from '@mui/icons-material/Business';
+import DomainIcon from '@mui/icons-material/Domain';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -62,6 +65,7 @@ import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 // Services
 import { usersService, rolesService } from 'services/rbac';
+import { getEmployerSelectors } from 'services/api/employers.service';
 
 // Snackbar
 import { openSnackbar } from 'api/snackbar';
@@ -227,10 +231,14 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
 // ============================================================================
 
 const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, setForm }) => {
-  // Check if EMPLOYER_ADMIN role is selected
-  const hasEmployerAdminRole = selectedRoles.some((roleId) => {
+  const isEmployerRole = selectedRoles.some((roleId) => {
     const role = allRoles.find((r) => r?.id === roleId);
     return role?.name === 'EMPLOYER_ADMIN' || role?.name === 'EMPLOYER_USER';
+  });
+
+  const isProviderRole = selectedRoles.some((roleId) => {
+    const role = allRoles.find((r) => r?.id === roleId);
+    return role?.name === 'PROVIDER';
   });
 
   const handleToggleRole = (roleId) => {
@@ -292,7 +300,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
                   <Box sx={{ flex: 1 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="subtitle2" fontWeight="medium">
-                        {role?.nameAr || role?.name || '-'}
+                        {role?.name || '-'}
                       </Typography>
                       <Chip
                         label={roleName}
@@ -317,128 +325,105 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
       {allRoles.length === 0 && <Alert severity="warning">لا توجد أدوار متاحة في النظام</Alert>}
 
       {/* Custom Permissions for EMPLOYER users */}
-      {hasEmployerAdminRole && (
+      {isEmployerRole && (
         <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed', borderColor: 'warning.main' }}>
           <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mb: 2 }}>
             <Typography variant="body2" fontWeight="medium" gutterBottom>
               صلاحيات مخصصة لمستخدم الشريك
             </Typography>
+            <Typography variant="caption">حدد ما يمكن لهذا المستخدم رؤيته وإدارته في النظام</Typography>
+          </Alert>
+
+          <Grid container spacing={2}>
+            {[
+              { field: 'canViewClaims', label: 'المطالبات', sub: 'رؤية وإدارة المطالبات' },
+              { field: 'canViewVisits', label: 'الزيارات', sub: 'رؤية وإدارة الزيارات' },
+              { field: 'canViewReports', label: 'التقارير', sub: 'رؤية التقارير التحليلية' },
+              { field: 'canViewMembers', label: 'المؤمنين', sub: 'رؤية وإدارة المؤمنين' },
+              { field: 'canViewBenefitPolicies', label: 'وثائق المنافع', sub: 'رؤية وثائق التغطية' }
+            ].map((perm) => (
+              <Grid item xs={12} sm={6} key={perm.field}>
+                <FormControlLabel
+                  control={<Switch checked={form[perm.field]} onChange={(e) => setForm({ ...form, [perm.field]: e.target.checked })} color="primary" />}
+                  label={
+                    <Box>
+                      <Typography variant="body2" fontWeight="medium">{perm.label}</Typography>
+                      <Typography variant="caption" color="text.secondary">{perm.sub}</Typography>
+                    </Box>
+                  }
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Provider Company Visibility */}
+      {isProviderRole && (
+        <Box sx={{ mt: 3, pt: 3, borderTop: '1px dashed', borderColor: 'info.main' }}>
+          <Alert severity="info" icon={<DomainIcon />} sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="medium" gutterBottom>
+              نطاق الوصول للشركات (Provider Visibility)
+            </Typography>
             <Typography variant="caption">
-              حدد ما يمكن لهذا المستخدم رؤيته وإدارته في النظام
+              حدد الشركات التي يمكن لهذا الموظف رؤية أعضائها والتحقق من أهليتهم
             </Typography>
           </Alert>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewClaims}
-                    onChange={(e) => setForm({ ...form, canViewClaims: e.target.checked })}
-                    color="primary"
+
+          <Stack spacing={3}>
+            <FormControlLabel
+              control={<Switch checked={form.allowAllCompanies} onChange={(e) => setForm({ ...form, allowAllCompanies: e.target.checked })} color="primary" />}
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">الوصول الكامل لجميع الشركات</Typography>
+                  <Typography variant="caption" color="text.secondary">يمكنه البحث عن أعضاء كافة الشركات المتعاقد معها المستشفى</Typography>
+                </Box>
+              }
+            />
+
+            {!form.allowAllCompanies && (
+              <Collapse in={!form.allowAllCompanies}>
+                <Box sx={{ pl: 4, mt: 1 }}>
+                  <Autocomplete
+                    multiple
+                    options={form.allEmployers || []}
+                    getOptionLabel={(option) => option.name || '-'}
+                    value={form.permittedCompanies || []}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    onChange={(event, newValue) => {
+                      setForm({ ...form, permittedCompanies: newValue });
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="اختر الشركات المسموح بها"
+                        placeholder="ابحث عن شركة..."
+                        helperText="سيتمكن الموظف من الوصول لأعضاء هذه الشركات فقط"
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          key={option.id}
+                          variant="outlined"
+                          label={option.name}
+                          size="small"
+                          color="primary"
+                          {...getTagProps({ index })}
+                        />
+                      ))
+                    }
                   />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      المطالبات
+                  {(!form.permittedCompanies || form.permittedCompanies.length === 0) && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                      * يجب اختيار شركة واحدة على الأقل في حال إيقاف خيار "الوصول الكامل"
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة المطالبات
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewVisits}
-                    onChange={(e) => setForm({ ...form, canViewVisits: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      الزيارات
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة الزيارات
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewReports}
-                    onChange={(e) => setForm({ ...form, canViewReports: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      التقارير
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية التقارير التحليلية
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewMembers}
-                    onChange={(e) => setForm({ ...form, canViewMembers: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      المؤمنين
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة المؤمنين
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewBenefitPolicies}
-                    onChange={(e) => setForm({ ...form, canViewBenefitPolicies: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      وثائق المنافع
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وثائق التغطية التأمينية
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-          </Grid>
+                  )}
+                </Box>
+              </Collapse>
+            )}
+          </Stack>
         </Box>
       )}
 
@@ -454,7 +439,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
               return (
                 <Chip
                   key={roleId}
-                  label={role?.nameAr || role?.name || roleId}
+                  label={role?.name || roleId}
                   color={getRoleColor(role?.name)}
                   size="small"
                   onDelete={() => handleToggleRole(roleId)}
@@ -494,7 +479,11 @@ const UserEdit = () => {
     canViewVisits: true,
     canViewReports: true,
     canViewMembers: true,
-    canViewBenefitPolicies: true
+    canViewBenefitPolicies: true,
+    // Provider specific
+    allowAllCompanies: true,
+    permittedCompanies: [],
+    allEmployers: []
   });
   const [originalRoleIds, setOriginalRoleIds] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
@@ -541,6 +530,20 @@ const UserEdit = () => {
         const currentRoleIds = (user.roles || []).map((r) => r?.id);
         setOriginalRoleIds(currentRoleIds);
         setSelectedRoles(currentRoleIds);
+
+        // Fetch employers if user is a provider
+        try {
+          const empRes = await getEmployerSelectors();
+          const employers = empRes?.data?.data || empRes?.data || [];
+          setForm(prev => ({
+            ...prev,
+            allEmployers: employers,
+            allowAllCompanies: user.allowAllCompanies !== false,
+            permittedCompanies: user.permittedCompanies || []
+          }));
+        } catch (empErr) {
+          console.error('[UserEdit] Failed to load employers:', empErr);
+        }
       }
 
       setAllRoles(Array.isArray(roles) ? roles : []);
@@ -602,6 +605,17 @@ const UserEdit = () => {
         payload.canViewReports = form.canViewReports;
         payload.canViewMembers = form.canViewMembers;
         payload.canViewBenefitPolicies = form.canViewBenefitPolicies;
+      }
+
+      // Add provider specific fields
+      const isProvider = selectedRoles.some((roleId) => {
+        const role = allRoles.find((r) => r?.id === roleId);
+        return role?.name === 'PROVIDER';
+      });
+
+      if (isProvider) {
+        payload.allowAllCompanies = form.allowAllCompanies;
+        payload.permittedCompanyIds = form.permittedCompanies?.map(c => c.id) || [];
       }
 
       // Update user info (basic fields only)

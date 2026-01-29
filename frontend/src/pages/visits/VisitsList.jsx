@@ -1,23 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
   Chip,
   IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  TablePagination,
   InputAdornment,
   Tooltip,
-  Paper,
-  TableSortLabel,
   Alert
 } from '@mui/material';
 import {
@@ -37,8 +28,10 @@ import {
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import ModernEmptyState from 'components/tba/ModernEmptyState';
-import TableSkeleton from 'components/tba/LoadingSkeleton';
+import GenericDataTable from 'components/GenericDataTable/GenericDataTable';
+
 import { useVisitsList } from 'hooks/useVisits';
+import { useTableState } from 'hooks/useTableState';
 import visitsService from 'services/api/visits.service';
 
 // Insurance UX Components - Phase B3
@@ -103,6 +96,8 @@ const PREAUTH_STATUS_CONFIG = {
   USED: { color: 'primary', label: 'مستخدمة', bgColor: '#e8eaf6' }
 };
 
+const DEFAULT_SORT = { field: 'visitDate', direction: 'desc' };
+
 // Network Status mapping
 const getNetworkTier = (provider) => {
   if (!provider) return null;
@@ -145,23 +140,6 @@ const extractTotal = (data) => {
   return extractItems(data).length;
 };
 
-// Extract page info defensively
-const extractPage = (data) => {
-  if (!data) return 1;
-  if (typeof data?.data?.page === 'number') return data.data.page;
-  if (typeof data?.page === 'number') return data.page;
-  if (typeof data?.data?.number === 'number') return data.data.number + 1;
-  if (typeof data?.number === 'number') return data.number + 1;
-  return 1;
-};
-
-const extractSize = (data, defaultSize = 20) => {
-  if (!data) return defaultSize;
-  if (typeof data?.data?.size === 'number') return data.data.size;
-  if (typeof data?.size === 'number') return data.size;
-  return defaultSize;
-};
-
 /**
  * Visits List Page
  * Displays paginated list of visits with search, sort, and CRUD operations
@@ -169,38 +147,42 @@ const extractSize = (data, defaultSize = 20) => {
 const VisitsList = () => {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
-  const [orderBy, setOrderBy] = useState('visitDate');
-  const [order, setOrder] = useState('desc');
   const [apiError, setApiError] = useState(null);
 
-  const { data, loading, error, params, setParams, refresh } = useVisitsList({
-    sortBy: orderBy,
-    sortDir: order
+  // Table State Management
+  const tableState = useTableState({
+    initialPageSize: 10,
+    defaultSort: DEFAULT_SORT
   });
+
+  const { page, pageSize, sorting } = tableState;
+
+  const { data, loading, error, params, setParams, refresh } = useVisitsList({
+    sortBy: DEFAULT_SORT.field,
+    sortDir: DEFAULT_SORT.direction
+  });
+
+  // Sync Table State with API Params
+  useEffect(() => {
+    const sortField = sorting[0]?.id || 'visitDate';
+    const sortDir = sorting[0]?.desc ? 'desc' : 'asc';
+
+    setParams(prev => ({
+      ...prev,
+      page: page + 1, // API is 1-based, Table is 0-based
+      size: pageSize,
+      sortBy: sortField,
+      sortDir: sortDir
+    }));
+  }, [page, pageSize, sorting, setParams]);
 
   const handleSearch = useCallback(() => {
     setParams((prev) => ({ ...prev, search: searchInput, page: 1 }));
-  }, [searchInput, setParams]);
+    tableState.setPage(0); // Reset table page to 0
+  }, [searchInput, setParams, tableState]);
 
   const handleSearchKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
-  };
-
-  const handleSort = (column) => {
-    const isAsc = orderBy === column && order === 'asc';
-    const newOrder = isAsc ? 'desc' : 'asc';
-    setOrder(newOrder);
-    setOrderBy(column);
-    setParams((prev) => ({ ...prev, sortBy: column, sortDir: newOrder, page: 1 }));
-  };
-
-  const handlePageChange = (event, newPage) => {
-    setParams((prev) => ({ ...prev, page: newPage + 1 }));
-  };
-
-  const handleRowsPerPageChange = (event) => {
-    const newSize = parseInt(event.target.value, 10);
-    setParams((prev) => ({ ...prev, size: newSize, page: 1 }));
   };
 
   const handleView = (id) => {
@@ -225,6 +207,211 @@ const VisitsList = () => {
   };
 
   const breadcrumbs = [{ title: 'الزيارات' }];
+
+  // ========================================
+  // COLUMNS DEFINITION
+  // ========================================
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'visitDate',
+      header: 'تاريخ الزيارة',
+      size: 150,
+      cell: ({ row }) => {
+        const visit = row.original;
+        return (
+          <Stack spacing={0.5}>
+            <Typography variant="body2" fontWeight="medium">
+              {visit?.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-US') : '—'}
+            </Typography>
+            {visit?.visitType && (
+              <Chip
+                label={VISIT_TYPE_LABELS_AR[visit.visitType] ?? visit.visitType}
+                color={VISIT_TYPE_COLORS[visit.visitType] ?? 'default'}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Stack>
+        );
+      }
+    },
+    {
+      id: 'member',
+      header: 'المؤمَّن عليه',
+      size: 200,
+      cell: ({ row }) => {
+        const visit = row.original;
+        const memberName = visit?.member?.fullName ?? '—';
+        return (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{memberName}</Typography>
+          </Stack>
+        );
+      }
+    },
+    {
+      id: 'provider',
+      header: 'مقدم الخدمة',
+      size: 200,
+      cell: ({ row }) => {
+        const visit = row.original;
+        const providerName = visit?.provider?.name ?? '—';
+        const networkTier = getNetworkTier(visit?.provider);
+        return (
+          <Stack spacing={0.5}>
+            <Typography variant="body2">{providerName}</Typography>
+            {networkTier && <NetworkBadge networkTier={networkTier} showLabel={true} size="small" language="ar" />}
+          </Stack>
+        );
+      }
+    },
+    {
+      id: 'services',
+      header: 'الخدمات المقدمة',
+      size: 250,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const visit = row.original;
+        const services = Array.isArray(visit?.services) ? visit.services : [];
+        if (services.length === 0) {
+          return <Typography variant="caption" color="text.secondary">لا توجد خدمات</Typography>;
+        }
+        return (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {services.slice(0, 3).map((service, idx) => (
+              <Tooltip key={service?.id ?? idx} title={service?.name ?? ''}>
+                <Chip
+                  icon={<MedicalServicesIcon sx={{ fontSize: 14 }} />}
+                  label={service?.code ?? service?.name?.substring(0, 10) ?? `خدمة ${idx + 1}`}
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  sx={{ mb: 0.5 }}
+                />
+              </Tooltip>
+            ))}
+            {services.length > 3 && (
+              <Chip label={`+${services.length - 3}`} size="small" color="default" sx={{ mb: 0.5 }} />
+            )}
+          </Stack>
+        );
+      }
+    },
+    {
+      id: 'claims',
+      header: 'حالة المطالبة / الموافقة',
+      size: 180,
+      align: 'center',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const visit = row.original;
+        return (
+          <Stack spacing={0.5} alignItems="center">
+            {/* Claim Status */}
+            {visit?.latestClaimStatus ? (
+              <Tooltip title={`مطالبة #${visit.latestClaimId} - ${visit.latestClaimStatusLabel || visit.latestClaimStatus}`}>
+                <Chip
+                  icon={<ReceiptIcon sx={{ fontSize: 14 }} />}
+                  label={visit.latestClaimStatusLabel || CLAIM_STATUS_CONFIG[visit.latestClaimStatus]?.label || visit.latestClaimStatus}
+                  color={CLAIM_STATUS_CONFIG[visit.latestClaimStatus]?.color || 'default'}
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/claims/${visit.latestClaimId}`);
+                  }}
+                  sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                />
+              </Tooltip>
+            ) : (
+              null
+            )}
+
+            {/* PreAuth Status */}
+            {visit?.latestPreAuthStatus ? (
+              <Tooltip title={`موافقة مسبقة #${visit.latestPreAuthId} - ${visit.latestPreAuthStatusLabel || visit.latestPreAuthStatus}`}>
+                <Chip
+                  icon={<AssignmentIcon sx={{ fontSize: 14 }} />}
+                  label={visit.latestPreAuthStatusLabel || PREAUTH_STATUS_CONFIG[visit.latestPreAuthStatus]?.label || visit.latestPreAuthStatus}
+                  color={PREAUTH_STATUS_CONFIG[visit.latestPreAuthStatus]?.color || 'default'}
+                  size="small"
+                  variant="outlined"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/pre-authorizations/${visit.latestPreAuthId}`);
+                  }}
+                  sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                />
+              </Tooltip>
+            ) : (
+              null
+            )}
+
+            {!visit?.latestClaimStatus && !visit?.latestPreAuthStatus && (
+              <Typography variant="caption" color="text.secondary">—</Typography>
+            )}
+
+            {/* Show counts if multiple */}
+            {(visit?.claimCount > 1 || visit?.preAuthCount > 1) && (
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                {visit?.claimCount > 1 && `${visit.claimCount} مطالبات`}
+                {visit?.claimCount > 1 && visit?.preAuthCount > 1 && ' | '}
+                {visit?.preAuthCount > 1 && `${visit.preAuthCount} موافقات`}
+              </Typography>
+            )}
+          </Stack>
+        );
+      }
+    },
+    {
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 100,
+      align: 'center',
+      cell: ({ row }) => {
+        const visit = row.original;
+        const visitStatus = getVisitStatus(visit);
+        return (
+          <CardStatusBadge
+            status={visitStatus}
+            customLabel={STATUS_LABELS_AR[visitStatus] ?? 'غير محدد'}
+            size="small"
+            variant="chip"
+          />
+        );
+      }
+    },
+    {
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 120,
+      align: 'center',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const visit = row.original;
+        const visitId = visit?.id;
+        return (
+          <Stack direction="row" spacing={0.5} justifyContent="center" onClick={(e) => e.stopPropagation()}>
+            <Tooltip title="عرض التفاصيل">
+              <IconButton size="small" color="info" onClick={() => handleView(visitId)}>
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="تعديل">
+              <IconButton size="small" color="primary" onClick={() => handleEdit(visitId)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="حذف">
+              <IconButton size="small" color="error" onClick={() => handleDelete(visitId)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        );
+      }
+    }
+  ], [navigate]);
 
   return (
     <>
@@ -272,221 +459,27 @@ const VisitsList = () => {
           </Alert>
         )}
 
-        {loading && <TableSkeleton columns={7} rows={5} />}
-
-        {!loading && extractItems(data).length === 0 && (
+        {!loading && extractItems(data).length === 0 && !searchInput ? (
           <ModernEmptyState
             icon={LocalHospitalIcon}
             title="لا توجد زيارات طبية مسجلة حاليًا"
-            description={params.search ? 'لم يتم العثور على نتائج للبحث' : 'ابدأ بإضافة زيارة طبية جديدة'}
+            description="ابدأ بإضافة زيارة طبية جديدة"
             action={
-              !params.search && (
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/provider/eligibility-check')}>
-                  تسجيل زيارة جديدة
-                </Button>
-              )
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/provider/eligibility-check')}>
+                تسجيل زيارة جديدة
+              </Button>
             }
           />
-        )}
-
-        {!loading && extractItems(data).length > 0 && (
-          <>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>
-                      <TableSortLabel
-                        active={orderBy === 'visitDate'}
-                        direction={orderBy === 'visitDate' ? order : 'asc'}
-                        onClick={() => handleSort('visitDate')}
-                      >
-                        تاريخ الزيارة
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>المؤمَّن عليه</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>مقدم الخدمة</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>الخدمات المقدمة</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>
-                      حالة المطالبة / الموافقة
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>
-                      الحالة
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>
-                      الإجراءات
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {extractItems(data).map((visit) => {
-                    if (!visit) return null;
-                    const visitId = visit?.id ?? Math.random();
-                    const visitStatus = getVisitStatus(visit);
-                    const networkTier = getNetworkTier(visit?.provider);
-                    const services = Array.isArray(visit?.services) ? visit.services : [];
-
-                    return (
-                      <TableRow key={visitId} hover>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            <Typography variant="body2" fontWeight="medium">
-                              {visit?.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-US') : '—'}
-                            </Typography>
-                            {/* Visit Type if available */}
-                            {visit?.visitType && (
-                              <Chip
-                                label={VISIT_TYPE_LABELS_AR[visit.visitType] ?? visit.visitType}
-                                color={VISIT_TYPE_COLORS[visit.visitType] ?? 'default'}
-                                size="small"
-                                variant="outlined"
-                              />
-                            )}
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Typography variant="body2">
-                              {visit?.member?.fullName ?? visit?.member?.nameAr ?? visit?.member?.nameEn ?? '—'}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            <Typography variant="body2">
-                              {visit?.provider?.nameAr ?? visit?.provider?.nameEn ?? visit?.provider?.name ?? '—'}
-                            </Typography>
-                            {/* Network Badge */}
-                            {networkTier && <NetworkBadge networkTier={networkTier} showLabel={true} size="small" language="ar" />}
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          {/* Services Preview - up to 3 chips */}
-                          {services.length > 0 ? (
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                              {services.slice(0, 3).map((service, idx) => (
-                                <Tooltip key={service?.id ?? idx} title={service?.nameAr ?? service?.nameEn ?? ''}>
-                                  <Chip
-                                    icon={<MedicalServicesIcon sx={{ fontSize: 14 }} />}
-                                    label={service?.code ?? service?.nameAr?.substring(0, 10) ?? `خدمة ${idx + 1}`}
-                                    size="small"
-                                    variant="outlined"
-                                    color="primary"
-                                    sx={{ mb: 0.5 }}
-                                  />
-                                </Tooltip>
-                              ))}
-                              {services.length > 3 && (
-                                <Chip label={`+${services.length - 3}`} size="small" color="default" sx={{ mb: 0.5 }} />
-                              )}
-                            </Stack>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              لا توجد خدمات
-                            </Typography>
-                          )}
-                        </TableCell>
-                        {/* Claim & PreAuth Status Column */}
-                        <TableCell align="center">
-                          <Stack spacing={0.5} alignItems="center">
-                            {/* Claim Status */}
-                            {visit?.latestClaimStatus ? (
-                              <Tooltip title={`مطالبة #${visit.latestClaimId} - ${visit.latestClaimStatusLabel || visit.latestClaimStatus}`}>
-                                <Chip
-                                  icon={<ReceiptIcon sx={{ fontSize: 14 }} />}
-                                  label={visit.latestClaimStatusLabel || CLAIM_STATUS_CONFIG[visit.latestClaimStatus]?.label || visit.latestClaimStatus}
-                                  color={CLAIM_STATUS_CONFIG[visit.latestClaimStatus]?.color || 'default'}
-                                  size="small"
-                                  onClick={() => navigate(`/claims/${visit.latestClaimId}`)}
-                                  sx={{ 
-                                    cursor: 'pointer',
-                                    '&:hover': { opacity: 0.8 }
-                                  }}
-                                />
-                              </Tooltip>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                لا مطالبة
-                              </Typography>
-                            )}
-                            {/* PreAuth Status */}
-                            {visit?.latestPreAuthStatus ? (
-                              <Tooltip title={`موافقة مسبقة #${visit.latestPreAuthId} - ${visit.latestPreAuthStatusLabel || visit.latestPreAuthStatus}`}>
-                                <Chip
-                                  icon={<AssignmentIcon sx={{ fontSize: 14 }} />}
-                                  label={visit.latestPreAuthStatusLabel || PREAUTH_STATUS_CONFIG[visit.latestPreAuthStatus]?.label || visit.latestPreAuthStatus}
-                                  color={PREAUTH_STATUS_CONFIG[visit.latestPreAuthStatus]?.color || 'default'}
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => navigate(`/pre-authorizations/${visit.latestPreAuthId}`)}
-                                  sx={{ 
-                                    cursor: 'pointer',
-                                    '&:hover': { opacity: 0.8 }
-                                  }}
-                                />
-                              </Tooltip>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                لا موافقة مسبقة
-                              </Typography>
-                            )}
-                            {/* Show counts if multiple */}
-                            {(visit?.claimCount > 1 || visit?.preAuthCount > 1) && (
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                                {visit?.claimCount > 1 && `${visit.claimCount} مطالبات`}
-                                {visit?.claimCount > 1 && visit?.preAuthCount > 1 && ' | '}
-                                {visit?.preAuthCount > 1 && `${visit.preAuthCount} موافقات`}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="center">
-                          <CardStatusBadge
-                            status={visitStatus}
-                            customLabel={STATUS_LABELS_AR[visitStatus] ?? 'غير محدد'}
-                            size="small"
-                            variant="chip"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <Tooltip title="عرض التفاصيل">
-                              <IconButton size="small" color="info" onClick={() => handleView(visitId)}>
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="تعديل">
-                              <IconButton size="small" color="primary" onClick={() => handleEdit(visitId)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="حذف">
-                              <IconButton size="small" color="error" onClick={() => handleDelete(visitId)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <TablePagination
-              component="div"
-              count={extractTotal(data)}
-              page={extractPage(data) - 1}
-              onPageChange={handlePageChange}
-              rowsPerPage={extractSize(data)}
-              onRowsPerPageChange={handleRowsPerPageChange}
-              rowsPerPageOptions={[10, 20, 50, 100]}
-              labelRowsPerPage="الصفوف في الصفحة:"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count !== -1 ? count : `أكثر من ${to}`}`}
-            />
-          </>
+        ) : (
+          <GenericDataTable
+            columns={columns}
+            data={extractItems(data)}
+            totalCount={extractTotal(data)}
+            isLoading={loading}
+            tableState={tableState}
+            onRowClick={(row) => handleView(row.id)}
+            emptyMessage="لا توجد زيارات مطابقة للبحث"
+          />
         )}
       </MainCard>
     </>

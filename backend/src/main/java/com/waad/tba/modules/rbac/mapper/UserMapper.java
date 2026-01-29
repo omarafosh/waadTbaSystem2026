@@ -29,8 +29,33 @@ public class UserMapper {
                        user.getRoles().stream()
                            .map(roleMapper::toResponseDto)
                            .collect(Collectors.toList()) : null)
+                // Employer/Provider associations
+                .employerId(user.getEmployerId())
+                .providerId(user.getProviderId())
+                // Custom permissions
+                .canViewClaims(user.getCanViewClaims())
+                .canViewVisits(user.getCanViewVisits())
+                .canViewReports(user.getCanViewReports())
+                .canViewMembers(user.getCanViewMembers())
+                .canViewBenefitPolicies(user.getCanViewBenefitPolicies())
+                // Provider specific permissions
+                .allowAllCompanies(user.getAllowAllCompanies())
+                .permittedCompanies(user.getPermittedCompanies() != null ?
+                        user.getPermittedCompanies().stream()
+                                .map(this::toEmployerResponseDto)
+                                .collect(Collectors.toSet()) : null)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    private UserEmployerResponseDto toEmployerResponseDto(com.waad.tba.modules.employer.entity.Employer employer) {
+        if (employer == null) return null;
+        return UserEmployerResponseDto.builder()
+                .id(employer.getId())
+                .name(employer.getNameAr()) // Use nameAr as name by default for UI mapping
+                .nameAr(employer.getNameAr())
+                .code(employer.getCode())
                 .build();
     }
 
@@ -53,6 +78,7 @@ public class UserMapper {
                 .canViewReports(dto.getCanViewReports() != null ? dto.getCanViewReports() : true)
                 .canViewMembers(dto.getCanViewMembers() != null ? dto.getCanViewMembers() : true)
                 .canViewBenefitPolicies(dto.getCanViewBenefitPolicies() != null ? dto.getCanViewBenefitPolicies() : true)
+                .allowAllCompanies(dto.getAllowAllCompanies() != null ? dto.getAllowAllCompanies() : true)
                 .build();
     }
 
@@ -71,6 +97,9 @@ public class UserMapper {
         }
         if (dto.getProviderId() != null) {
             user.setProviderId(dto.getProviderId());
+        }
+        if (dto.getAllowAllCompanies() != null) {
+            user.setAllowAllCompanies(dto.getAllowAllCompanies());
         }
     }
 }

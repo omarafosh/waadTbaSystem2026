@@ -19,9 +19,14 @@ const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusCh
 
     const iconSx = { fontSize: '1.5rem' };
 
-    // If icon is a JSX element (e.g., <LocalHospitalIcon />), clone it with sx
+    // If icon is a JSX element (e.g., <LocalHospitalIcon /> or <img />)
     if (isValidElement(icon)) {
-      // Clone the element and merge sx props
+      // If it's a raw string type element like 'img', render it directly
+      if (typeof icon.type === 'string') {
+        return icon;
+      }
+
+      // If it's a React component element, wrap it in the styled box
       const existingSx = icon.props?.sx || {};
       return (
         <Box
@@ -37,14 +42,14 @@ const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusCh
           }}
         >
           {/* Clone element with merged sx */}
-          {isValidElement(icon) && typeof icon.type !== 'string'
+          {typeof icon.type !== 'string'
             ? { ...icon, props: { ...icon.props, sx: { ...iconSx, ...existingSx } } }
             : icon}
         </Box>
       );
     }
 
-    // If icon is a component type (e.g., PeopleAltIcon), render it
+    // If icon is a component type (e.g., PeopleAltIcon), render it wrapped in box
     const Icon = icon;
     return (
       <Box
@@ -65,24 +70,53 @@ const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusCh
   };
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={{ mb: 2 }}>
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
-        <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1.5 }}>
+        <Breadcrumbs
+          separator={<NavigateNext fontSize="small" sx={{ mx: 0.5, color: 'text.disabled' }} />}
+          sx={{
+            mb: 2,
+            '& .MuiBreadcrumbs-ol': { alignItems: 'stretch' },
+            '& .MuiBreadcrumbs-li': { display: 'flex' }
+          }}
+        >
           {/* Only add "الرئيسية" if first breadcrumb isn't already home */}
           {breadcrumbs[0]?.label !== 'الرئيسية' && (
-            <Link component={RouterLink} to="/" underline="hover" color="inherit" sx={{ display: 'flex', alignItems: 'center' }}>
+            <Link
+              component={RouterLink}
+              to="/"
+              underline="none"
+              color="inherit"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                px: 1.5,
+                py: 0.5,
+                borderRadius: '4px',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s',
+                '&:hover': { bgcolor: 'action.hover', color: 'primary.main' }
+              }}
+            >
               الرئيسية
             </Link>
           )}
           {breadcrumbs.map((crumb, index) => {
             const isLast = index === breadcrumbs.length - 1;
             return isLast ? (
-              <Typography key={index} color="text.primary">
+              <Typography key={index} variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
                 {crumb.label}
               </Typography>
             ) : (
-              <Link key={index} component={RouterLink} to={crumb.path || crumb.href || '/'} underline="hover" color="inherit">
+              <Link
+                key={index}
+                component={RouterLink}
+                to={crumb.path || crumb.href || '/'}
+                underline="hover"
+                color="inherit"
+                sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8125rem' }}
+              >
                 {crumb.label}
               </Link>
             );

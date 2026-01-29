@@ -69,19 +69,19 @@ export const validatePolicyCode = (policyCode) => {
 };
 
 /**
- * Validate Employer Code format
- * Expected format: EMP-XX or custom format
+ * Validate Code format
+ * Expected format: Custom format (min 3 chars)
  * 
- * @param {string} employerCode - Employer code to validate
+ * @param {string} code - Code to validate
  * @returns {boolean} True if valid
  */
-export const validateEmployerCode = (employerCode) => {
-  if (!employerCode || typeof employerCode !== 'string') {
+export const validateCode = (code) => {
+  if (!code || typeof code !== 'string') {
     return false;
   }
 
   // Allow flexible format (at least 3 characters)
-  return employerCode.trim().length >= 3;
+  return code.trim().length >= 3;
 };
 
 /**
@@ -285,7 +285,7 @@ export const safeNumber = (value, defaultValue = 0) => {
 export default {
   validateClaimNumber,
   validatePolicyCode,
-  validateEmployerCode,
+  validateCode,
   validateCardNumber,
   validateNotFutureDate,
   validateDateRange,

@@ -349,15 +349,6 @@ public class MemberChronicCondition {
         return conditionType.getNameAr();
     }
 
-    /**
-     * Get the display name in English.
-     */
-    public String getDisplayNameEn() {
-        if (conditionType == ChronicConditionType.OTHER && customConditionName != null) {
-            return customConditionName;
-        }
-        return conditionType.getNameEn();
-    }
 
     /**
      * Calculate waiting period end date from enrollment date.

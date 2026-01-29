@@ -103,8 +103,8 @@ public class MemberExcelImportService {
     private static final List<String[]> MANDATORY_COLUMNS = List.of(
             // Full Name - الاسم الكامل (MANDATORY)
             new String[] {
-                    "full_name", "name", "full_name_arabic", "fullname", "member_name",
-                    "الاسم الكامل", "الاسم", "اسم الموظف", "الاسم بالعربية", "اسم العضو",
+                    "full_name", "name", "fullname", "member_name",
+                    "الاسم الكامل", "الاسم", "اسم الموظف", "اسم العضو",
                     "الاسم الثلاثي", "الاسم الرباعي", "اسم المؤمن عليه"
             },
             // Employer - جهة العمل (MANDATORY)
@@ -240,7 +240,8 @@ public class MemberExcelImportService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Parse Excel file and return preview without importing (with default mappings).
+     * Parse Excel file and return preview without importing (with default
+     * mappings).
      */
     public MemberImportPreviewDto parseAndPreview(MultipartFile file) throws Exception {
         return parseAndPreview(file, null);
@@ -255,11 +256,13 @@ public class MemberExcelImportService {
      * - Only ERROR rows are skipped, WARNING rows are imported
      * - Accepts custom column mappings (excelColumn → systemField)
      * 
-     * @param file Excel file
-     * @param customMappings Optional map of Excel column names to system field names
+     * @param file           Excel file
+     * @param customMappings Optional map of Excel column names to system field
+     *                       names
      */
-    public MemberImportPreviewDto parseAndPreview(MultipartFile file, Map<String, String> customMappings) throws Exception {
-        log.info("📊 Parsing Excel file for preview: {} (custom mappings: {})", 
+    public MemberImportPreviewDto parseAndPreview(MultipartFile file, Map<String, String> customMappings)
+            throws Exception {
+        log.info("📊 Parsing Excel file for preview: {} (custom mappings: {})",
                 file.getOriginalFilename(), customMappings != null ? "yes" : "auto");
 
         String batchId = UUID.randomUUID().toString();
@@ -302,11 +305,11 @@ public class MemberExcelImportService {
             // Use custom mappings if provided, otherwise auto-map
             if (customMappings != null && !customMappings.isEmpty()) {
                 log.info("🎯 Using custom column mappings: {}", customMappings);
-                
+
                 for (Map.Entry<String, String> entry : customMappings.entrySet()) {
                     String excelColumn = entry.getKey().trim().toLowerCase();
                     String systemField = entry.getValue();
-                    
+
                     // Find column index by name
                     Integer columnIndex = findColumnIndexByName(excelColumn, columnIndexToName);
                     if (columnIndex != null) {
@@ -319,7 +322,7 @@ public class MemberExcelImportService {
                 }
             } else {
                 log.info("🔍 Using auto-mapping for columns");
-                
+
                 // Auto-map columns using existing logic
                 for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                     String colName = columnIndexToName.get(i);
@@ -389,11 +392,10 @@ public class MemberExcelImportService {
                             .id(e.getId())
                             .code(e.getCode())
                             .nameAr(e.getNameAr())
-                            .nameEn(e.getNameEn())
                             .active(e.getActive())
                             .build())
                     .toList();
-            
+
             // NEW: Load available benefit policies for selection
             List<BenefitPolicy> allPolicies = benefitPolicyRepository.findAll();
             List<MemberImportPreviewDto.BenefitPolicyOptionDto> policyOptions = allPolicies.stream()
@@ -402,7 +404,8 @@ public class MemberExcelImportService {
                             .policyNumber(p.getPolicyCode())
                             .nameAr(p.getName())
                             .nameEn(p.getName())
-                            .employerId(p.getEmployerOrganization() != null ? p.getEmployerOrganization().getId() : null)
+                            .employerId(
+                                    p.getEmployerOrganization() != null ? p.getEmployerOrganization().getId() : null)
                             .isActive(p.getStatus() == BenefitPolicy.BenefitPolicyStatus.ACTIVE)
                             .build())
                     .toList();
@@ -422,8 +425,8 @@ public class MemberExcelImportService {
                     .canProceed(importableCount > 0) // Can proceed if any rows are valid
                     .matchKeyUsed("CARD_NUMBER")
                     .warnings(warnings)
-                    .availableEmployers(employerOptions)  // NEW
-                    .availableBenefitPolicies(policyOptions)  // NEW
+                    .availableEmployers(employerOptions) // NEW
+                    .availableBenefitPolicies(policyOptions) // NEW
                     .build();
         }
     }
@@ -435,39 +438,39 @@ public class MemberExcelImportService {
     /**
      * Execute import after user confirmation.
      * 
-     * @param file Excel file
-     * @param batchId Batch ID from preview
-     * @param employerId Selected employer ID (REQUIRED)
+     * @param file            Excel file
+     * @param batchId         Batch ID from preview
+     * @param employerId      Selected employer ID (REQUIRED)
      * @param benefitPolicyId Selected benefit policy ID (OPTIONAL)
      */
     @Transactional
     public MemberImportResultDto executeImport(
-            MultipartFile file, 
+            MultipartFile file,
             String batchId,
             Long employerId,
             Long benefitPolicyId) throws Exception {
-        
-        log.info("📥 Executing member import: batchId={}, file={}, employer={}, policy={}", 
+
+        log.info("📥 Executing member import: batchId={}, file={}, employer={}, policy={}",
                 batchId, file.getOriginalFilename(), employerId, benefitPolicyId);
 
         // Validate employer exists (REQUIRED)
         if (employerId == null) {
             throw new BusinessRuleException("يجب تحديد صاحب العمل");
         }
-        
+
         Organization employerOrg = organizationRepository.findById(employerId)
                 .orElseThrow(() -> new BusinessRuleException("صاحب العمل غير موجود: " + employerId));
-        
+
         if (employerOrg.getType() != OrganizationType.EMPLOYER) {
             throw new BusinessRuleException("المنظمة المحددة ليست صاحب عمل");
         }
-        
+
         // Validate policy if provided (OPTIONAL)
         BenefitPolicy benefitPolicy = null;
         if (benefitPolicyId != null) {
             benefitPolicy = benefitPolicyRepository.findById(benefitPolicyId)
                     .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + benefitPolicyId));
-            
+
             log.info("✅ Benefit policy selected: {}", benefitPolicy.getPolicyCode());
         } else {
             log.info("ℹ️ No benefit policy selected - will use employer's active policy if available");
@@ -801,7 +804,7 @@ public class MemberExcelImportService {
      * - Card Number is auto-generated if not exists
      * - Other fields are imported as available
      * 
-     * @param employerOrg Pre-selected employer organization (REQUIRED)
+     * @param employerOrg   Pre-selected employer organization (REQUIRED)
      * @param benefitPolicy Pre-selected benefit policy (OPTIONAL)
      */
     private ImportRowResult processRow(Row row, int rowNum,
@@ -813,7 +816,7 @@ public class MemberExcelImportService {
 
         // Extract fields
         String fullName = getFieldValue(row, fieldToColumnIndex, "fullName");
-        String civilId = getFieldValue(row, fieldToColumnIndex, "civilId");  // Optional
+        String civilId = getFieldValue(row, fieldToColumnIndex, "civilId"); // Optional
 
         // CRITICAL VALIDATION - Only fullName is truly required
         if (fullName == null || fullName.isBlank()) {
@@ -824,32 +827,33 @@ public class MemberExcelImportService {
         // Check if member already exists by civilId (if provided)
         Member existingMember = null;
         if (civilId != null && !civilId.isBlank()) {
-            existingMember = memberRepository.findByCivilId(civilId).orElse(null);
+            List<Member> existingMembers = memberRepository.findByCivilId(civilId);
+            existingMember = existingMembers.isEmpty() ? null : existingMembers.get(0);
         }
 
         Member member;
         boolean isUpdate = false;
-        
+
         if (existingMember != null) {
             // UPDATE existing member
             member = existingMember;
             member.setFullName(fullName);
             isUpdate = true;
-            
+
             log.debug("🔄 Updating existing member: civilId={}, id={}", civilId, member.getId());
-            
+
         } else {
             // CREATE new member
             member = Member.builder()
                     .fullName(fullName)
-                    .employerOrganization(employerOrg)      // From user selection
-                    .benefitPolicy(benefitPolicy)            // From user selection (optional)
+                    .employerOrganization(employerOrg) // From user selection
+                    .benefitPolicy(benefitPolicy) // From user selection (optional)
                     .status(MemberStatus.ACTIVE)
                     .cardStatus(Member.CardStatus.ACTIVE)
                     .active(true)
                     .barcode(barcodeGeneratorService.generate()) // RADICAL FIX: Generate Canonical Barcode
                     .build();
-            
+
             log.debug("✨ Creating new member: fullName={}", fullName);
         }
 
@@ -857,7 +861,7 @@ public class MemberExcelImportService {
         if (civilId != null && !civilId.isBlank()) {
             member.setCivilId(civilId);
         }
-        
+
         // Birth Date
         String birthDateStr = getFieldValue(row, fieldToColumnIndex, "birthDate");
         if (birthDateStr != null && !birthDateStr.isBlank()) {
@@ -868,7 +872,7 @@ public class MemberExcelImportService {
                 log.warn("⚠️ Row {}: Invalid birth date '{}': {}", rowNum, birthDateStr, e.getMessage());
             }
         }
-        
+
         // Gender
         String genderStr = getFieldValue(row, fieldToColumnIndex, "gender");
         if (genderStr != null && !genderStr.isBlank()) {
@@ -879,25 +883,25 @@ public class MemberExcelImportService {
                 log.warn("⚠️ Row {}: Invalid gender '{}': {}", rowNum, genderStr, e.getMessage());
             }
         }
-        
+
         // Phone
         String phone = getFieldValue(row, fieldToColumnIndex, "phone");
         if (phone != null && !phone.isBlank()) {
             member.setPhone(phone);
         }
-        
+
         // Email
         String email = getFieldValue(row, fieldToColumnIndex, "email");
         if (email != null && !email.isBlank()) {
             member.setEmail(email);
         }
-        
+
         // Employee Number
         String employeeNumber = getFieldValue(row, fieldToColumnIndex, "employeeNumber");
         if (employeeNumber != null && !employeeNumber.isBlank()) {
             member.setEmployeeNumber(employeeNumber);
         }
-        
+
         // Job Title (as attribute)
         String jobTitle = getFieldValue(row, fieldToColumnIndex, "jobTitle");
         if (jobTitle != null && !jobTitle.isBlank()) {
@@ -910,7 +914,7 @@ public class MemberExcelImportService {
                     .build();
             member.getAttributes().add(attr);
         }
-        
+
         // Department (as attribute)
         String department = getFieldValue(row, fieldToColumnIndex, "department");
         if (department != null && !department.isBlank()) {
@@ -925,11 +929,11 @@ public class MemberExcelImportService {
 
         // Save member (Card Number will be auto-generated via @PrePersist if null)
         member = memberRepository.save(member);
-        
-        log.info("✅ Row {}: {} member: id={}, name={}, cardNumber={}", 
-                rowNum, 
+
+        log.info("✅ Row {}: {} member: id={}, name={}, cardNumber={}",
+                rowNum,
                 isUpdate ? "Updated" : "Created",
-                member.getId(), 
+                member.getId(),
                 member.getFullName(),
                 member.getCardNumber());
 

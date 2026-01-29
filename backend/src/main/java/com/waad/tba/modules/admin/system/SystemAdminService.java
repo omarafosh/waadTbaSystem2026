@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.waad.tba.common.dto.ApiResponse;
 import com.waad.tba.modules.claim.repository.ClaimRepository;
 import com.waad.tba.modules.company.repository.CompanyRepository;
-import com.waad.tba.modules.employer.repository.EmployerRepository;
+import com.waad.tba.common.repository.OrganizationRepository;
 import com.waad.tba.modules.member.repository.MemberRepository;
 import com.waad.tba.modules.rbac.repository.PermissionRepository;
 import com.waad.tba.modules.rbac.repository.RoleRepository;
@@ -26,7 +26,7 @@ public class SystemAdminService {
     private final ClaimRepository claimRepository;
     private final VisitRepository visitRepository;
     private final MemberRepository memberRepository;
-    private final EmployerRepository employerRepository;
+    private final OrganizationRepository organizationRepository;
     private final ReviewerCompanyRepository reviewerCompanyRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -40,7 +40,7 @@ public class SystemAdminService {
         claimRepository.deleteAll();
         visitRepository.deleteAll();
         memberRepository.deleteAll();
-        employerRepository.deleteAll();
+        organizationRepository.deleteAll();
         reviewerCompanyRepository.deleteAll();
         log.info("Test data cleared.");
         return ApiResponse.success("Test data cleared", null);

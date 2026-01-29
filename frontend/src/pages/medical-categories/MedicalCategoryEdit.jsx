@@ -45,8 +45,7 @@ import { updateMedicalCategory, getAllMedicalCategories } from 'services/api/med
 
 const INITIAL_FORM_STATE = {
   code: '',
-  name: '', // Arabic
-  nameEn: '', // English
+  name: '', // Name
   parentId: '', // Parent ID
   active: true
 };
@@ -92,7 +91,7 @@ const MedicalCategoryEdit = () => {
       }
     };
     fetchParents();
-    
+
     return () => { mounted = false; };
   }, [id]);
 
@@ -101,8 +100,7 @@ const MedicalCategoryEdit = () => {
     if (categoryData) {
       setFormData({
         code: categoryData.code || '',
-        name: categoryData.name || categoryData.nameAr || '',
-        nameEn: categoryData.nameEn || '',
+        name: categoryData.name || '',
         parentId: categoryData.parentId || '',
         active: categoryData.active !== false
       });
@@ -116,7 +114,7 @@ const MedicalCategoryEdit = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
+
     // Clear error
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: undefined }));
@@ -126,7 +124,6 @@ const MedicalCategoryEdit = () => {
   const validate = () => {
     const errors = {};
     if (!formData.name?.trim()) errors.name = 'اسم الفئة مطلوب';
-    if (!formData.nameEn?.trim()) errors.nameEn = 'English Name is required';
     if (!formData.code?.trim()) errors.code = 'رمز الفئة مطلوب';
     return errors;
   };
@@ -134,7 +131,7 @@ const MedicalCategoryEdit = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError(null);
-    
+
     const errors = validate();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -147,7 +144,6 @@ const MedicalCategoryEdit = () => {
       const payload = {
         // code is immutable, usually ignored by update endpoint but we send it
         name: formData.name,
-        nameEn: formData.nameEn,
         parentId: formData.parentId || null,
         active: formData.active
       };
@@ -222,7 +218,7 @@ const MedicalCategoryEdit = () => {
     <Box>
       <ModernPageHeader
         title="تعديل تصنيف طبي"
-        subtitle={`تحديث بيانات: ${categoryData.nameAr || categoryData.name}`}
+        subtitle={`تحديث بيانات: ${categoryData.name}`}
         icon={CategoryIcon}
         breadcrumbs={[{ label: 'التصنيفات الطبية', path: '/medical-categories' }, { label: 'تعديل' }]}
         actions={
@@ -268,18 +264,18 @@ const MedicalCategoryEdit = () => {
                 </MenuItem>
                 {categories.map((cat) => (
                   <MenuItem key={cat.id} value={cat.id}>
-                    {cat.nameAr || cat.name}
+                    {cat.name}
                   </MenuItem>
                 ))}
               </TextField>
             </Grid>
 
-            {/* Arabic Name */}
-            <Grid item xs={12} md={6}>
+            {/* Name */}
+            <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
                 required
-                label="الاسم (عربي)"
+                label="الاسم"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
@@ -287,23 +283,6 @@ const MedicalCategoryEdit = () => {
                 helperText={formErrors.name}
                 disabled={isSubmitting}
                 dir="rtl"
-              />
-            </Grid>
-
-            {/* English Name */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="English Name"
-                name="nameEn"
-                value={formData.nameEn}
-                onChange={handleChange}
-                error={!!formErrors.nameEn}
-                helperText={formErrors.nameEn}
-                disabled={isSubmitting}
-                dir="ltr"
-                inputProps={{ style: { textAlign: 'left' } }}
               />
             </Grid>
 
@@ -330,10 +309,10 @@ const MedicalCategoryEdit = () => {
                 <Button variant="outlined" onClick={handleBack} disabled={isSubmitting}>
                   إلغاء
                 </Button>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
-                  startIcon={<SaveIcon />} 
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={<SaveIcon />}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}

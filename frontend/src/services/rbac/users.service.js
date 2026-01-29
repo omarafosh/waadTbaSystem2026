@@ -103,6 +103,14 @@ export const usersService = {
   },
 
   /**
+   * Reset user password (System Admin operation)
+   * PUT /api/admin/user-management/{id}/reset-password
+   */
+  resetUserPassword: (id, newPassword) => {
+    return axiosServices.put(`/admin/user-management/${id}/reset-password`, { newPassword });
+  },
+
+  /**
    * Get users paginated with sorting - TbaDataTable format
    * GET /api/admin/users/paginate?page={page}&size={size}&sortBy={field}&sortDir={dir}
    *

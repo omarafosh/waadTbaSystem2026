@@ -156,16 +156,16 @@ const VisitCreate = () => {
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors.memberId}>
                 <InputLabel>المؤمَّن عليه *</InputLabel>
-                <Select 
-                  value={form.memberId} 
-                  onChange={handleChange('memberId')} 
-                  label="المؤمَّن عليه *" 
+                <Select
+                  value={form.memberId}
+                  onChange={handleChange('memberId')}
+                  label="المؤمَّن عليه *"
                   disabled={membersLoading}
                 >
                   <MenuItem value="">-- اختر المؤمَّن عليه --</MenuItem>
                   {members?.map((member) => (
                     <MenuItem key={member.id} value={member.id}>
-                      {member.fullName || member.nameAr || member.nameEn || `مؤمن ${member.id}`}
+                      {member.fullName || `مؤمن ${member.id}`}
                     </MenuItem>
                   ))}
                 </Select>
@@ -221,16 +221,16 @@ const VisitCreate = () => {
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>مقدم الخدمة</InputLabel>
-                <Select 
-                  value={form.providerId} 
-                  onChange={handleChange('providerId')} 
-                  label="مقدم الخدمة" 
+                <Select
+                  value={form.providerId}
+                  onChange={handleChange('providerId')}
+                  label="مقدم الخدمة"
                   disabled={providersLoading}
                 >
                   <MenuItem value="">-- بدون مقدم خدمة --</MenuItem>
                   {providers?.map((provider) => (
                     <MenuItem key={provider.id} value={provider.id}>
-                      {provider.nameAr || provider.nameEn}
+                      {provider.name}
                     </MenuItem>
                   ))}
                 </Select>

@@ -40,13 +40,6 @@ public class MedicalCategoryCreateDto {
     private String name;
 
     /**
-     * English name (supplementary)
-     */
-    @Size(max = 200, message = "English name must not exceed 200 characters")
-    @JsonAlias({"nameEn"})
-    private String nameEn;
-
-    /**
      * Parent category ID (null for root categories)
      */
     @JsonAlias({"parentCategoryId", "parentId"})

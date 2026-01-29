@@ -4,17 +4,35 @@ spring:
 
   # ==============================  # 🌐 Server & Encoding
   # ==============================
-  server:
-    servlet:
-      encoding:
-        charset: UTF-8
-        enabled: true
-        force: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
-  # ==============================  # � Main Configuration
+  # ==============================  #  Main Configuration
   # ==============================
   main:
     allow-circular-references: true  # Required for Security circular dependency
+
+  # ==============================
+  # 🆔 Member Card Number Configuration
+  # ==============================
+  # Format placeholders:
+  # {R}    : Relationship Code (P=Principal, S=Spouse, C=Child, D=Dependent)
+  # {PRO}  : Provider Code (3 letters from Insurance Org)
+  # {COMP} : Company Code (3 letters from Employer Org)
+  # {ID}   : Unique Identifier (6+ digits)
+  # Examples:
+  # - Standard: {R}-{PRO}-{COMP}-{ID}  (e.g., P-TBA-WAAD-001234)
+  # - Company First: {COMP}-{ID}-{R}   (e.g., WAAD-001234-P)
+  # - Simple: {ID}-{R}                 (e.g., 001234-P)
+  tba:
+    member:
+      card-number-format: "{ًُِWaad}-{year}{employee_id}-{R}"
 
   # ==============================
   # 📧 Mail Configuration (Hostinger SMTP)

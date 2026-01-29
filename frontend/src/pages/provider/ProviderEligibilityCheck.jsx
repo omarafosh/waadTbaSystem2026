@@ -1,23 +1,15 @@
 /**
  * Provider Portal - Eligibility Check Page
  * 
- * Healthcare provider interface for real-time eligibility verification.
- * Matches the main EligibilityCheckPage design and functionality.
- * 
- * Supported Methods:
- * 1. QR/Barcode Scan (camera or hardware scanner)
- * 2. Card Number / Barcode Entry
- * 
- * @version 2.0 - Aligned with EligibilityCheckPage
- * @since Phase 1 - Provider Portal
+ * Corrected Professional Architectural Redesign (30/70 RTL Split)
+ * Rightmost: 30% Scanner & Search (Unit of Control)
+ * Left: 70% Results (Divided into Client Info & stats on right, Table on left)
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Card,
-  CardContent,
   TextField,
   Button,
   Typography,
@@ -40,11 +32,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  LinearProgress,
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Container,
+  useTheme,
+  alpha,
+  TablePagination
 } from '@mui/material';
 import {
   QrCodeScanner as QrIcon,
@@ -53,19 +48,23 @@ import {
   Cancel as CancelIcon,
   Close as CloseIcon,
   Refresh as RefreshIcon,
-  Person as PersonIcon,
-  FamilyRestroom as FamilyIcon,
   LocalHospital as HospitalIcon,
-  EventNote as VisitIcon,
-  Description,
-  CheckCircle as CheckCircleIcon  
+  AccountBalanceWallet as WalletIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { Html5Qrcode } from 'html5-qrcode';
 import MainCard from 'components/MainCard';
 import { providerApi } from 'services/providerService';
 
+// Add useAuth import
+import useAuth from 'hooks/useAuth';
+
 export default function ProviderEligibilityCheck() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  // Get user from auth hook
+  const { user } = useAuth();
+
   // ========================================
   // STATE
   // ========================================
@@ -74,18 +73,21 @@ export default function ProviderEligibilityCheck() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
-  
+
   // QR Scanner State
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [cameraError, setCameraError] = useState(null);
   const html5QrCodeRef = useRef(null);
-  
-  // Visit Registration State (NEW FLOW 2026-01-13)
+
+  // Visit Registration State
   const [registeringVisit, setRegisteringVisit] = useState(false);
-  const [selectedVisitType, setSelectedVisitType] = useState('');
-  
-  // Visit Type Options
+  const [selectedVisitType, setSelectedVisitType] = useState('OUTPATIENT');
+  const [visitError, setVisitError] = useState(null);
+
+  // Table Pagination State
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
   const VISIT_TYPE_OPTIONS = [
     { value: 'OUTPATIENT', label: 'عيادة خارجية' },
     { value: 'INPATIENT', label: 'تنويم' },
@@ -94,21 +96,6 @@ export default function ProviderEligibilityCheck() {
     { value: 'FOLLOW_UP', label: 'متابعة' }
   ];
 
-  // ========================================
-  // HELPERS
-  // ========================================
-
-  /**
-   * Detect if input is a barcode format (WAHA-XXXX-XXXXXXXX or similar)
-   */
-  const isBarcode = (value) => {
-    const barcodePattern = /^[A-Z]+-\d{4}-\d+$/i;
-    return barcodePattern.test(value.trim());
-  };
-
-  /**
-   * Format currency (Libyan Dinar)
-   */
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) return '0.00';
     return new Intl.NumberFormat('ar-LY', {
@@ -118,171 +105,80 @@ export default function ProviderEligibilityCheck() {
     }).format(amount);
   };
 
-  /**
-   * Get usage percentage color
-   */
-  const getUsageColor = (percentage) => {
-    if (percentage >= 90) return 'error';
-    if (percentage >= 70) return 'warning';
-    return 'success';
-  };
-
-  // ========================================
-  // API CALL
-  // ========================================
-
   const checkEligibility = useCallback(async (query) => {
     if (!query || !query.trim()) {
       setError('الرجاء إدخال رقم البطاقة أو مسح الباركود');
       return;
     }
-
     setResult(null);
     setError(null);
+    setVisitError(null);
     setSelectedMember(null);
     setLoading(true);
-
+    setPage(0);
     try {
-      const trimmedValue = query.trim();
-      
-      // الفحص يتم فقط بالباركود أو رقم البطاقة
-      // الرقم الوطني لا يُستخدم للفحص - يظهر فقط كمعلومات أساسية
-      const request = {
-        barcode: trimmedValue  // يقبل الباركود أو رقم البطاقة
-      };
-      
-      console.log('[Provider Eligibility] Request payload:', request);
-      
-      const response = await providerApi.checkEligibility(request);
-
+      const cleanQuery = query.trim();
+      const response = await providerApi.checkEligibility({
+        barcode: cleanQuery,
+        encounterType: selectedVisitType
+      });
       setResult(response);
-      
-      // Auto-select principal if only one eligible member
-      if (response.eligibleMembersCount === 1 && response.familyMembers?.length === 1) {
+
+      // Smart Auto-Select Logic
+      // 1. If exact barcode match found in family members, select them
+      const exactMatch = response.familyMembers?.find(m => m.barcode === cleanQuery || m.cardNumber === cleanQuery);
+
+      if (exactMatch && exactMatch.eligible) {
+        setSelectedMember(exactMatch);
+      } else if (response.familyMembers?.length === 1 && response.familyMembers[0].eligible) {
+        // 2. If only one member exists (and no specific barcode match needed/found), select them
         setSelectedMember(response.familyMembers[0]);
       }
     } catch (err) {
-      console.error('[Provider Eligibility] Check failed:', err);
-      
-      // Enhanced error handling - extract meaningful message
-      let errorMessage = 'حدث خطأ أثناء التحقق من الأهلية';
-      
-      if (err.parsedError) {
-        // Use parsed error from service
-        errorMessage = err.parsedError.message;
-      } else if (err.response?.data) {
-        const errorData = err.response.data;
-        
-        // Handle validation errors with field details
-        if (errorData.errorCode === 'VALIDATION_ERROR' || errorData.code === 'VALIDATION_ERROR') {
-          if (errorData.details && typeof errorData.details === 'object') {
-            const fieldErrors = Object.entries(errorData.details)
-              .map(([field, msg]) => {
-                const arabicNames = {
-                  barcode: 'الباركود/رقم البطاقة',
-                  cardNumber: 'رقم البطاقة',
-                  serviceDate: 'تاريخ الخدمة'
-                };
-                return `${arabicNames[field] || field}: ${msg}`;
-              })
-              .join('، ');
-            errorMessage = fieldErrors || 'خطأ في البيانات المدخلة';
-          } else {
-            errorMessage = errorData.message || 'فشل التحقق من صحة البيانات';
-          }
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (errorData.messageAr) {
-          errorMessage = errorData.messageAr;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      // Log detailed error for debugging
-      if (err.response?.status === 400) {
-        console.warn('[Provider Eligibility] Validation error details:', {
-          status: err.response.status,
-          errorCode: err.response.data?.errorCode,
-          details: err.response.data?.details,
-          message: err.response.data?.message
-        });
-      }
-      
-      setError(errorMessage);
-      setResult(null);
+      console.error('Check failed:', err);
+      setError(err.parsedError?.message || err.message || 'حدث خطأ أثناء التحقق');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ========================================
-  // INPUT HANDLERS
-  // ========================================
-
-  const handleInputChange = (e) => {
-    setSearchValue(e.target.value);
-  };
-
-  const handleSubmit = () => {
-    checkEligibility(searchValue);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && searchValue.trim()) {
-      handleSubmit();
-    }
-  };
-
+  const handleSubmit = () => checkEligibility(searchValue);
+  const handleKeyPress = (e) => e.key === 'Enter' && searchValue.trim() && handleSubmit();
   const handleReset = () => {
     setSearchValue('');
     setResult(null);
     setError(null);
+    setVisitError(null);
     setSelectedMember(null);
+    setPage(0);
   };
-
-  // ========================================
-  // QR SCANNER HANDLERS
-  // ========================================
 
   const startQrScanner = async () => {
     setScannerOpen(true);
-    setCameraError(null);
     setScanning(true);
-
     try {
       const html5QrCode = new Html5Qrcode('qr-reader-provider');
       html5QrCodeRef.current = html5QrCode;
-
       await html5QrCode.start(
         { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           stopQrScanner();
           setScannerOpen(false);
           setSearchValue(decodedText);
           checkEligibility(decodedText);
         },
-        () => { /* Continuous scanning errors - ignore */ }
+        () => { }
       );
     } catch (err) {
-      console.error('[QR Scanner] Failed to start:', err);
-      setCameraError('فشل الوصول إلى الكاميرا. يمكنك استخدام ماسح الباركود المتصل بالجهاز');
       setScanning(false);
     }
   };
 
   const stopQrScanner = async () => {
     if (html5QrCodeRef.current) {
-      try {
-        await html5QrCodeRef.current.stop();
-        html5QrCodeRef.current = null;
-      } catch (err) {
-        console.error('[QR Scanner] Failed to stop:', err);
-      }
+      await html5QrCodeRef.current.stop().catch(() => { });
+      html5QrCodeRef.current = null;
     }
     setScanning(false);
   };
@@ -290,567 +186,500 @@ export default function ProviderEligibilityCheck() {
   const handleCloseScannerDialog = () => {
     stopQrScanner();
     setScannerOpen(false);
-    setCameraError(null);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-      }
-    };
+    return () => { if (html5QrCodeRef.current) html5QrCodeRef.current.stop().catch(() => { }); };
   }, []);
 
-  // ========================================
-  // HARDWARE SCANNER SUPPORT
-  // ========================================
-
-  useEffect(() => {
-    let buffer = '';
-    let timeout = null;
-
-    const handleKeyDown = (e) => {
-      if (document.activeElement?.id === 'scanner-input-provider') {
-        clearTimeout(timeout);
-        
-        if (e.key === 'Enter' && buffer.trim()) {
-          e.preventDefault();
-          setSearchValue(buffer.trim());
-          checkEligibility(buffer.trim());
-          buffer = '';
-        } else if (e.key.length === 1) {
-          buffer += e.key;
-          
-          timeout = setTimeout(() => {
-            if (buffer.trim()) {
-              setSearchValue(buffer.trim());
-              checkEligibility(buffer.trim());
-              buffer = '';
-            }
-          }, 100);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timeout);
-    };
-  }, [checkEligibility]);
-
-  // ========================================
-  // RENDER
-  // ========================================
-
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Page Header */}
-      <Box sx={{ mb: 4 }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <HospitalIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-          <Box>
-            <Typography variant="h4" gutterBottom sx={{ mb: 0 }}>
-              التحقق من الأهلية - بوابة مقدم الخدمة
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              تحقق من أهلية المنتفع باستخدام رقم البطاقة أو مسح الباركود/QR
-            </Typography>
-          </Box>
-        </Stack>
-      </Box>
+    <Box sx={{
+      width: '100%',
+      height: 'calc(100vh - 80px)', // Fixed height to fit screen
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      mx: 'auto'
+    }}>
+      {/* Page Header - Detailed Hierarchy */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, px: 3, pt: 3, flexShrink: 0 }}>
 
-      <Grid container spacing={3}>
-        {/* Input Section */}
-        <Grid xs={12} lg={5}>
-          <MainCard title="طرق التحقق" sx={{ height: '100%' }}>
-            <Stack spacing={3}>
-              {/* Method 1: QR/Barcode Scanner */}
-              <Box>
-                <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-                  1. مسح الباركود / QR Code
-                </Typography>
-                
+        {/* Right Side: Identity Hierarchy */}
+        <Stack direction="row" alignItems="center" spacing={4} divider={<Divider orientation="vertical" flexItem sx={{ height: 40, borderColor: 'divider' }} />}>
+
+          {/* 1. Waad Company Identity */}
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Box sx={{ width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/assets/images/waad-logo.png" alt="Waad Company" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/60?text=Waad'; }} />
+            </Box>
+            <Box>
+              <Typography variant="h5" fontWeight="900" color="primary.main" sx={{ lineHeight: 1.2 }}>شركة وعد</Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight="700">إدارة التأمين الصحي</Typography>
+            </Box>
+          </Stack>
+
+          {/* 2. Provider Identity (Hospital Name) */}
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Box sx={{
+              width: 48, height: 48,
+              borderRadius: 2,
+              bgcolor: 'primary.lighter',
+              color: 'primary.main',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <HospitalIcon fontSize="medium" />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight="800" color="text.primary" sx={{ lineHeight: 1.2 }}>
+                {user?.role === 'SUPER_ADMIN' ? 'مستشفى الرازي - بنغازي' : (user?.fullName || 'مستشفى الرازي')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight="600">
+                {user?.providerType || 'مستشفى / مركز طبي'}
+              </Typography>
+            </Box>
+          </Stack>
+
+          {/* 3. Service Portal Label (Static Badge) */}
+          <Paper
+            elevation={0}
+            variant="outlined"
+            sx={{
+              px: 3, py: 1,
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <Typography variant="subtitle1" fontWeight="800" color="primary.main">بوابة الخدمة</Typography>
+          </Paper>
+
+        </Stack>
+
+        {/* Left Side: Actions */}
+        {result && (
+          <Button
+            color="error"
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleReset}
+            sx={{ px: 3, fontWeight: 700 }}
+          >
+            إنهاء الجلسة
+          </Button>
+        )}
+      </Stack>
+
+      {/* Main Layout Body - Flex Row to ensure full width usage */}
+      <Stack direction="row" spacing={2} sx={{ flexGrow: 1, overflow: 'hidden', px: 2, pb: 2 }}>
+
+        {/* 1. RIGHT COLUMN: Control & Scanner (Fixed Width) */}
+        <Box sx={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+          <MainCard
+            contentSX={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}
+            title={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <QrIcon color="primary" fontSize="small" />
+                <Typography variant="subtitle1" fontWeight="700">وحدة التحكم</Typography>
+              </Stack>
+            }
+            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          >
+            <Stack spacing={2} sx={{ flexGrow: 1 }}>
+              {/* QR Section */}
+              <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), border: '1px dashed', borderColor: 'primary.main' }}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={startQrScanner}
+                  startIcon={<QrIcon />}
+                  disabled={loading || scanning}
+                  sx={{ py: 1.5, fontWeight: 600 }}
+                >
+                  تشغيل الكاميرا
+                </Button>
+              </Box>
+
+              <Divider><Typography variant="caption" color="text.secondary">أو البحث اليدوي</Typography></Divider>
+
+              {/* Manual Section */}
+              <Box sx={{ flexGrow: 1 }}>
                 <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="رقم الهوية / البطاقة"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    disabled={loading}
+                    sx={{ '& input': { textAlign: 'center' } }}
+                  />
                   <Button
                     variant="contained"
                     color="primary"
-                    size="large"
-                    startIcon={<QrIcon />}
-                    onClick={startQrScanner}
-                    disabled={loading || scanning}
                     fullWidth
-                  >
-                    مسح باستخدام الكاميرا
-                  </Button>
-
-                  <TextField
-                    id="scanner-input-provider"
-                    fullWidth
-                    placeholder="أو وجّه الماسح الضوئي هنا..."
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <QrIcon color="action" />
-                        </InputAdornment>
-                      )
-                    }}
-                    helperText="الماسحات الضوئية (Scanners) تعمل تلقائياً عند تركيز المؤشر هنا"
-                  />
-                </Stack>
-              </Box>
-
-              <Divider>
-                <Chip label="أو" size="small" />
-              </Divider>
-
-              {/* Method 2: Manual Entry */}
-              <Box>
-                <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-                  2. إدخال رقم البطاقة يدوياً
-                </Typography>
-                
-                <Stack spacing={2}>
-                  <TextField
-                    fullWidth
-                    label="رقم البطاقة أو الباركود"
-                    placeholder="WAHA-2026-000001 أو رقم البطاقة"
-                    value={searchValue}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    disabled={loading}
-                    autoFocus
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <CardIcon color="action" />
-                        </InputAdornment>
-                      )
-                    }}
-                    helperText="أدخل رقم البطاقة (أرقام فقط) أو الباركود الكامل"
-                    sx={{ direction: 'ltr' }}
-                  />
-
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    size="large"
                     onClick={handleSubmit}
                     disabled={loading || !searchValue.trim()}
-                    startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
-                    fullWidth
+                    startIcon={loading && <CircularProgress size={16} color="inherit" />}
                   >
-                    {loading ? 'جاري الفحص...' : 'فحص الأهلية'}
+                    {loading ? 'جاري الفحص...' : 'تحقق الآن'}
                   </Button>
+
+                  <Divider sx={{ my: 1 }} />
+
+                  {/* Move Visit Type Selection here for initial context awareness */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="select-visit-type-label">نوع الزيارة (السياق)</InputLabel>
+                    <Select
+                      labelId="select-visit-type-label"
+                      value={selectedVisitType}
+                      onChange={(e) => setSelectedVisitType(e.target.value)}
+                      label="نوع الزيارة (السياق)"
+                    >
+                      {VISIT_TYPE_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Stack>
               </Box>
 
-              {/* Error Display */}
               {error && (
-                <Alert 
-                  severity="error" 
-                  onClose={() => setError(null)}
-                  sx={{ mt: 2 }}
-                >
+                <Alert severity="error" variant="outlined" sx={{ mt: 'auto', fontSize: '0.8rem' }}>
                   {error}
                 </Alert>
               )}
             </Stack>
           </MainCard>
-        </Grid>
+        </Box>
 
-        {/* Result Section */}
-        <Grid xs={12} lg={7}>
+        {/* 2. LEFT COLUMN: Results - Flex Grow to Fill Rest */}
+        <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
           {result ? (
-            <MainCard 
-              title="نتيجة الفحص"
-              secondary={
-                <IconButton onClick={handleReset} size="small" title="إعادة ضبط">
-                  <RefreshIcon />
-                </IconButton>
-              }
-            >
-              <Stack spacing={3}>
-                {/* Eligibility Status */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    bgcolor: result.eligible ? 'success.lighter' : 'error.lighter',
-                    border: 1,
-                    borderColor: result.eligible ? 'success.main' : 'error.main'
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    {result.eligible ? (
-                      <CheckIcon sx={{ fontSize: 40, color: 'success.main' }} />
-                    ) : (
-                      <CancelIcon sx={{ fontSize: 40, color: 'error.main' }} />
-                    )}
-                    <Box flex={1}>
-                      <Typography variant="h5" color={result.eligible ? 'success.dark' : 'error.dark'}>
-                        {result.message}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        رقم الباركود: {result.barcode || 'غير متوفر'}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={result.eligible ? 'مؤهل' : 'غير مؤهل'}
-                      color={result.eligible ? 'success' : 'error'}
-                      size="large"
-                    />
-                  </Stack>
+            <Stack spacing={2} sx={{ height: '100%' }}>
 
-                  {/* Warnings */}
-                  {result.warnings && result.warnings.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      {result.warnings.map((warning, index) => (
-                        <Alert key={index} severity="warning" sx={{ mb: 1 }}>
-                          {warning}
-                        </Alert>
-                      ))}
+              {/* Top Row: Info & Stats */}
+              <Box sx={{ flexShrink: 0, display: 'flex', gap: 2 }}>
+                {/* Status Card (Matches Table Width) */}
+                <Box sx={{ flex: 2, minWidth: 0 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      bgcolor: result.eligible ? alpha(theme.palette.success.light, 0.05) : alpha(theme.palette.error.light, 0.05),
+                      borderColor: result.eligible ? 'success.light' : 'error.light',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {/* Decorative Background Icon */}
+                    <Box sx={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.05, transform: 'rotate(-15deg)' }}>
+                      {result.eligible ? <CheckIcon sx={{ fontSize: 180 }} /> : <CancelIcon sx={{ fontSize: 180 }} />}
                     </Box>
-                  )}
-                </Paper>
 
-                {/* Principal Member Info */}
-                {result.principalMember && (
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                      <PersonIcon color="primary" />
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {result.principalMember.fullName}
+                    <Stack spacing={0.5} sx={{ zIndex: 1, minWidth: 0, flex: 1 }}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography variant="h5" fontWeight="900" color={result.eligible ? 'success.dark' : 'error.dark'}>
+                          {result.eligible ? 'مؤهل للخدمة' : 'غير مؤهل'}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          العضو الرئيسي - {result.employerName || 'جهة العمل غير محددة'}
-                        </Typography>
-                      </Box>
+                        {result.eligible && <Chip label="نشط" color="success" size="small" sx={{ height: 20, fontWeight: 'bold' }} />}
+                      </Stack>
+
+                      <Typography variant="h6" fontWeight="700" noWrap>
+                        {result.principalMember?.fullName}
+                      </Typography>
+
+                      <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <HospitalIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.primary" fontWeight="600">
+                            {result.employerName || 'الشركة المتحدة للتأمين'}
+                          </Typography>
+                        </Stack>
+                        <Chip
+                          label={result.barcode || '---'}
+                          size="small"
+                          variant="outlined"
+                          icon={<QrIcon />}
+                          sx={{ bgcolor: 'background.paper', fontWeight: 'bold', direction: 'ltr' }}
+                        />
+                      </Stack>
                     </Stack>
+
+                    <Box sx={{
+                      width: 70, height: 70,
+                      flexShrink: 0,
+                      borderRadius: '50%',
+                      bgcolor: result.eligible ? 'success.main' : 'error.main',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 4,
+                      border: '4px solid',
+                      borderColor: 'background.paper',
+                      zIndex: 2
+                    }}>
+                      {result.eligible ? <CheckIcon sx={{ fontSize: 40 }} /> : <CancelIcon sx={{ fontSize: 40 }} />}
+                    </Box>
                   </Paper>
-                )}
+                </Box>
 
-                {/* Coverage Info */}
-                <Grid container spacing={2}>
-                  <Grid xs={6} md={3}>
-                    <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.lighter' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        الحد السنوي
-                      </Typography>
-                      <Typography variant="h6" color="primary.dark">
-                        {formatCurrency(result.principalAnnualLimit)}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} md={3}>
-                    <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.lighter' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        المستخدم
-                      </Typography>
-                      <Typography variant="h6" color="warning.dark">
-                        {formatCurrency(result.principalUsedAmount)}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} md={3}>
-                    <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'success.lighter' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        المتبقي
-                      </Typography>
-                      <Typography variant="h6" color="success.dark">
-                        {formatCurrency(result.principalRemainingLimit)}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} md={3}>
-                    <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.100' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        نسبة الاستخدام
-                      </Typography>
-                      <Typography variant="h6">
-                        {(result.principalUsagePercentage || 0).toFixed(1)}%
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-
-                {/* Family Members Table */}
-                {result.familyMembers && result.familyMembers.length > 0 && (
-                  <Box>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                      <FamilyIcon color="primary" />
-                      <Typography variant="h6">
-                        أفراد العائلة ({result.totalFamilyMembers || result.familyMembers.length})
-                      </Typography>
+                {/* Financial Stats (Matches Sidebar Width) */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <MainCard contentSX={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }} sx={{ height: '100%' }}>
+                    <Stack direction="row" sx={{ width: '100%' }} spacing={0} divider={<Divider orientation="vertical" flexItem />}>
+                      {[
+                        { label: 'الحد السنوي', value: result.principalAnnualLimit, color: 'primary', icon: <WalletIcon /> },
+                        { label: 'المستهلك', value: result.principalUsedAmount, color: 'warning', icon: <CardIcon /> },
+                        { label: 'المتـبقي', value: result.principalRemainingLimit, color: 'success', icon: <CheckIcon /> }
+                      ].map((stat, idx) => (
+                        <Box key={idx} sx={{ flex: 1, px: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Box sx={{
+                            width: 44, height: 44,
+                            borderRadius: 1.5,
+                            bgcolor: alpha(theme.palette[stat.color].main, 0.1),
+                            color: `${stat.color}.main`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            {stat.icon}
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" fontWeight="700" display="block">{stat.label}</Typography>
+                            <Typography variant="h6" fontWeight="900" color={`${stat.color}.main`} sx={{ lineHeight: 1 }}>
+                              {formatCurrency(stat.value)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
                     </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      يرجى اختيار المريض من القائمة أدناه للمتابعة
-                    </Typography>
+                  </MainCard>
+                </Box>
+              </Box>
 
-                    <TableContainer component={Paper} variant="outlined">
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: 'grey.50' }}>
-                            <TableCell>الاسم</TableCell>
-                            <TableCell>الصلة</TableCell>
-                            <TableCell>العمر</TableCell>
-                            <TableCell>الحالة</TableCell>
-                            <TableCell>المتبقي</TableCell>
-                            <TableCell>النسبة</TableCell>
-                            <TableCell align="center">اختيار</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {result.familyMembers.map((member) => (
-                            <TableRow 
+              {/* Bottom Area: Table & Actions */}
+              <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', gap: 2 }}>
+                {/* Table Section - Takes more space */}
+                <MainCard
+                  title={
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle1" fontWeight="700">قائمة المستفيدين</Typography>
+                      <Chip label={`${result.familyMembers.length}`} color="primary" size="small" />
+                    </Stack>
+                  }
+                  contentSX={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+                  sx={{ flex: 2, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, overflow: 'hidden' }}
+                >
+                  <TableContainer sx={{ flexGrow: 1, overflow: 'auto' }}>
+                    <Table stickyHeader size="medium">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell width="40%">الاسم</TableCell>
+                          <TableCell width="20%">الصلة</TableCell>
+                          <TableCell width="25%">المستهلك</TableCell>
+                          <TableCell width="15%" align="center">الحالة</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {result.familyMembers
+                          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                          .map((member) => (
+                            <TableRow
                               key={member.memberId}
-                              selected={selectedMember?.memberId === member.memberId}
                               hover
-                              sx={{ 
-                                cursor: member.eligible ? 'pointer' : 'default',
-                                bgcolor: member.isPrincipal ? 'primary.lighter' : 'inherit',
-                                opacity: member.eligible ? 1 : 0.6
-                              }}
+                              selected={selectedMember?.memberId === member.memberId}
                               onClick={() => member.eligible && setSelectedMember(member)}
+                              sx={{ cursor: member.eligible ? 'pointer' : 'default' }}
                             >
                               <TableCell>
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                  <PersonIcon fontSize="small" color={member.isPrincipal ? 'primary' : 'action'} />
-                                  <Box>
-                                    <Typography variant="body2" fontWeight={member.isPrincipal ? 'bold' : 'normal'}>
-                                      {member.fullName}
-                                    </Typography>
-                                    {member.isPrincipal && (
-                                      <Chip label="رئيسي" size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />
-                                    )}
-                                  </Box>
-                                </Stack>
+                                <Typography variant="body2" fontWeight="700">{member.fullName}</Typography>
                               </TableCell>
-                              <TableCell>{member.relationship || 'SELF'}</TableCell>
-                              <TableCell>{member.age || '-'}</TableCell>
                               <TableCell>
-                                <Chip 
-                                  label={member.eligible ? 'مؤهل' : 'غير مؤهل'} 
-                                  color={member.eligible ? 'success' : 'error'} 
+                                <Chip
+                                  label={
+                                    member.relationship === 'SELF' ? 'مشترك أساسي' :
+                                      member.relationship === 'WIFE' ? 'زوجة' :
+                                        member.relationship === 'HUSBAND' ? 'زوج' :
+                                          member.relationship === 'SON' ? 'ابن' :
+                                            member.relationship === 'DAUGHTER' ? 'ابنة' :
+                                              member.relationship || 'مشترك أساسي'
+                                  }
                                   size="small"
+                                  variant={member.relationship === 'SELF' ? 'filled' : 'outlined'}
+                                  color={member.relationship === 'SELF' ? 'primary' : 'default'}
                                 />
                               </TableCell>
-                              <TableCell>{formatCurrency(member.remainingLimit)}</TableCell>
                               <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <LinearProgress 
-                                    variant="determinate" 
-                                    value={member.usagePercentage || 0} 
-                                    color={getUsageColor(member.usagePercentage || 0)}
-                                    sx={{ height: 6, borderRadius: 1, flex: 1, minWidth: 50 }}
-                                  />
-                                  <Typography variant="caption">
-                                    {(member.usagePercentage || 0).toFixed(0)}%
-                                  </Typography>
-                                </Box>
+                                <Typography variant="body2" color="warning.dark" fontWeight="700">
+                                  {formatCurrency(member.usedAmount)}
+                                </Typography>
                               </TableCell>
                               <TableCell align="center">
-                                <Button
-                                  variant={selectedMember?.memberId === member.memberId ? 'contained' : 'outlined'}
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedMember(member);
+                                <Box
+                                  sx={{
+                                    width: 12, height: 12, borderRadius: '50%', mx: 'auto',
+                                    bgcolor: member.eligible ? 'success.main' : 'error.main',
+                                    boxShadow: 1
                                   }}
-                                  disabled={!member.eligible}
-                                  color={selectedMember?.memberId === member.memberId ? 'primary' : 'inherit'}
-                                >
-                                  {selectedMember?.memberId === member.memberId ? 'محدد ✓' : 'اختيار'}
-                                </Button>
+                                />
                               </TableCell>
                             </TableRow>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <TablePagination
+                    component="div"
+                    count={result.familyMembers.length}
+                    rowsPerPage={rowsPerPage}
+                    rowsPerPageOptions={[5, 10]}
+                    page={page}
+                    onPageChange={(e, p) => setPage(p)}
+                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    labelRowsPerPage="صفوف:"
+                  />
+                </MainCard>
 
-                {/* Selected Member Action - NEW FLOW: Register Visit */}
-                {selectedMember && (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    <Stack spacing={2}>
-                      <Box>
-                        <Typography variant="subtitle2">
-                          تم اختيار: <strong>{selectedMember.fullName}</strong>
-                        </Typography>
-                        <Typography variant="body2">
-                          الحد المتبقي: <strong>{formatCurrency(selectedMember.remainingLimit)}</strong>
-                        </Typography>
+                {/* Context/Action Side Panel - Matches Stats Width */}
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    flex: 1,
+                    width: 'auto',
+                    minWidth: 0,
+                    flexShrink: 0,
+                    p: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    bgcolor: selectedMember ? alpha(theme.palette.primary.main, 0.02) : 'background.default',
+                    borderColor: selectedMember ? 'primary.main' : 'divider',
+                    borderWidth: selectedMember ? 2 : 1,
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  {selectedMember ? (
+                    <Stack spacing={3} justifyContent="center" sx={{ height: '100%' }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        {/* Beneficiary Photo Verification Area */}
+                        <Paper elevation={3} sx={{
+                          width: 150,
+                          height: 150,
+                          borderRadius: 3,
+                          bgcolor: 'grey.100',
+                          mx: 'auto',
+                          mb: 2,
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}>
+                          <Stack alignItems="center" spacing={1} sx={{ color: 'text.disabled' }}>
+                            <PersonIcon sx={{ fontSize: 80 }} />
+                            <Typography variant="caption" fontWeight="700">صورة الهوية</Typography>
+                          </Stack>
+                        </Paper>
+
+                        <Typography variant="caption" color="primary" fontWeight="bold">المنتفع المحدد</Typography>
+                        <Typography variant="h6" fontWeight="800" gutterBottom sx={{ lineHeight: 1.3 }}>{selectedMember.fullName}</Typography>
+                        <Typography variant="body2" color="text.secondary">{selectedMember.nationalId || 'ID: ---'}</Typography>
                       </Box>
-                      
-                      {/* Visit Type Selection - REQUIRED */}
-                      <FormControl fullWidth size="small" required error={!selectedVisitType}>
-                        <InputLabel id="visit-type-label">نوع الزيارة *</InputLabel>
-                        <Select
-                          labelId="visit-type-label"
-                          value={selectedVisitType}
-                          onChange={(e) => setSelectedVisitType(e.target.value)}
-                          label="نوع الزيارة *"
-                        >
-                          {VISIT_TYPE_OPTIONS.map((opt) => (
-                            <MenuItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {!selectedVisitType && (
-                          <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                            يجب اختيار نوع الزيارة قبل التسجيل
-                          </Typography>
-                        )}
-                      </FormControl>
-                      
-                      <Button 
-                        variant="contained" 
-                        color="primary"
-                        fullWidth
-                        startIcon={registeringVisit ? <CircularProgress size={20} color="inherit" /> : <VisitIcon />}
-                        disabled={registeringVisit || !selectedVisitType}
-                        onClick={async () => {
-                          // Validate visit type before registration
-                          if (!selectedVisitType) {
-                            setError('يجب اختيار نوع الزيارة');
-                            return;
-                          }
-                          
-                          // NEW FLOW: Register Visit first, then go to Visit Log
-                          setRegisteringVisit(true);
-                          try {
-                            const visitResponse = await providerApi.registerVisit({
-                              memberId: selectedMember.memberId,
-                              eligibilityCheckId: result.eligibilityCheckId,
-                              visitType: selectedVisitType
-                            });
-                            
-                            if (visitResponse.success) {
-                              // Navigate to visit log with success message
-                              navigate('/provider/visits', {
-                                state: {
-                                  successMessage: `تم تسجيل الزيارة بنجاح للمريض ${selectedMember.fullName}`,
-                                  newVisitId: visitResponse.visitId
+
+                      <Divider flexItem />
+
+                      <Box sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2 }}>
+                        <Stack spacing={2}>
+
+                          {visitError && (
+                            <Alert severity="error" sx={{ fontSize: '0.75rem' }}>{visitError}</Alert>
+                          )}
+
+                          <Button
+                            variant="contained"
+                            fullWidth
+                            size="large"
+                            onClick={async () => {
+                              if (!selectedVisitType) return;
+
+                              // Check for Super Admin
+                              if (user?.role === 'SUPER_ADMIN') {
+                                setVisitError('عذراً، لا يمكنك تسجيل زيارات بصفتك مدير النظام. يجب الدخول كحساب مزود خدمة.');
+                                return;
+                              }
+
+                              setRegisteringVisit(true);
+                              setVisitError(null);
+                              try {
+                                const res = await providerApi.registerVisit({ memberId: selectedMember.memberId, eligibilityCheckId: result.eligibilityCheckId, visitType: selectedVisitType });
+                                if (res.success) {
+                                  navigate('/provider/visits', { state: { successMessage: `تم تأكيد الزيارة لـ ${selectedMember.fullName}` } });
+                                } else {
+                                  setVisitError(res.message || 'فشل تسجيل الزيارة');
                                 }
-                              });
-                            } else {
-                              setError(visitResponse.message || 'فشل في تسجيل الزيارة');
-                            }
-                          } catch (err) {
-                            console.error('Failed to register visit:', err);
-                            setError(err.message || 'فشل في تسجيل الزيارة');
-                          } finally {
-                            setRegisteringVisit(false);
-                          }
-                        }}
-                      >
-                        {registeringVisit ? 'جاري التسجيل...' : 'تسجيل زيارة'}
-                      </Button>
+                              } catch (err) {
+                                console.error(err);
+                                setVisitError(err.message || 'حدث خطأ غير متوقع');
+                              } finally {
+                                setRegisteringVisit(false);
+                              }
+                            }}
+                            disabled={!selectedVisitType || registeringVisit}
+                            sx={{ height: 48, fontWeight: 700, fontSize: '1rem' }}
+                          >
+                            {registeringVisit ? <CircularProgress size={24} color="inherit" /> : 'تسجيل زيارة'}
+                          </Button>
+                        </Stack>
+                      </Box>
                     </Stack>
-                  </Alert>
-                )}
-
-                {/* Covered Services */}
-                {result.coveredServices && result.coveredServices.length > 0 && (
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      الخدمات المغطاة:
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {result.coveredServices.map((service, index) => (
-                        <Chip 
-                          key={index}
-                          label={service} 
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
+                  ) : (
+                    <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ height: '100%', opacity: 0.5 }}>
+                      <CardIcon fontSize="large" color="disabled" />
+                      <Typography variant="body2" textAlign="center">اختر منتفع من القائمة<br />لتفعيل خيارات تسجيل الزيارة</Typography>
                     </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </MainCard>
-          ) : (
-            <Paper
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                bgcolor: 'background.default',
-                border: '1px dashed',
-                borderColor: 'divider',
-                height: '100%',
-                minHeight: 400,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <Box>
-                <QrIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  في انتظار الفحص
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  استخدم إحدى الطرق لفحص أهلية المنتفع
-                </Typography>
+                  )}
+                </Paper>
               </Box>
-            </Paper>
-          )}
-        </Grid>
-      </Grid>
 
-      {/* QR Scanner Dialog */}
-      <Dialog
-        open={scannerOpen}
-        onClose={handleCloseScannerDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          مسح الباركود / QR Code
-          <IconButton
-            onClick={handleCloseScannerDialog}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          {cameraError ? (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {cameraError}
-            </Alert>
+            </Stack>
           ) : (
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                وجّه الكاميرا نحو الباركود أو QR Code
-              </Typography>
-              <Box
-                id="qr-reader-provider"
-                sx={{
-                  width: '100%',
-                  '& video': {
-                    width: '100%',
-                    borderRadius: 1
-                  }
-                }}
-              />
+            <Box sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px dashed',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.neutral',
+              gap: 2
+            }}>
+              <HospitalIcon sx={{ fontSize: 80, color: 'text.disabled', opacity: 0.2 }} />
+              <Typography variant="h5" color="text.secondary" fontWeight="700">جاهز للتحقق من الأهلية</Typography>
+              <Typography variant="body2" color="text.secondary">ابدأ بمسح البطاقة أو الإدخال اليدوي</Typography>
             </Box>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseScannerDialog}>
-            إلغاء
-          </Button>
-        </DialogActions>
+        </Box>
+      </Stack>
+
+      {/* QR Scanner Dialog */}
+      <Dialog open={scannerOpen} onClose={handleCloseScannerDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>ماسح الباركود الذكي<IconButton onClick={handleCloseScannerDialog} sx={{ position: 'absolute', right: 16, top: 16 }}><CloseIcon /></IconButton></DialogTitle>
+        <DialogContent sx={{ p: 1 }}><Box id="qr-reader-provider" sx={{ width: '100%', '& video': { width: '100%', borderRadius: 16 } }} /></DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={handleCloseScannerDialog} py={1} px={3} color="inherit">إغلاق</Button></DialogActions>
       </Dialog>
-    </Box>
+    </Box >
   );
 }
+
+
+

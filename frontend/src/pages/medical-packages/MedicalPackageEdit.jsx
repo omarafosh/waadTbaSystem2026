@@ -24,9 +24,9 @@ import {
   ListItemText,
   Paper
 } from '@mui/material';
-import { 
-  Save as SaveIcon, 
-  Cancel as CancelIcon, 
+import {
+  Save as SaveIcon,
+  Cancel as CancelIcon,
   Inventory as InventoryIcon,
   Category as CategoryIcon
 } from '@mui/icons-material';
@@ -68,8 +68,7 @@ const MedicalPackageEdit = () => {
   // Form state
   const [form, setForm] = useState({
     code: '',
-    nameAr: '',
-    nameEn: '',
+    name: '',
     description: '',
     categoryIds: [],  // Selected category IDs
     totalCoverageLimit: '',
@@ -94,11 +93,11 @@ const MedicalPackageEdit = () => {
   // Calculate serviceIds from selected categories
   const selectedServiceIds = useMemo(() => {
     if (form.categoryIds.length === 0) return [];
-    
+
     const serviceIds = allServices
       .filter(service => form.categoryIds.includes(service.categoryId))
       .map(service => service.id);
-    
+
     return [...new Set(serviceIds)];
   }, [form.categoryIds, allServices]);
 
@@ -112,7 +111,7 @@ const MedicalPackageEdit = () => {
     if (pkg && allServices.length > 0) {
       // Get existing service IDs from package
       const existingServiceIds = pkg.services?.map(s => s.id) || [];
-      
+
       // Derive category IDs from existing services
       const categoryIdsFromServices = [...new Set(
         allServices
@@ -123,8 +122,7 @@ const MedicalPackageEdit = () => {
 
       setForm({
         code: pkg.code || '',
-        nameAr: pkg.nameAr || '',
-        nameEn: pkg.nameEn || '',
+        name: pkg.name || '',
         description: pkg.description || '',
         categoryIds: categoryIdsFromServices,
         totalCoverageLimit: pkg.totalCoverageLimit || '',
@@ -143,24 +141,23 @@ const MedicalPackageEdit = () => {
 
   const handleCategoryChange = (event) => {
     const value = event.target.value;
-    setForm((prev) => ({ 
-      ...prev, 
-      categoryIds: typeof value === 'string' ? value.split(',').map(Number) : value 
+    setForm((prev) => ({
+      ...prev,
+      categoryIds: typeof value === 'string' ? value.split(',').map(Number) : value
     }));
   };
 
   const handleRemoveCategory = (categoryId) => {
-    setForm((prev) => ({ 
-      ...prev, 
-      categoryIds: prev.categoryIds.filter(id => id !== categoryId) 
+    setForm((prev) => ({
+      ...prev,
+      categoryIds: prev.categoryIds.filter(id => id !== categoryId)
     }));
   };
 
   const validate = () => {
     const newErrors = {};
     if (!form.code.trim()) newErrors.code = 'الكود مطلوب';
-    if (!form.nameAr.trim()) newErrors.nameAr = 'الاسم بالعربية مطلوب';
-    if (!form.nameEn.trim()) newErrors.nameEn = 'الاسم بالإنجليزية مطلوب';
+    if (!form.name.trim()) newErrors.name = 'الاسم مطلوب';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -175,8 +172,7 @@ const MedicalPackageEdit = () => {
     try {
       const payload = {
         code: form.code.trim(),
-        nameAr: form.nameAr.trim(),
-        nameEn: form.nameEn.trim()
+        name: form.name.trim()
       };
 
       if (form.description?.trim()) payload.description = form.description.trim();
@@ -234,7 +230,7 @@ const MedicalPackageEdit = () => {
     <Box>
       <ModernPageHeader
         title="تعديل باقة طبية"
-        subtitle={`تعديل: ${pkg.nameAr || pkg.nameEn || ''}`}
+        subtitle={`تعديل: ${pkg.name || ''}`}
         icon={InventoryIcon}
         breadcrumbs={[{ label: 'الباقات الطبية', path: '/medical-packages' }, { label: 'تعديل' }]}
       />
@@ -262,28 +258,15 @@ const MedicalPackageEdit = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
                 required
-                label="الاسم بالعربية *"
-                value={form.nameAr}
-                onChange={handleChange('nameAr')}
-                error={!!errors.nameAr}
-                helperText={errors.nameAr}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                required
-                label="الاسم بالإنجليزية *"
-                value={form.nameEn}
-                onChange={handleChange('nameEn')}
-                error={!!errors.nameEn}
-                helperText={errors.nameEn}
-                dir="ltr"
+                label="الاسم *"
+                value={form.name}
+                onChange={handleChange('name')}
+                error={!!errors.name}
+                helperText={errors.name}
               />
             </Grid>
 
@@ -305,15 +288,15 @@ const MedicalPackageEdit = () => {
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CategoryIcon color="primary" />
             التصنيفات الطبية المشمولة
-            <Chip 
-              label={form.categoryIds.length + ' تصنيف'} 
-              size="small" 
+            <Chip
+              label={form.categoryIds.length + ' تصنيف'}
+              size="small"
               color={form.categoryIds.length > 0 ? 'primary' : 'default'}
             />
             {selectedServiceIds.length > 0 && (
-              <Chip 
-                label={selectedServiceIds.length + ' خدمة'} 
-                size="small" 
+              <Chip
+                label={selectedServiceIds.length + ' خدمة'}
+                size="small"
                 color="success"
                 variant="outlined"
               />
@@ -340,9 +323,9 @@ const MedicalPackageEdit = () => {
                       {selected.map((catId) => {
                         const cat = categories.find(c => c.id === catId);
                         return (
-                          <Chip 
-                            key={catId} 
-                            label={cat?.name || cat?.nameAr || catId} 
+                          <Chip
+                            key={catId}
+                            label={cat?.name || catId}
                             size="small"
                             color="primary"
                           />
@@ -354,8 +337,8 @@ const MedicalPackageEdit = () => {
                   {categoriesWithServiceCount.map((cat) => (
                     <MenuItem key={cat.id} value={cat.id}>
                       <Checkbox checked={form.categoryIds.includes(cat.id)} />
-                      <ListItemText 
-                        primary={cat.name || cat.nameAr} 
+                      <ListItemText
+                        primary={cat.name}
                         secondary={`${cat.servicesCount} خدمة`}
                       />
                     </MenuItem>
@@ -377,7 +360,7 @@ const MedicalPackageEdit = () => {
                   return (
                     <Chip
                       key={cat.id}
-                      label={`${cat.name || cat.nameAr} (${servicesCount} خدمة)`}
+                      label={`${cat.name} (${servicesCount} خدمة)`}
                       onDelete={() => handleRemoveCategory(cat.id)}
                       color="primary"
                       variant="outlined"
@@ -421,8 +404,8 @@ const MedicalPackageEdit = () => {
             <Grid item xs={12} md={6}>
               <FormControlLabel
                 control={
-                  <Switch 
-                    checked={form.active} 
+                  <Switch
+                    checked={form.active}
                     onChange={handleChange('active')}
                     color="success"
                   />
@@ -430,9 +413,9 @@ const MedicalPackageEdit = () => {
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography>{form.active ? 'نشطة' : 'غير نشطة'}</Typography>
-                    <Chip 
-                      label={form.active ? 'مفعّلة' : 'معطّلة'} 
-                      size="small" 
+                    <Chip
+                      label={form.active ? 'مفعّلة' : 'معطّلة'}
+                      size="small"
                       color={form.active ? 'success' : 'default'}
                     />
                   </Stack>

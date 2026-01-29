@@ -41,22 +41,12 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              // Split ExcelJS into its own chunk
-              if (id.includes('exceljs')) {
-                return 'excel';
-              }
-              // Split Material UI into its own chunk
-              if (id.includes('@mui')) {
-                return 'mui';
-              }
-              // Split Charting libraries
-              if (id.includes('chart') || id.includes('apexcharts') || id.includes('recharts')) {
-                return 'charts';
-              }
-              // Split core React vendor
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-                return 'vendor';
-              }
+              if (id.includes('exceljs')) return 'vendor-excel';
+              if (id.includes('@mui')) return 'vendor-mui';
+              if (id.includes('chart') || id.includes('apexcharts') || id.includes('recharts')) return 'vendor-charts';
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
+              if (id.includes('lodash') || id.includes('axios') || id.includes('date-fns') || id.includes('dayjs') || id.includes('yup') || id.includes('formik')) return 'vendor-utils';
+              if (id.includes('jspdf') || id.includes('html5-qrcode') || id.includes('zxcvbn')) return 'vendor-libs';
             }
           }
         }

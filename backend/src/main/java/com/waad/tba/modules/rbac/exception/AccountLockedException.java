@@ -5,6 +5,8 @@ package com.waad.tba.modules.rbac.exception;
  */
 public class AccountLockedException extends RuntimeException {
     
+    private static final long serialVersionUID = 1L;
+    
     private final String username;
     private final java.time.LocalDateTime lockedUntil;
     private final String messageAr;

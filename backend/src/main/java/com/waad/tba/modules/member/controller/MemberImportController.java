@@ -291,12 +291,12 @@ public class MemberImportController {
         var template = java.util.Map.of(
             "mandatory_columns", java.util.List.of(
                 java.util.Map.of("name", "national_id", "aliases", "identification_id, civil_id, الرقم الوطني"),
-                java.util.Map.of("name", "full_name", "aliases", "name, full_name_arabic, الاسم الكامل"),
+                java.util.Map.of("name", "full_name", "aliases", "name, الاسم الكامل"),
                 java.util.Map.of("name", "employer", "aliases", "company, company_id, جهة العمل"),
                 java.util.Map.of("name", "policy", "aliases", "policy_number, policy_id, الوثيقة")
             ),
             "optional_columns", java.util.List.of(
-                "full_name_english", "birth_date", "gender", "phone", "email", 
+                "birth_date", "gender", "phone", "email", 
                 "nationality", "employee_number"
             ),
             "attribute_columns", java.util.List.of(

@@ -13,11 +13,9 @@ public class ProviderSelectorDto {
     private Long id;
     private String code;
     /**
-     * Display name (uses Arabic name)
+     * Provider name (اسم مقدم الخدمة)
      */
     private String name;
-    private String nameArabic;
-    private String nameEnglish;
     /**
      * Provider type (HOSPITAL, CLINIC, LAB, PHARMACY)
      * Used in dropdown to show provider category

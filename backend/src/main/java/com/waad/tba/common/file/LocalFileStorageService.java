@@ -105,7 +105,7 @@ public class LocalFileStorageService implements FileStorageService {
                 .size(file.getSize())
                 .folder(folder)
                 .filePath(targetPath.toString())
-                .url("/api/files/" + fileKey + "/download")
+                .url("/api/files/download?key=" + java.net.URLEncoder.encode(fileKey, java.nio.charset.StandardCharsets.UTF_8))
                 .uploadedAt(LocalDateTime.now())
                 .uploadedBy(getCurrentUserId())
                 .build();

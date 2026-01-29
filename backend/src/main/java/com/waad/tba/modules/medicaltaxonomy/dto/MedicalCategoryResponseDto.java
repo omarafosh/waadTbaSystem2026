@@ -20,7 +20,6 @@ public class MedicalCategoryResponseDto {
     private Long id;
     private String code;
     private String name;
-    private String nameEn;
     private Long parentId;
     private String parentName; // For UX - display parent category name
     private boolean active;

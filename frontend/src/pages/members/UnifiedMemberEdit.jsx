@@ -22,12 +22,19 @@ import {
   FormHelperText,
   CircularProgress,
   Alert,
-  Box
+  Box,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Person as PersonIcon,
+  Badge as BadgeIcon,
+  FamilyRestroom as FamilyRestroomIcon,
+  ContactPhone as ContactPhoneIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -94,7 +101,7 @@ const UnifiedMemberEdit = () => {
     try {
       setLoading(true);
       const data = await getMember(id);
-      
+
       setMemberType(data.type);
       setForm({
         fullName: data.fullName || '',
@@ -116,13 +123,13 @@ const UnifiedMemberEdit = () => {
         endDate: data.endDate ? dayjs(data.endDate) : null,
         notes: data.notes || ''
       });
-      
+
       setSelectedOrganization(data.employerId || data.employer?.id || '');
       setSelectedBenefitPolicy(data.benefitPolicyId || data.benefitPolicy?.id || '');
-      
+
     } catch (error) {
       console.error('Error fetching member:', error);
-      setFetchError(error.response?.data?.message || 'فشل في تحميل بيانات العضو');
+      setFetchError(error.response?.data?.message || 'فشل في تحميل بيانات المنتفع');
     } finally {
       setLoading(false);
     }
@@ -134,7 +141,7 @@ const UnifiedMemberEdit = () => {
         axiosClient.get('/organizations', { params: { size: 1000 } }),
         axiosClient.get('/benefit-policies', { params: { size: 1000 } })
       ]);
-      
+
       setOrganizations(orgsRes.data?.content || orgsRes.data || []);
       setBenefitPolicies(policiesRes.data?.content || policiesRes.data || []);
     } catch (error) {
@@ -146,7 +153,7 @@ const UnifiedMemberEdit = () => {
   const handleFieldChange = (field) => (event) => {
     const value = event.target.value;
     setForm((prev) => ({ ...prev, [field]: value }));
-    
+
     // Clear error for this field
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
@@ -240,7 +247,7 @@ const UnifiedMemberEdit = () => {
 
       openSnackbar({
         open: true,
-        message: 'تم تحديث بيانات العضو بنجاح',
+        message: 'تم تحديث بيانات المنتفع بنجاح',
         variant: 'alert',
         alert: { color: 'success' }
       });
@@ -249,7 +256,7 @@ const UnifiedMemberEdit = () => {
     } catch (error) {
       console.error('Error updating member:', error);
 
-      const errorMessage = error.response?.data?.message || error.message || 'خطأ في تحديث بيانات العضو';
+      const errorMessage = error.response?.data?.message || error.message || 'خطأ في تحديث بيانات المنتفع';
 
       openSnackbar({
         open: true,
@@ -260,6 +267,13 @@ const UnifiedMemberEdit = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Tab State
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   // Loading state
@@ -290,12 +304,12 @@ const UnifiedMemberEdit = () => {
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_MEMBERS]}>
       <ModernPageHeader
-        title={`تعديل بيانات ${isPrincipal ? 'العضو الأصيل' : 'التابع'}`}
+        title={`تعديل بيانات ${isPrincipal ? 'المنتفع الرئيسي' : 'المنتفع التابع'}`}
         subtitle={form.fullName}
         icon={<EditIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
-          { label: 'الأعضاء', href: '/members' },
+          { label: 'المنتفعين', href: '/members' },
           { label: 'تعديل' }
         ]}
         actions={
@@ -303,7 +317,7 @@ const UnifiedMemberEdit = () => {
             <Button
               variant="outlined"
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate(`/members/${id}`)}
+              onClick={() => navigate('/members')}
             >
               إلغاء
             </Button>
@@ -319,266 +333,285 @@ const UnifiedMemberEdit = () => {
         }
       />
 
-      <Grid container spacing={3}>
-        {/* Basic Information */}
-        <Grid item xs={12}>
-          <MainCard title="البيانات الأساسية">
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  required
-                  label="الاسم الكامل"
-                  value={form.fullName}
-                  onChange={handleFieldChange('fullName')}
-                  error={!!errors.fullName}
-                  helperText={errors.fullName}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="الرقم الوطني"
-                  value={form.nationalNumber}
-                  onChange={handleFieldChange('nationalNumber')}
-                  placeholder="اختياري"
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <DatePicker
-                  label="تاريخ الميلاد *"
-                  value={form.birthDate}
-                  onChange={handleDateChange('birthDate')}
-                  maxDate={dayjs()}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: !!errors.birthDate,
-                      helperText: errors.birthDate
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth required error={!!errors.gender}>
-                  <InputLabel>الجنس</InputLabel>
-                  <Select
-                    value={form.gender}
-                    onChange={handleFieldChange('gender')}
-                    label="الجنس"
-                  >
-                    {Object.entries(GENDERS).map(([key, value]) => (
-                      <MenuItem key={key} value={value}>
-                        {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="الجنسية"
-                  value={form.nationality}
-                  onChange={handleFieldChange('nationality')}
-                />
-              </Grid>
-            </Grid>
-          </MainCard>
-        </Grid>
+      <MainCard content={false} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ px: 2, minHeight: 56 }}
+          >
+            <Tab icon={<PersonIcon />} iconPosition="start" label="البيانات الشخصية" />
+            <Tab icon={isPrincipal ? <BadgeIcon /> : <FamilyRestroomIcon />} iconPosition="start" label={isPrincipal ? "بيانات العمل" : "صلة القرابة"} />
+            <Tab icon={<ContactPhoneIcon />} iconPosition="start" label="معلومات الاتصال" />
+            <Tab icon={<HistoryIcon />} iconPosition="start" label="الحالة والتواريخ" />
+          </Tabs>
+        </Box>
 
-        {/* Dependent-specific: Relationship */}
-        {!isPrincipal && (
-          <Grid item xs={12}>
-            <MainCard title="بيانات التابع">
-              <Grid container spacing={2}>
+        <Box sx={{ p: 3 }}>
+          {/* Tab 0: Personal Info */}
+          <div role="tabpanel" hidden={tabValue !== 0}>
+            {tabValue === 0 && (
+              <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required error={!!errors.relationship}>
-                    <InputLabel>صلة القرابة</InputLabel>
-                    <Select
-                      value={form.relationship}
-                      onChange={handleFieldChange('relationship')}
-                      label="صلة القرابة"
-                    >
-                      {Object.entries(RELATIONSHIPS).map(([key, value]) => (
-                        <MenuItem key={key} value={value}>
-                          {value === 'WIFE' ? 'زوجة' :
-                           value === 'HUSBAND' ? 'زوج' :
-                           value === 'SON' ? 'ابن' :
-                           value === 'DAUGHTER' ? 'ابنة' :
-                           value === 'FATHER' ? 'أب' :
-                           value === 'MOTHER' ? 'أم' :
-                           value === 'BROTHER' ? 'أخ' :
-                           value === 'SISTER' ? 'أخت' : value}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.relationship && <FormHelperText>{errors.relationship}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </MainCard>
-          </Grid>
-        )}
-
-        {/* Principal-specific: Organization & Policy */}
-        {isPrincipal && (
-          <Grid item xs={12}>
-            <MainCard title="بيانات التوظيف">
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required error={!!errors.organization}>
-                    <InputLabel>جهة العمل</InputLabel>
-                    <Select
-                      value={selectedOrganization}
-                      onChange={(e) => setSelectedOrganization(e.target.value)}
-                      label="جهة العمل"
-                    >
-                      {organizations.map((org) => (
-                        <MenuItem key={org.id} value={org.id}>
-                          {org.nameAr || org.nameEn || org.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.organization && <FormHelperText>{errors.organization}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>سياسة المنافع</InputLabel>
-                    <Select
-                      value={selectedBenefitPolicy}
-                      onChange={(e) => setSelectedBenefitPolicy(e.target.value)}
-                      label="سياسة المنافع"
-                    >
-                      <MenuItem value="">
-                        <em>-- اختياري --</em>
-                      </MenuItem>
-                      {benefitPolicies.map((policy) => (
-                        <MenuItem key={policy.id} value={policy.id}>
-                          {policy.nameAr || policy.nameEn || policy.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="الرقم الوظيفي"
-                    value={form.employeeNumber}
-                    onChange={handleFieldChange('employeeNumber')}
+                    required
+                    label="الاسم الكامل"
+                    value={form.fullName}
+                    onChange={handleFieldChange('fullName')}
+                    error={!!errors.fullName}
+                    helperText={errors.fullName}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="الرقم الوطني"
+                    value={form.nationalNumber}
+                    onChange={handleFieldChange('nationalNumber')}
+                    placeholder="اختياري"
+                    size="small"
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <DatePicker
-                    label="تاريخ الالتحاق"
-                    value={form.joinDate}
-                    onChange={handleDateChange('joinDate')}
+                    label="تاريخ الميلاد *"
+                    value={form.birthDate}
+                    onChange={handleDateChange('birthDate')}
+                    maxDate={dayjs()}
                     slotProps={{
-                      textField: { fullWidth: true }
+                      textField: {
+                        fullWidth: true,
+                        size: 'small',
+                        error: !!errors.birthDate,
+                        helperText: errors.birthDate
+                      }
                     }}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
+                  <FormControl fullWidth required error={!!errors.gender} size="small">
+                    <InputLabel>الجنس</InputLabel>
+                    <Select
+                      value={form.gender}
+                      onChange={handleFieldChange('gender')}
+                      label="الجنس"
+                    >
+                      {Object.entries(GENDERS).map(([key, value]) => (
+                        <MenuItem key={key} value={value}>
+                          {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="المهنة"
-                    value={form.occupation}
-                    onChange={handleFieldChange('occupation')}
+                    label="الجنسية"
+                    value={form.nationality}
+                    onChange={handleFieldChange('nationality')}
+                    size="small"
                   />
                 </Grid>
               </Grid>
-            </MainCard>
-          </Grid>
-        )}
+            )}
+          </div>
 
-        {/* Contact Information */}
-        <Grid item xs={12}>
-          <MainCard title="معلومات الاتصال">
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="رقم الهاتف"
-                  value={form.phone}
-                  onChange={handleFieldChange('phone')}
-                />
+          {/* Tab 1: Employment OR Relationship */}
+          <div role="tabpanel" hidden={tabValue !== 1}>
+            {tabValue === 1 && (
+              <Grid container spacing={3}>
+                {isPrincipal ? (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required error={!!errors.organization} size="small">
+                        <InputLabel>جهة العمل</InputLabel>
+                        <Select
+                          value={selectedOrganization}
+                          onChange={(e) => setSelectedOrganization(e.target.value)}
+                          label="جهة العمل"
+                        >
+                          {organizations.map((org) => (
+                            <MenuItem key={org.id} value={org.id}>
+                              {org.nameAr || org.nameEn || org.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {errors.organization && <FormHelperText>{errors.organization}</FormHelperText>}
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>سياسة المنافع</InputLabel>
+                        <Select
+                          value={selectedBenefitPolicy}
+                          onChange={(e) => setSelectedBenefitPolicy(e.target.value)}
+                          label="سياسة المنافع"
+                        >
+                          <MenuItem value="">
+                            <em>-- اختياري --</em>
+                          </MenuItem>
+                          {benefitPolicies.map((policy) => (
+                            <MenuItem key={policy.id} value={policy.id}>
+                              {policy.nameAr || policy.nameEn || policy.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="الرقم الوظيفي"
+                        value={form.employeeNumber}
+                        onChange={handleFieldChange('employeeNumber')}
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <DatePicker
+                        label="تاريخ الالتحاق"
+                        value={form.joinDate}
+                        onChange={handleDateChange('joinDate')}
+                        slotProps={{
+                          textField: { fullWidth: true, size: "small" }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="المهنة"
+                        value={form.occupation}
+                        onChange={handleFieldChange('occupation')}
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                ) : (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth required error={!!errors.relationship} size="small">
+                      <InputLabel>صلة القرابة</InputLabel>
+                      <Select
+                        value={form.relationship}
+                        onChange={handleFieldChange('relationship')}
+                        label="صلة القرابة"
+                      >
+                        {Object.entries(RELATIONSHIPS).map(([key, value]) => (
+                          <MenuItem key={key} value={value}>
+                            {value === 'WIFE' ? 'زوجة' :
+                              value === 'HUSBAND' ? 'زوج' :
+                                value === 'SON' ? 'ابن' :
+                                  value === 'DAUGHTER' ? 'ابنة' :
+                                    value === 'FATHER' ? 'أب' :
+                                      value === 'MOTHER' ? 'أم' :
+                                        value === 'BROTHER' ? 'أخ' :
+                                          value === 'SISTER' ? 'أخت' : value}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.relationship && <FormHelperText>{errors.relationship}</FormHelperText>}
+                    </FormControl>
+                  </Grid>
+                )}
               </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="البريد الإلكتروني"
-                  type="email"
-                  value={form.email}
-                  onChange={handleFieldChange('email')}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="العنوان"
-                  value={form.address}
-                  onChange={handleFieldChange('address')}
-                />
-              </Grid>
-            </Grid>
-          </MainCard>
-        </Grid>
+            )}
+          </div>
 
-        {/* Status & Dates */}
-        <Grid item xs={12}>
-          <MainCard title="الحالة والتواريخ">
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel>الحالة</InputLabel>
-                  <Select
-                    value={form.status}
-                    onChange={handleFieldChange('status')}
-                    label="الحالة"
-                  >
-                    <MenuItem value="ACTIVE">نشط</MenuItem>
-                    <MenuItem value="SUSPENDED">معلق</MenuItem>
-                    <MenuItem value="TERMINATED">منتهي</MenuItem>
-                  </Select>
-                </FormControl>
+          {/* Tab 2: Contact Info */}
+          <div role="tabpanel" hidden={tabValue !== 2}>
+            {tabValue === 2 && (
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="رقم الهاتف"
+                    value={form.phone}
+                    onChange={handleFieldChange('phone')}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="البريد الإلكتروني"
+                    type="email"
+                    value={form.email}
+                    onChange={handleFieldChange('email')}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="العنوان"
+                    value={form.address}
+                    onChange={handleFieldChange('address')}
+                    size="small"
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <DatePicker
-                  label="تاريخ البدء"
-                  value={form.startDate}
-                  onChange={handleDateChange('startDate')}
-                  slotProps={{
-                    textField: { fullWidth: true }
-                  }}
-                />
+            )}
+          </div>
+
+          {/* Tab 3: Status & Dates */}
+          <div role="tabpanel" hidden={tabValue !== 3}>
+            {tabValue === 3 && (
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>الحالة</InputLabel>
+                    <Select
+                      value={form.status}
+                      onChange={handleFieldChange('status')}
+                      label="الحالة"
+                    >
+                      <MenuItem value="ACTIVE">نشط</MenuItem>
+                      <MenuItem value="SUSPENDED">معلق</MenuItem>
+                      <MenuItem value="TERMINATED">منتهي</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <DatePicker
+                    label="تاريخ البدء"
+                    value={form.startDate}
+                    onChange={handleDateChange('startDate')}
+                    slotProps={{
+                      textField: { fullWidth: true, size: "small" }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <DatePicker
+                    label="تاريخ الانتهاء"
+                    value={form.endDate}
+                    onChange={handleDateChange('endDate')}
+                    slotProps={{
+                      textField: { fullWidth: true, size: "small" }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    label="ملاحظات"
+                    value={form.notes}
+                    onChange={handleFieldChange('notes')}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <DatePicker
-                  label="تاريخ الانتهاء"
-                  value={form.endDate}
-                  onChange={handleDateChange('endDate')}
-                  slotProps={{
-                    textField: { fullWidth: true }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="ملاحظات"
-                  value={form.notes}
-                  onChange={handleFieldChange('notes')}
-                />
-              </Grid>
-            </Grid>
-          </MainCard>
-        </Grid>
-      </Grid>
+            )}
+          </div>
+        </Box>
+      </MainCard>
     </RBACGuard>
   );
 };

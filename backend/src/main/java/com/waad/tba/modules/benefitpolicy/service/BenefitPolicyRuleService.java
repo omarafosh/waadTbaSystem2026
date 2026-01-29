@@ -142,7 +142,7 @@ public class BenefitPolicyRuleService {
      * @return The applicable rule, or empty if not covered
      */
     @Transactional(readOnly = true)
-    public Optional<BenefitPolicyRuleResponseDto> findCoverageForService(Long policyId, Long serviceId) {
+    public Optional<BenefitPolicyRuleResponseDto> findCoverageForService(Long policyId, Long serviceId, com.waad.tba.modules.visit.entity.VisitType encounterType) {
         // Get the service to find its category
         MedicalService service = serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("MedicalService", "id", serviceId));
@@ -150,8 +150,8 @@ public class BenefitPolicyRuleService {
         // MedicalService has categoryId, not category entity
         Long categoryId = service.getCategoryId();
 
-        // Find best matching rule (service > category priority)
-        return ruleRepository.findBestRuleForService(policyId, serviceId, categoryId)
+        // Find best matching rule (service > category priority + context awareness)
+        return ruleRepository.findBestRuleForService(policyId, serviceId, categoryId, encounterType)
                 .map(BenefitPolicyRuleResponseDto::fromEntity);
     }
 
@@ -159,16 +159,16 @@ public class BenefitPolicyRuleService {
      * Check if a service is covered under a policy
      */
     @Transactional(readOnly = true)
-    public boolean isServiceCovered(Long policyId, Long serviceId) {
-        return findCoverageForService(policyId, serviceId).isPresent();
+    public boolean isServiceCovered(Long policyId, Long serviceId, com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        return findCoverageForService(policyId, serviceId, encounterType).isPresent();
     }
 
     /**
      * Check if a service requires pre-approval under a policy
      */
     @Transactional(readOnly = true)
-    public boolean requiresPreApproval(Long policyId, Long serviceId) {
-        return findCoverageForService(policyId, serviceId)
+    public boolean requiresPreApproval(Long policyId, Long serviceId, com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        return findCoverageForService(policyId, serviceId, encounterType)
                 .map(BenefitPolicyRuleResponseDto::isRequiresPreApproval)
                 .orElse(false);
     }
@@ -178,8 +178,8 @@ public class BenefitPolicyRuleService {
      * Returns 0 if not covered
      */
     @Transactional(readOnly = true)
-    public int getCoveragePercent(Long policyId, Long serviceId) {
-        return findCoverageForService(policyId, serviceId)
+    public int getCoveragePercent(Long policyId, Long serviceId, com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        return findCoverageForService(policyId, serviceId, encounterType)
                 .map(BenefitPolicyRuleResponseDto::getEffectiveCoveragePercent)
                 .orElse(0);
     }
@@ -211,6 +211,7 @@ public class BenefitPolicyRuleService {
                 .waitingPeriodDays(dto.getWaitingPeriodDays() != null ? dto.getWaitingPeriodDays() : 0)
                 .requiresPreApproval(dto.getRequiresPreApproval() != null ? dto.getRequiresPreApproval() : false)
                 .notes(dto.getNotes())
+                .encounterType(dto.getEncounterType())
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .build();
 
@@ -220,8 +221,8 @@ public class BenefitPolicyRuleService {
                     .orElseThrow(() -> new ResourceNotFoundException("MedicalCategory", "id", dto.getMedicalCategoryId()));
             
             // Check for duplicate category rule
-            if (ruleRepository.existsCategoryRule(policyId, dto.getMedicalCategoryId(), null)) {
-                throw new BusinessRuleException("A rule for this category already exists in this policy");
+            if (ruleRepository.existsCategoryRule(policyId, dto.getMedicalCategoryId(), dto.getEncounterType(), null)) {
+                throw new BusinessRuleException("A rule for this category already exists in this policy for the specified encounter type");
             }
             
             rule.setMedicalCategory(category);
@@ -230,8 +231,8 @@ public class BenefitPolicyRuleService {
                     .orElseThrow(() -> new ResourceNotFoundException("MedicalService", "id", dto.getMedicalServiceId()));
             
             // Check for duplicate service rule
-            if (ruleRepository.existsServiceRule(policyId, dto.getMedicalServiceId(), null)) {
-                throw new BusinessRuleException("A rule for this service already exists in this policy");
+            if (ruleRepository.existsServiceRule(policyId, dto.getMedicalServiceId(), dto.getEncounterType(), null)) {
+                throw new BusinessRuleException("A rule for this service already exists in this policy for the specified encounter type");
             }
             
             rule.setMedicalService(service);

@@ -39,10 +39,6 @@ public class EffectivePriceResponseDto {
      */
     private String serviceName;
 
-    /**
-     * Service Name (English)
-     */
-    private String serviceNameEn;
 
     /**
      * Contract Price
@@ -86,5 +82,14 @@ public class EffectivePriceResponseDto {
      * Message
      * Info message (e.g., "No contract found", "Contract found")
      */
+    /**
+     * Message
+     * Info message (e.g., "No contract found", "Contract found")
+     */
     private String message;
+
+    private BigDecimal basePrice;
+    private BigDecimal discountAmount;
+    private BigDecimal coveragePercent;
+    private BigDecimal copayAmount;
 }

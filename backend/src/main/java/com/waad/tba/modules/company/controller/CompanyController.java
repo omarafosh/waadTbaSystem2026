@@ -42,7 +42,7 @@ public class CompanyController {
      * If no company exists, creates a default one.
      */
     @GetMapping("/default")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_COMPANIES') or hasAuthority('MANAGE_COMPANIES')")
+    @PreAuthorize("permitAll()")
     @Operation(summary = "Get default company", 
                description = "Get the default company for single-tenant mode. Creates one if none exists.")
     public ResponseEntity<ApiResponse<CompanyDto>> getDefaultCompany() {

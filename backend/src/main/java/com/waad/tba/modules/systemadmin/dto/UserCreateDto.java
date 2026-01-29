@@ -37,6 +37,7 @@ public class UserCreateDto {
     
     private String phone;
     
+    @Builder.Default
     private Boolean active = true;
     
     @NotBlank(message = "At least one role must be assigned")

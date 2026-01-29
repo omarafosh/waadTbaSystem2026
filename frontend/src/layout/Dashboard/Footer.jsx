@@ -6,9 +6,9 @@ export default function Footer() {
   return (
     <Stack
       direction={{ xs: 'column', sm: 'row' }}
-      sx={{ gap: 1.5, alignItems: 'center', justifyContent: 'center', p: '24px 16px 0px', mt: 'auto' }}
+      sx={{ gap: 1, alignItems: 'center', justifyContent: 'center', p: '12px 16px', mt: 'auto', minHeight: '50px' }}
     >
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
         &copy; AlfaBeta – All Rights Reserved
       </Typography>
     </Stack>

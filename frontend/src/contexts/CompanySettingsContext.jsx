@@ -24,6 +24,9 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import PropTypes from 'prop-types';
 import { companyService } from 'services/api/company.service';
 
+// Default static logo fallback
+import waadLogoFallback from 'assets/images/waad-logo.png';
+
 // Default settings (fallback when no DB settings exist)
 const DEFAULT_SETTINGS = {
   companyName: 'نظام وعد الطبي',
@@ -41,6 +44,8 @@ const DEFAULT_SETTINGS = {
   website: '',
   footerText: 'جميع الحقوق محفوظة © 2026',
   footerTextEn: 'All Rights Reserved © 2026',
+  fontFamily: 'Tajawal',
+  fontSize: 12
 };
 
 // Create context
@@ -61,11 +66,11 @@ export function CompanySettingsProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch default company (single-tenant mode)
       const response = await companyService.getSystemCompany();
       const companyData = response?.data || response;
-      
+
       if (companyData) {
         setSettings({
           ...DEFAULT_SETTINGS,
@@ -82,6 +87,8 @@ export function CompanySettingsProvider({ children }) {
           website: companyData.website || '',
           footerText: companyData.footerText || DEFAULT_SETTINGS.footerText,
           footerTextEn: companyData.footerTextEn || DEFAULT_SETTINGS.footerTextEn,
+          fontFamily: companyData.fontFamily || DEFAULT_SETTINGS.fontFamily,
+          fontSize: companyData.fontSize || DEFAULT_SETTINGS.fontSize
         });
       }
     } catch (err) {
@@ -126,7 +133,7 @@ export function CompanySettingsProvider({ children }) {
       return settings.logoUrl;
     }
     // Fallback to static asset
-    return '/assets/images/waad-logo.png';
+    return waadLogoFallback;
   }, [settings.logoBase64, settings.logoUrl]);
 
   /**
@@ -149,16 +156,16 @@ export function CompanySettingsProvider({ children }) {
     settings,
     loading,
     error,
-    
+
     // Actions
     updateSettings,
     refreshSettings,
-    
+
     // Helper functions
     getLogoSrc,
     hasLogo,
     getInitials,
-    
+
     // Commonly accessed values (convenience)
     companyName: settings.companyName,
     companyNameEn: settings.companyNameEn,
@@ -188,7 +195,7 @@ CompanySettingsProvider.propTypes = {
  */
 export function useCompanySettings() {
   const context = useContext(CompanySettingsContext);
-  
+
   if (!context) {
     console.warn('[useCompanySettings] Must be used within CompanySettingsProvider');
     // Return defaults for graceful degradation
@@ -196,9 +203,9 @@ export function useCompanySettings() {
       settings: DEFAULT_SETTINGS,
       loading: false,
       error: null,
-      updateSettings: () => {},
+      updateSettings: () => { },
       refreshSettings: () => Promise.resolve(),
-      getLogoSrc: () => '/assets/images/waad-logo.png',
+      getLogoSrc: () => waadLogoFallback,
       hasLogo: () => false,
       getInitials: () => 'T',
       companyName: DEFAULT_SETTINGS.companyName,
@@ -207,7 +214,7 @@ export function useCompanySettings() {
       primaryColor: DEFAULT_SETTINGS.primaryColor,
     };
   }
-  
+
   return context;
 }
 

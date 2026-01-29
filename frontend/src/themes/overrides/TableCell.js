@@ -2,8 +2,13 @@
 
 export default function TableCell(theme) {
   const varsPalette = (theme.vars && theme.vars.palette) || theme.palette || {};
+  
+  // Use dynamic font size from theme (User Preference)
+  const cellFontSize = theme.typography.body1.fontSize; 
+
   const commonCell = {
-    fontSize: '0.875rem', // 14px - increased from 12px for better readability
+    // automation-scaling: Removed hardcoded rem
+    // fontSize: '0.875rem', 
     textTransform: 'uppercase',
     '&:not(:last-of-type)': {
       backgroundImage: `linear-gradient(${varsPalette.divider ?? theme.palette.divider}, ${varsPalette.divider ?? theme.palette.divider})`,
@@ -20,7 +25,7 @@ export default function TableCell(theme) {
       styleOverrides: {
         root: ({ ownerState }) => {
           const baseStyle = {
-            fontSize: '0.9375rem', // 15px - increased from 14px for body cells
+            fontSize: theme.typography.body2.fontSize, // Dynamic scaling per user config
             padding: 16, // increased from 12px for better spacing
             borderColor: varsPalette.divider ?? theme.palette.divider,
             lineHeight: 1.6 // improved line height for Arabic text

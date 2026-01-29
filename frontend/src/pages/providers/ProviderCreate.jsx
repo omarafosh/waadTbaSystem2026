@@ -8,14 +8,13 @@ import {
   TextField,
   MenuItem,
   Typography,
-  Stepper,
-  Step,
-  StepLabel,
-  Paper,
+  Tabs,
+  Tab,
   Divider,
   Alert,
   InputAdornment,
-  Chip
+  Chip,
+  Stack
 } from '@mui/material';
 import {
   ArrowBack,
@@ -46,21 +45,20 @@ const NETWORK_STATUS_OPTIONS = [
   { value: 'PREFERRED', label: 'مزود مفضل', description: 'مقدم خدمة مفضل بخصومات أعلى' }
 ];
 
-const STEPS = ['البيانات الأساسية', 'الموقع والتواصل', 'المراجعة'];
+// MOCK_PAYERS removed as requested to use real data only
+
 
 /**
- * Provider Create Page - Enhanced Version
+ * Provider Create Page - Tabbed Version
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * Features:
- * ✅ Auto-generated code display (Read-Only)
- * ✅ Step-by-step form with logical sections
- * ✅ Real-time validation
- * ✅ Professional UI/UX
- * ✅ Clear visual feedback
+ * ✅ Tabbed Interface (Basic, Location, Partners)
+ * ✅ Allowed Partners Management
+ * ✅ Auto-generated code display
  * 
- * @version 2.0
- * @since 2026-01-03
+ * @version 2.1
+ * @since 2026-01-27
  */
 const ProviderCreate = () => {
   const navigate = useNavigate();
@@ -71,13 +69,12 @@ const ProviderCreate = () => {
   // STATE
   // ──────────────────────────────────────────────────────────────────────
 
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [autoCode, setAutoCode] = useState('AUTO-GENERATED');
 
   const [formData, setFormData] = useState({
-    // Basic Info - Bilingual names
-    nameArabic: '',      // الاسم بالعربية - Required
-    nameEnglish: '',     // Name in English - Required
+    // Basic Info
+    name: '',            // اسم مقدم الخدمة - Required
     licenseNumber: '',
     taxNumber: '',
     providerType: '',
@@ -103,10 +100,9 @@ const ProviderCreate = () => {
 
   // Generate auto code when provider type and name are filled
   useEffect(() => {
-    if (formData.providerType && (formData.nameArabic || formData.nameEnglish)) {
+    if (formData.providerType && formData.name) {
       const typePrefix = formData.providerType.substring(0, 3).toUpperCase();
-      const displayName = formData.nameArabic || formData.nameEnglish;
-      const nameInitials = displayName
+      const nameInitials = formData.name
         .split(' ')
         .slice(0, 2)
         .map((word) => word[0])
@@ -116,7 +112,7 @@ const ProviderCreate = () => {
     } else {
       setAutoCode('AUTO-GENERATED');
     }
-  }, [formData.providerType, formData.nameArabic, formData.nameEnglish]);
+  }, [formData.providerType, formData.name]);
 
   // ──────────────────────────────────────────────────────────────────────
   // HANDLERS
@@ -129,49 +125,56 @@ const ProviderCreate = () => {
     }
   };
 
-  const validateStep = (step) => {
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const validateForm = () => {
     const newErrors = {};
 
-    if (step === 0) {
-      // Basic Info - Both names required
-      if (!formData.nameArabic) newErrors.nameArabic = 'الاسم بالعربية مطلوب';
-      if (!formData.nameEnglish) newErrors.nameEnglish = 'الاسم بالإنجليزية مطلوب';
-      if (!formData.licenseNumber) newErrors.licenseNumber = 'رقم الترخيص مطلوب';
-      if (!formData.providerType) newErrors.providerType = 'نوع المزود مطلوب';
-    } else if (step === 1) {
-      // Location & Contact - All optional but validate format if provided
-      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'البريد الإلكتروني غير صحيح';
-      }
+    // Basic Info Validation
+    if (!formData.name) newErrors.name = 'اسم مقدم الخدمة مطلوب';
+    if (!formData.licenseNumber) newErrors.licenseNumber = 'رقم الترخيص مطلوب';
+    if (!formData.providerType) newErrors.providerType = 'نوع المزود مطلوب';
+
+    // Contact Info Validation
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'البريد الإلكتروني غير صحيح';
     }
 
     setErrors(newErrors);
+
+    // Switch to first tab with error
+    if (newErrors.name || newErrors.licenseNumber || newErrors.providerType) {
+      setActiveTab(0);
+    } else if (newErrors.email) {
+      setActiveTab(1);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(activeStep)) {
-      setActiveStep((prev) => prev + 1);
-    } else {
-      enqueueSnackbar('يرجى تعبئة جميع الحقول المطلوبة', { variant: 'error' });
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prev) => prev - 1);
-  };
-
   const handleSubmit = async () => {
-    if (!validateStep(0) || !validateStep(1)) {
-      enqueueSnackbar('يرجى التأكد من صحة البيانات', { variant: 'error' });
+    if (!validateForm()) {
+      enqueueSnackbar('يرجى التأكد من صحة البيانات في جميع التبويبات', { variant: 'error' });
       return;
     }
 
-    const result = await create(formData);
+    const payload = {
+      ...formData
+    };
+
+    const result = await create(payload);
 
     if (result.success) {
-      enqueueSnackbar('تم إنشاء مقدم الخدمة بنجاح', { variant: 'success' });
-      navigate('/providers');
+      enqueueSnackbar('تم إنشاء مقدم الخدمة بنجاح - يمكنك الآن إضافة المستندات والمستخدمين', { variant: 'success' });
+      // Smart Redirect: Go to edit page to allow adding documents immediately
+      const newId = result.data?.id || result.data?.data?.id || result.data;
+      if (newId) {
+        navigate(`/providers/edit/${newId}`);
+      } else {
+        navigate('/providers');
+      }
     } else {
       enqueueSnackbar(result.error || 'فشل إنشاء مقدم الخدمة', { variant: 'error' });
     }
@@ -182,10 +185,10 @@ const ProviderCreate = () => {
   // ──────────────────────────────────────────────────────────────────────
 
   const renderBasicInfo = () => (
-    <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ p: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <Business color="primary" />
-        <Typography variant="h5">البيانات الأساسية لمقدم الخدمة</Typography>
+        <Typography variant="h5">البيانات الأساسية</Typography>
       </Box>
 
       <Grid container spacing={3}>
@@ -212,32 +215,17 @@ const ProviderCreate = () => {
           />
         </Grid>
 
-        {/* Provider Names - Bilingual */}
-        <Grid item xs={12} md={6}>
+        {/* Provider Name */}
+        <Grid item xs={12}>
           <TextField
             fullWidth
             required
-            label="اسم مقدم الخدمة بالعربية"
+            label="اسم مقدم الخدمة"
             placeholder="مثال: مستشفى الواحة"
-            value={formData.nameArabic}
-            onChange={handleChange('nameArabic')}
-            error={!!errors.nameArabic}
-            helperText={errors.nameArabic || 'الاسم باللغة العربية (مطلوب)'}
-            inputProps={{ dir: 'rtl' }}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            required
-            label="اسم مقدم الخدمة بالإنجليزية"
-            placeholder="e.g., Al-Waha Hospital"
-            value={formData.nameEnglish}
-            onChange={handleChange('nameEnglish')}
-            error={!!errors.nameEnglish}
-            helperText={errors.nameEnglish || 'Name in English (required)'}
-            inputProps={{ dir: 'ltr' }}
+            value={formData.name}
+            onChange={handleChange('name')}
+            error={!!errors.name}
+            helperText={errors.name || 'اسم مقدم الخدمة (مطلوب)'}
           />
         </Grid>
 
@@ -310,11 +298,11 @@ const ProviderCreate = () => {
           />
         </Grid>
       </Grid>
-    </Paper>
+    </Box>
   );
 
   const renderLocationContact = () => (
-    <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ p: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <LocationOn color="primary" />
         <Typography variant="h5">الموقع ومعلومات التواصل</Typography>
@@ -419,108 +407,8 @@ const ProviderCreate = () => {
           />
         </Grid>
       </Grid>
-    </Paper>
+    </Box>
   );
-
-  const renderReview = () => (
-    <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="h5" gutterBottom>
-        مراجعة البيانات
-      </Typography>
-      <Typography variant="body2" color="text.secondary" gutterBottom>
-        يرجى مراجعة البيانات التالية قبل الحفظ
-      </Typography>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* Basic Info Summary */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          البيانات الأساسية
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              الرمز التلقائي
-            </Typography>
-            <Typography variant="body1">{autoCode}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              نوع المزود
-            </Typography>
-            <Typography variant="body1">{PROVIDER_TYPES.find((t) => t.value === formData.providerType)?.label || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              الاسم
-            </Typography>
-            <Typography variant="body1">{formData.name || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              رقم الترخيص
-            </Typography>
-            <Typography variant="body1">{formData.licenseNumber || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              الرقم الضريبي
-            </Typography>
-            <Typography variant="body1">{formData.taxNumber || '-'}</Typography>
-          </Grid>
-        </Grid>
-      </Box>
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* Location & Contact Summary */}
-      <Box>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          الموقع والتواصل
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              المدينة
-            </Typography>
-            <Typography variant="body1">{formData.city || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              العنوان
-            </Typography>
-            <Typography variant="body1">{formData.address || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              الهاتف
-            </Typography>
-            <Typography variant="body1">{formData.phone || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              البريد الإلكتروني
-            </Typography>
-            <Typography variant="body1">{formData.email || '-'}</Typography>
-          </Grid>
-        </Grid>
-      </Box>
-    </Paper>
-  );
-
-  const renderStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return renderBasicInfo();
-      case 1:
-        return renderLocationContact();
-      case 2:
-        return renderReview();
-      default:
-        return 'Unknown step';
-    }
-  };
 
   // ──────────────────────────────────────────────────────────────────────
   // MAIN RENDER
@@ -530,52 +418,59 @@ const ProviderCreate = () => {
     <>
       <ModernPageHeader
         title="إضافة مقدم خدمة صحية جديد"
-        subtitle="إنشاء سجل جديد لمقدم خدمة صحية في النظام"
+        subtitle="إنشاء سجل جديد وتحديد صلاحيات الشركاء"
         icon={ProviderIcon}
         breadcrumbs={[{ label: 'مقدمو الخدمات', path: '/providers' }, { label: 'إضافة جديد' }]}
         actions={
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/providers')} disabled={creating}>
-            عودة
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={() => navigate('/providers')}
+              disabled={creating}
+              color="inherit"
+            >
+              عودة
+            </Button>
+            <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_PROVIDERS]}>
+              <Button
+                variant="contained"
+                startIcon={<Save />}
+                onClick={handleSubmit}
+                disabled={creating}
+              >
+                {creating ? 'جاري الحفظ...' : 'حفظ مقدم الخدمة'}
+              </Button>
+            </RBACGuard>
+          </Stack>
         }
       />
 
       <MainCard>
-        {/* Stepper */}
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {STEPS.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+        {/* Tabs Header */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={activeTab} onChange={handleTabChange} aria-label="provider-create-tabs">
+            <Tab icon={<Business />} label="البيانات الأساسية" iconPosition="start" />
+            <Tab icon={<LocationOn />} label="الموقع والتواصل" iconPosition="start" />
+          </Tabs>
+        </Box>
 
-        {/* Step Content */}
-        <Box sx={{ mb: 4 }}>{renderStepContent(activeStep)}</Box>
-
-        {/* Navigation Buttons */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 2 }}>
-          <Button disabled={activeStep === 0 || creating} onClick={handleBack} variant="outlined">
-            السابق
-          </Button>
-
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button onClick={() => navigate('/providers')} disabled={creating}>
-              إلغاء
-            </Button>
-
-            {activeStep === STEPS.length - 1 ? (
-              <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_PROVIDERS]}>
-                <Button variant="contained" startIcon={<Save />} onClick={handleSubmit} disabled={creating}>
-                  {creating ? 'جاري الحفظ...' : 'حفظ مقدم الخدمة'}
-                </Button>
-              </RBACGuard>
-            ) : (
-              <Button variant="contained" onClick={handleNext}>
-                التالي
-              </Button>
-            )}
+        {/* Tab Panels */}
+        <Box sx={{ mb: 4, minHeight: 400 }}>
+          <Box role="tabpanel" hidden={activeTab !== 0}>
+            {activeTab === 0 && renderBasicInfo()}
           </Box>
+          <Box role="tabpanel" hidden={activeTab !== 1}>
+            {activeTab === 1 && renderLocationContact()}
+          </Box>
+        </Box>
+
+        {/* Global Save Button - Removed Duplicate */}
+        <Divider sx={{ mb: 2 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <Button onClick={() => navigate('/providers')} disabled={creating} size="large">
+            إلغاء
+          </Button>
+          {/* Main Save is now in Header */}
         </Box>
       </MainCard>
     </>

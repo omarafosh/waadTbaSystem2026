@@ -40,13 +40,6 @@ public class MedicalServiceCreateDto {
     private String name;
 
     /**
-     * English name (supplementary)
-     */
-    @Size(max = 200, message = "English name must not exceed 200 characters")
-    @JsonAlias({"nameEn"})
-    private String nameEn;
-
-    /**
      * Category ID (required)
      */
     @NotNull(message = "Category ID is required")

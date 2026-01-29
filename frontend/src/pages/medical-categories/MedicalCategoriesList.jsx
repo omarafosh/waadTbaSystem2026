@@ -15,13 +15,13 @@
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { 
-  Box, 
-  Chip, 
-  IconButton, 
-  Stack, 
-  Tooltip, 
-  Typography, 
+import {
+  Box,
+  Chip,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
   Button,
   FormControl,
   InputLabel,
@@ -42,8 +42,8 @@ import TableErrorBoundary from 'components/TableErrorBoundary';
 import PermissionGuard from 'components/PermissionGuard';
 import useTableState from 'hooks/useTableState';
 import { useTableRefresh } from 'contexts/TableRefreshContext';
-import { 
-  getMedicalCategories, 
+import {
+  getMedicalCategories,
   deleteMedicalCategory,
   getAllMedicalCategories
 } from 'services/api/medical-categories.service';
@@ -60,10 +60,10 @@ const MedicalCategoriesList = () => {
   // ========================================
   // LOCAL STATE
   // ========================================
-  
+
   // Parent category filter
   const [parentFilter, setParentFilter] = useState('');
-  
+
   // Excel export loading state
   const [isExporting, setIsExporting] = useState(false);
 
@@ -117,18 +117,18 @@ const MedicalCategoriesList = () => {
     queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, parentFilter],
     queryFn: async () => {
       const params = { page: tableState.page, size: tableState.pageSize };
-      
+
       // Add sorting
       if (tableState.sorting.length > 0) {
         const sort = tableState.sorting[0];
         params.sort = `${sort.id},${sort.desc ? 'desc' : 'asc'}`;
       }
-      
+
       // Add parent filter
       if (parentFilter) {
         params.parentId = parentFilter;
       }
-      
+
       return await getMedicalCategories(params);
     },
     keepPreviousData: true
@@ -179,32 +179,13 @@ const MedicalCategoriesList = () => {
       cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue() || '-'}</Typography>
     },
     {
-      accessorKey: 'nameAr',
-      header: 'الاسم (عربي)',
-      accessorFn: (row) => row.name || row.nameAr, 
+      accessorKey: 'name',
+      header: 'الاسم',
       enableSorting: true,
       enableColumnFilter: false,
       minWidth: 150,
       align: 'right',
       cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'nameEn',
-      header: 'الاسم (إنجليزي)',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 150,
-      align: 'left',
-      cell: ({ getValue, row }) => {
-        const nameEn = getValue();
-        const nameAr = row.original?.name || row.original?.nameAr;
-        const displayValue = (!nameEn || nameEn === nameAr) ? '-' : nameEn;
-        return (
-          <Typography variant="body2" color="text.secondary" dir="ltr" textAlign="left">
-            {displayValue}
-          </Typography>
-        );
-      }
     },
     {
       accessorKey: 'parentName',
@@ -227,11 +208,11 @@ const MedicalCategoriesList = () => {
       minWidth: 100,
       align: 'center',
       cell: ({ row }) => (
-        <Chip 
-          label={row.original?.active ? 'نشط' : 'غير نشط'} 
-          color={row.original?.active ? 'success' : 'default'} 
-          size="small" 
-          variant="light" 
+        <Chip
+          label={row.original?.active ? 'نشط' : 'غير نشط'}
+          color={row.original?.active ? 'success' : 'default'}
+          size="small"
+          variant="light"
         />
       )
     },
@@ -256,7 +237,7 @@ const MedicalCategoriesList = () => {
           </Tooltip>
           <Tooltip title="حذف">
             <PermissionGuard requires="medical-categories.delete">
-              <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id, row.original?.name || row.original?.nameAr || row.original?.code)}>
+              <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id, row.original?.name || row.original?.code)}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </PermissionGuard>
@@ -296,7 +277,7 @@ const MedicalCategoriesList = () => {
                   {isExporting ? 'جاري التصدير...' : 'تصدير Excel'}
                 </Button>
               </Tooltip>
-              
+
               {/* Refresh Button */}
               <Button
                 variant="outlined"
@@ -332,7 +313,7 @@ const MedicalCategoriesList = () => {
               </MenuItem>
               {parentCategories.map((cat) => (
                 <MenuItem key={cat.id} value={cat.id}>
-                  {cat.name || cat.nameAr || cat.code}
+                  {cat.name || cat.code}
                 </MenuItem>
               ))}
             </Select>
@@ -340,7 +321,7 @@ const MedicalCategoriesList = () => {
 
           {/* Stats Chips */}
           <Stack direction="row" spacing={1}>
-            <Chip 
+            <Chip
               label={`الإجمالي: ${data?.total || 0}`}
               size="small"
               variant="outlined"

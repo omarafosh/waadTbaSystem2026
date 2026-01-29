@@ -159,11 +159,11 @@ const EligibilityCheck = () => {
     <RBACGuard requiredPermissions={[PERMISSIONS.VIEW_MEMBERS]}>
       <ModernPageHeader
         title="فحص الأهلية"
-        subtitle="التحقق من أهلية العائلة عبر Barcode"
+        subtitle="التحقق من أهلية المنتفع وأسرته عبر Barcode"
         icon={<QrCodeScannerIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
-          { label: 'الأعضاء', href: '/members' },
+          { label: 'المنتفعين', href: '/members' },
           { label: 'فحص الأهلية' }
         ]}
       />
@@ -174,7 +174,7 @@ const EligibilityCheck = () => {
           <MainCard>
             <Stack spacing={3}>
               <Alert severity="info" icon={<QrCodeIcon />}>
-                أدخل Barcode العضو الأصيل للتحقق من أهلية جميع أفراد العائلة (الصيغة: WAHA-YYYY-NNNNNN)
+                أدخل Barcode المنتفع الرئيسي للتحقق من أهلية جميع أفراد العائلة (الصيغة: WAHA-YYYY-NNNNNN)
               </Alert>
 
               <Grid container spacing={2} alignItems="flex-start">
@@ -235,7 +235,7 @@ const EligibilityCheck = () => {
                             {familyData.principal?.fullName}
                           </Typography>
                           <Stack direction="row" spacing={1}>
-                            <Chip label="عضو أصيل" color="primary" size="small" />
+                            <Chip label="منتفع رئيسي" color="primary" size="small" />
                             <Chip
                               label={familyData.principal?.eligible ? 'مؤهل' : 'غير مؤهل'}
                               color={familyData.principal?.eligible ? 'success' : 'error'}
@@ -329,7 +329,7 @@ const EligibilityCheck = () => {
                         onClick={() => handleSelectMember(familyData.principal)}
                         disabled={!familyData.principal?.eligible}
                       >
-                        اختيار هذا العضو للخدمة
+                        اختيار هذا المنتفع للخدمة
                       </Button>
                     </Grid>
                   </Grid>

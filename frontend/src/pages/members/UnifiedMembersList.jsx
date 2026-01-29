@@ -8,7 +8,7 @@
  * @since 2026-01-11
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -22,13 +22,6 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
   TextField,
   Typography,
   Tooltip,
@@ -48,38 +41,54 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterListIcon,
   UploadFile as UploadFileIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  RestoreFromTrash as RestoreFromTrashIcon
 } from '@mui/icons-material';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { 
-  getAllMembers, 
-  searchMembers, 
-  importMembers, 
-  downloadTemplate, 
-  MEMBER_TYPES, 
-  MEMBER_STATUSES 
+import GenericDataTable from 'components/GenericDataTable/GenericDataTable';
+import { useTableState } from 'hooks/useTableState';
+import {
+  getAllMembers,
+  searchMembers,
+  importMembers,
+  downloadTemplate,
+  deleteMember,
+  restoreMember,
+  MEMBER_TYPES,
+  MEMBER_STATUSES
 } from 'services/api/unified-members.service';
 import axiosClient from 'utils/axios';
 import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
+const DEFAULT_SORT = { field: 'fullName', direction: 'asc' };
+
 /**
  * Unified Members List Component
  */
 const UnifiedMembersList = () => {
   const navigate = useNavigate();
+  
+  // Table State Management
+  const tableState = useTableState({
+    initialPageSize: 10,
+    defaultSort: DEFAULT_SORT
+  });
+
+  const { 
+    page,
+    pageSize,
+    sorting,
+    setSorting
+  } = tableState;
 
   // State
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
-
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   // Filters
   const [showDeleted, setShowDeleted] = useState(false);
@@ -94,15 +103,98 @@ const UnifiedMembersList = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [importErrors, setImportErrors] = useState(null); // Store import errors for display
+  const [importErrors, setImportErrors] = useState(null);
+
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Lookup Data
   const [employers, setEmployers] = useState([]);
 
+  // ========================================
+  // COLUMNS DEFINITION
+  // ========================================
+  const columns = React.useMemo(() => [
+    {
+      accessorKey: 'fullName',
+      header: 'الاسم',
+      size: 200,
+      align: 'right'
+    },
+    {
+      accessorKey: 'type',
+      header: 'النوع',
+      size: 90,
+      cell: ({ getValue }) => getMemberTypeChip(getValue())
+    },
+    {
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 90,
+      cell: ({ getValue }) => getStatusChip(getValue())
+    },
+    {
+      accessorKey: 'cardNumber',
+      header: 'رقم البطاقة',
+      size: 130
+    },
+    {
+      accessorKey: 'barcode',
+      header: 'باركود',
+      size: 130
+    },
+    {
+      accessorKey: 'employerName', // Assuming employerName is flattened or handled
+      header: 'جهة العمل',
+      size: 150
+    },
+    // Calculated/Derived Columns
+    {
+      id: 'dependents',
+      header: 'التابعون',
+      size: 70,
+      cell: ({ row }) => row.original.dependentsCount || 0
+    },
+    {
+      id: 'actions',
+      header: 'إجراءات',
+      size: 110,
+      cell: ({ row }) => (
+        <Stack direction="row" spacing={0.5} justifyContent="center">
+          <Tooltip title="عرض التفاصيل">
+            <IconButton size="small" color="info" onClick={() => navigate(`/members/${row.original.id}`)}>
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="تعديل">
+            <IconButton size="small" color="primary" onClick={() => navigate(`/members/${row.original.id}/edit`)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="رمز QR">
+            <IconButton size="small" color="secondary">
+              <QrCodeScannerIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="حذف">
+            <IconButton size="small" color="error" onClick={() => {
+              setMemberToDelete(row.original);
+              setDeleteDialogOpen(true);
+            }}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      )
+    }
+  ], [navigate]);
+
   // Fetch data on mount and filter change
   useEffect(() => {
     fetchMembers();
-  }, [page, rowsPerPage, filters, showDeleted]);
+  }, [page, pageSize, filters, showDeleted, sorting]);
 
   useEffect(() => {
     fetchEmployers();
@@ -122,29 +214,39 @@ const UnifiedMembersList = () => {
     setLoading(true);
     try {
       let response;
+      // Fix: Split sort into field and direction for backend compatibility
+      const sortField = sorting.length > 0 ? sorting[0].id : undefined;
+      const sortDirection = sorting.length > 0 ? (sorting[0].desc ? 'DESC' : 'ASC') : undefined;
+
+      const displayStatus = filters.status === '' ? undefined : filters.status;
+      const displayType = filters.type === '' ? undefined : filters.type;
+      const displayOrgId = filters.organizationId || undefined;
 
       if (filters.searchTerm && filters.searchTerm.trim()) {
         // Use search API with fullName parameter
+        // Note: search API does not currently support sorting params in controller
         response = await searchMembers({
           fullName: filters.searchTerm.trim(),
           barcode: filters.searchTerm.trim(),
           cardNumber: filters.searchTerm.trim(),
-          organizationId: filters.organizationId || undefined,
-          status: filters.status || undefined,
-          type: filters.type || undefined,
+          organizationId: displayOrgId,
+          status: displayStatus,
+          type: displayType,
           deleted: showDeleted,
-          page,
-          size: rowsPerPage
+          page: page,
+          size: pageSize
         });
       } else {
         // Use getAllMembers API
         response = await getAllMembers({
-          page,
-          size: rowsPerPage,
-          organizationId: filters.organizationId || undefined,
-          status: filters.status || undefined,
-          type: filters.type || undefined,
-          deleted: showDeleted
+          page: page,
+          size: pageSize,
+          organizationId: displayOrgId,
+          status: displayStatus,
+          type: displayType,
+          deleted: showDeleted,
+          sort: sortField,
+          direction: sortDirection
         });
       }
 
@@ -161,7 +263,7 @@ const UnifiedMembersList = () => {
       console.error('Error fetching members:', error);
       openSnackbar({
         open: true,
-        message: 'خطأ في جلب المؤمن عليهم',
+        message: 'خطأ في جلب المنتفعين',
         variant: 'alert',
         alert: { color: 'error' }
       });
@@ -175,16 +277,62 @@ const UnifiedMembersList = () => {
       ...prev,
       [field]: event.target.value
     }));
-    setPage(0); // Reset to first page
+    tableState.setPage(0); // Reset to first page
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+
+
+  const handleDeleteClick = (member) => {
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
   };
 
-  const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const handleConfirmDelete = async () => {
+    if (!memberToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteMember(memberToDelete.id);
+      openSnackbar({
+        open: true,
+        message: 'تم حذف المنتفع بنجاح',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+      fetchMembers();
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      openSnackbar({
+        open: true,
+        message: 'خطأ في حذف المنتفع',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    } finally {
+      setDeleting(false);
+      setMemberToDelete(null);
+    }
+  };
+
+  const handleRestore = async (member) => {
+    try {
+      await restoreMember(member.id);
+      openSnackbar({
+        open: true,
+        message: 'تم استعادة المنتفع بنجاح',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+      fetchMembers();
+    } catch (error) {
+      console.error('Error restoring member:', error);
+      openSnackbar({
+        open: true,
+        message: 'خطأ في استعادة المنتفع',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    }
   };
 
   const handleRefresh = () => {
@@ -216,7 +364,7 @@ const UnifiedMembersList = () => {
       type: '',
       searchTerm: ''
     });
-    setPage(0);
+    tableState.setPage(0);
   };
 
   const handleDownloadTemplate = async () => {
@@ -269,20 +417,20 @@ const UnifiedMembersList = () => {
 
     setImporting(true);
     setImportErrors(null);
-    
+
     try {
       const result = await importMembers(importFile);
       setImportDialogOpen(false);
-      
+
       // Reset to first page to ensure new records are visible (sorted by ID DESC)
       if (page === 0) {
         fetchMembers();
       } else {
-        setPage(0); // This will trigger useEffect which calls fetchMembers
+        tableState.setPage(0); // This will trigger useEffect which calls fetchMembers
       }
 
       const summary = result?.data?.summary;
-      const successMsg = summary 
+      const successMsg = summary
         ? `تم استيراد ${summary.created || 0} عضو بنجاح`
         : 'تم استيراد الملف بنجاح';
 
@@ -294,11 +442,11 @@ const UnifiedMembersList = () => {
       });
     } catch (error) {
       console.error('Error importing members:', error);
-      
+
       // Extract import result from error
       const importResult = error.importResult || error.response?.data?.data;
       const serverMessage = error.serverMessage || error.response?.data?.message;
-      
+
       if (importResult?.errors?.length > 0) {
         // Show detailed errors in dialog
         setImportErrors({
@@ -322,9 +470,9 @@ const UnifiedMembersList = () => {
 
   const getMemberTypeChip = (type) => {
     if (type === MEMBER_TYPES.PRINCIPAL) {
-      return <Chip label="رئيسي" color="primary" size="small" sx={{ fontSize: '12px', height: 24 }} />;
+      return <Chip label="رئيسي" color="primary" size="small" sx={{ fontSize: '12px', height: 24, minWidth: '60px' }} />;
     }
-    return <Chip label="تابع" color="secondary" size="small" sx={{ fontSize: '12px', height: 24 }} />;
+    return <Chip label="تابع" color="secondary" size="small" sx={{ fontSize: '12px', height: 24, minWidth: '60px' }} />;
   };
 
   const getStatusChip = (status) => {
@@ -334,12 +482,18 @@ const UnifiedMembersList = () => {
       TERMINATED: 'error'
     };
 
+    const statusLabels = {
+      ACTIVE: 'نشط',
+      SUSPENDED: 'معلق',
+      TERMINATED: 'منتهي'
+    };
+
     return (
       <Chip
-        label={status}
+        label={statusLabels[status] || status}
         color={statusColors[status] || 'default'}
         size="small"
-        sx={{ fontSize: '12px', height: 24 }}
+        sx={{ fontSize: '12px', height: 24, minWidth: '80px' }}
       />
     );
   };
@@ -347,11 +501,11 @@ const UnifiedMembersList = () => {
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.VIEW_MEMBERS]}>
       <ModernPageHeader
-        title="قائمة المؤمن عليهم"
+        title="قائمة المنتفعين"
         icon={<FilterListIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
-          { label: 'المؤمن عليهم' }
+          { label: 'المنتفعين' }
         ]}
         actions={
           <Stack direction="row" spacing={1}>
@@ -386,7 +540,7 @@ const UnifiedMembersList = () => {
               onClick={() => navigate('/members/add')}
               sx={{ fontSize: '12px' }}
             >
-              إنشاء مؤمن رئيسي
+              إنشاء منتفع رئيسي
             </Button>
           </Stack>
         }
@@ -395,7 +549,7 @@ const UnifiedMembersList = () => {
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'stretch' }}>
         {/* Filters - Right Column */}
         <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-          <MainCard sx={{ p: 2, height: 'calc(100vh - 240px)', overflowY: 'auto' }}>
+          <MainCard sx={{ p: 2, height: 'calc(100vh - 250px)', overflowY: 'auto' }}>
             <Stack spacing={2}>
               <TextField
                 fullWidth
@@ -405,7 +559,7 @@ const UnifiedMembersList = () => {
                 value={filters.searchTerm}
                 onChange={handleFilterChange('searchTerm')}
                 InputLabelProps={{ sx: { fontSize: '0.8125rem' } }}
-                InputProps={{ sx: { fontSize: '0.8125rem', height: 38 } }}
+                InputProps={{ sx: { fontSize: '0.8125rem', height: 36 } }}
               />
 
               <FormControl fullWidth size="small">
@@ -414,7 +568,7 @@ const UnifiedMembersList = () => {
                   value={filters.organizationId}
                   onChange={handleFilterChange('organizationId')}
                   label="جهة العمل"
-                  sx={{ fontSize: '0.8125rem', height: 38 }}
+                  sx={{ fontSize: '0.8125rem', height: 36 }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
                     <em>الكل</em>
@@ -433,7 +587,7 @@ const UnifiedMembersList = () => {
                   value={filters.type}
                   onChange={handleFilterChange('type')}
                   label="النوع"
-                  sx={{ fontSize: '0.8125rem', height: 38 }}
+                  sx={{ fontSize: '0.8125rem', height: 36 }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
                     <em>الكل</em>
@@ -449,7 +603,7 @@ const UnifiedMembersList = () => {
                   value={filters.status}
                   onChange={handleFilterChange('status')}
                   label="الحالة"
-                  sx={{ fontSize: '0.8125rem', height: 38 }}
+                  sx={{ fontSize: '0.8125rem', height: 36 }}
                 >
                   <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
                     <em>الكل</em>
@@ -465,7 +619,7 @@ const UnifiedMembersList = () => {
                 variant="outlined"
                 size="small"
                 onClick={handleResetFilters}
-                sx={{ height: 38, fontSize: '0.8125rem' }}
+                sx={{ height: 36, fontSize: '0.8125rem' }}
               >
                 إعادة تعيين
               </Button>
@@ -477,162 +631,25 @@ const UnifiedMembersList = () => {
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <MainCard
             content={false}
-            sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}
+            sx={{ height: 'calc(100vh - 250px)', display: 'flex', flexDirection: 'column' }}
           >
-            <TableContainer component={Paper} elevation={0} sx={{ flexGrow: 1, overflow: 'auto' }}>
-              <Table sx={{ minWidth: 1000 }} aria-label="unified members table" stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '4%' }}>#</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '20%' }}>الاسم</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '10%' }}>النوع</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '10%' }}>الحالة</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '12%' }}>رقم البطاقة</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '12%' }}>باركود</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '17%' }}>جهة العمل</TableCell>
-                    <TableCell sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '5%' }}>التابعون</TableCell>
-                    <TableCell align="center" sx={{ color: 'common.white', bgcolor: 'primary.main', fontWeight: 600, fontSize: '12px', py: 1.5, width: '10%' }}>إجراءات</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 10 }}>
-                        <CircularProgress />
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                          جاري تحميل المؤمن عليهم...
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : members.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ height: '400px' }}>
-                         <Stack alignItems="center" justifyContent="center" sx={{ height: '100%' }}>
-                            <Typography color="text.secondary" sx={{ fontSize: '12px', fontWeight: 600 }}>
-                              لا توجد نتائج
-                            </Typography>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<AddIcon />}
-                              onClick={() => navigate('/members/add')}
-                              sx={{ mt: 2, fontSize: '12px' }}
-                            >
-                              إنشاء مؤمن رئيسي
-                            </Button>
-                         </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    members.map((member, index) => (
-                      <TableRow key={member.id}>
-                        <TableCell sx={{ fontSize: '12px' }}>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium" fontSize="12px">
-                            {member.fullName}
-                          </Typography>
-                          {member.nationalNumber && (
-                            <Typography variant="caption" color="text.secondary" fontSize="12px">
-                              {member.nationalNumber}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '12px' }}>{getMemberTypeChip(member.type)}</TableCell>
-                        <TableCell sx={{ fontSize: '12px' }}>{getStatusChip(member.status)}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace" fontSize="12px">
-                            {member.cardNumber || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {member.barcode ? (
-                            <Tooltip title="للرئيسي فقط">
-                              <Chip
-                                label={member.barcode}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                sx={{ height: 20, fontSize: '12px' }}
-                              />
-                            </Tooltip>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontSize="12px">
-                            {member.employerName || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {member.type === MEMBER_TYPES.PRINCIPAL ? (
-                            <Chip
-                              label={member.dependentsCount || 0}
-                              size="small"
-                              color={member.dependentsCount > 0 ? 'success' : 'default'}
-                              sx={{ height: 20, fontSize: '12px' }}
-                            />
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <Tooltip title="عرض">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => navigate(`/members/${member.id}`)}
-                              >
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="تعديل">
-                              <IconButton
-                                size="small"
-                                color="secondary"
-                                onClick={() => navigate(`/members/${member.id}/edit`)}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
-              <TablePagination
-                component="div"
-                count={totalElements}
-                page={page}
-                onPageChange={handlePageChange}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleRowsPerPageChange}
-                rowsPerPageOptions={[10, 20, 50, 100]}
-                labelRowsPerPage="عدد الصفوف:"
-                labelDisplayedRows={({ from, to, count }) =>
-                  `${from}-${to} من ${count !== -1 ? count : `أكثر من ${to}`}`
-                }
-                sx={{
-                  '.MuiTablePagination-selectLabel': { fontSize: '12px' },
-                  '.MuiTablePagination-displayedRows': { fontSize: '12px' },
-                  '.MuiTablePagination-select': { fontSize: '12px' },
-                  '.MuiTablePagination-menuItem': { fontSize: '12px' }
-                }}
-              />
-            </Box>
+            <GenericDataTable
+              columns={columns}
+              data={members}
+              totalCount={totalElements}
+              isLoading={loading}
+              tableState={tableState}
+              emptyMessage="لا يوجد منتفعين"
+              headerVariant="primary"
+              enableFiltering={false}
+            />
           </MainCard>
         </Box>
       </Box>
 
       {/* Import Dialog */}
       <Dialog open={importDialogOpen} onClose={handleCloseImportDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontSize: '14px', fontWeight: 700 }}>استيراد قائمة المؤمن عليهم</DialogTitle>
+        <DialogTitle sx={{ fontSize: '14px', fontWeight: 700 }}>استيراد قائمة المنتفعين</DialogTitle>
         <DialogContent>
           <Box sx={{ p: 2 }}>
             {!importErrors ? (
@@ -643,18 +660,18 @@ const UnifiedMembersList = () => {
                     ⚠️ متطلبات مهمة قبل الرفع:
                   </Typography>
                   <Typography variant="body2" component="div">
-                    • الاسم الكامل (fullName) <strong>إلزامي</strong><br/>
-                    • جهة العمل (employerName) <strong>إلزامي</strong> - يجب أن يطابق اسم شريك موجود<br/>
-                    • استخدم القالب الرسمي فقط (اضغط "تحميل القالب" من الأعلى)<br/>
+                    • الاسم الكامل (fullName) <strong>إلزامي</strong><br />
+                    • جهة العمل (employerName) <strong>إلزامي</strong> - يجب أن يطابق اسم شريك موجود<br />
+                    • استخدم القالب الرسمي فقط (اضغط "تحميل القالب" من الأعلى)<br />
                     • تأكد من صحة التواريخ والبيانات
                   </Typography>
                 </Alert>
 
                 <Typography variant="body1" sx={{ mb: 2 }}>
-                  يمكنك استيراد قائمة بالمؤمن عليهم باستخدام ملف Excel.
+                  يمكنك استيراد قائمة بالمنتفعين باستخدام ملف Excel.
                   يرجى التأكد من استخدام القالب القياسي لتجنب الأخطاء.
                 </Typography>
-                
+
                 <Button
                   variant="outlined"
                   component="label"
@@ -670,7 +687,7 @@ const UnifiedMembersList = () => {
                     onChange={handleFileChange}
                   />
                 </Button>
-                
+
                 {importFile && (
                   <Alert severity="info" sx={{ mt: 2 }}>
                     تم اختيار الملف: {importFile.name} ({(importFile.size / 1024).toFixed(2)} KB)
@@ -678,9 +695,9 @@ const UnifiedMembersList = () => {
                 )}
 
                 {importing && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                        <CircularProgress />
-                    </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <CircularProgress />
+                  </Box>
                 )}
               </Box>
             ) : (
@@ -690,17 +707,17 @@ const UnifiedMembersList = () => {
                   <strong>{importErrors.message}</strong>
                   {importErrors.summary && (
                     <Typography variant="body2" sx={{ mt: 1 }}>
-                      الإجمالي: {importErrors.summary.totalRows || 0} صف | 
-                      نجح: {importErrors.summary.created || 0} | 
+                      الإجمالي: {importErrors.summary.totalRows || 0} صف |
+                      نجح: {importErrors.summary.created || 0} |
                       فشل: {(importErrors.summary.rejected || 0) + (importErrors.summary.failed || 0)}
                     </Typography>
                   )}
                 </Alert>
-                
+
                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
                   تفاصيل الأخطاء (أول {importErrors.errors?.length || 0} خطأ):
                 </Typography>
-                
+
                 <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid #ddd', borderRadius: 1 }}>
                   <Table size="small">
                     <TableHead>
@@ -729,7 +746,7 @@ const UnifiedMembersList = () => {
                     </TableBody>
                   </Table>
                 </Box>
-                
+
                 <Alert severity="info" sx={{ mt: 2 }}>
                   <strong>نصيحة:</strong> تأكد من استخدام القالب الرسمي للنظام وأن أسماء جهات العمل تطابق القيم في ورقة "Employers"
                 </Alert>
@@ -754,15 +771,42 @@ const UnifiedMembersList = () => {
               <Button onClick={handleCloseImportDialog} disabled={importing}>
                 إلغاء
               </Button>
-              <Button 
-                onClick={handleImportSubmit} 
-                variant="contained" 
+              <Button
+                onClick={handleImportSubmit}
+                variant="contained"
                 disabled={!importFile || importing}
               >
                 {importing ? 'جاري الاستيراد...' : 'استيراد'}
               </Button>
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle sx={{ fontWeight: 600 }}>تأكيد الحذف</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            هل أنت متأكد من رغبتك في حذف المنتفع <strong>{memberToDelete?.fullName}</strong>؟
+            {memberToDelete?.type === 'PRINCIPAL' && (
+              <Box component="span" sx={{ display: 'block', mt: 1, color: 'error.main', fontWeight: 600 }}>
+                ⚠️ ملاحظة: حذف المنتفع الرئيسي سيؤدي إلى حذف جميع التابعين المرتبطين به.
+              </Box>
+            )}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>إلغاء</Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={deleting && <CircularProgress size={16} />}
+          >
+            {deleting ? 'جاري الحذف...' : 'حذف'}
+          </Button>
         </DialogActions>
       </Dialog>
     </RBACGuard>

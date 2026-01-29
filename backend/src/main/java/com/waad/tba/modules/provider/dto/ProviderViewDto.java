@@ -17,20 +17,8 @@ public class ProviderViewDto {
     private Long id;
     
     /**
-     * Provider name in Arabic (الاسم بالعربية)
+     * Provider name (اسم مقدم الخدمة)
      */
-    private String nameArabic;
-    
-    /**
-     * Provider name in English
-     */
-    private String nameEnglish;
-    
-    /**
-     * Display name (Arabic name for backward compatibility)
-     * @deprecated Use nameArabic/nameEnglish instead
-     */
-    @Deprecated
     private String name;
     
     private String licenseNumber;
@@ -49,4 +37,9 @@ public class ProviderViewDto {
     private BigDecimal defaultDiscountRate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Enhanced statistics for List View
+    private Integer contractCount;
+    private java.util.List<String> contractedEmployerNames;
+    private Boolean hasDocuments;
 }

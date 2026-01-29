@@ -62,6 +62,11 @@ public class EligibilityContext {
      */
     private final String serviceCode;
 
+    /**
+     * The type of encounter (OUTPATIENT, INPATIENT, EMERGENCY, etc.)
+     */
+    private final com.waad.tba.modules.visit.entity.VisitType visitType;
+
     // ============================================
     // Resolved Entities (loaded from database)
     // ============================================

@@ -14,20 +14,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class ProviderCreateDto {
     /**
-     * Provider name in Arabic (الاسم بالعربية) - Required
+     * Provider name (اسم مقدم الخدمة)
      */
-    private String nameArabic;
-    
-    /**
-     * Provider name in English - Required
-     */
-    private String nameEnglish;
-    
-    /**
-     * @deprecated Use nameArabic/nameEnglish instead
-     * Kept for backward compatibility - maps to nameArabic
-     */
-    @Deprecated
     private String name;
     
     private String licenseNumber;

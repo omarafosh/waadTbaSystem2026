@@ -87,9 +87,9 @@ import { preApprovalsService } from 'services/api';
 // STATISTICS CARD COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle = null, badge = null }) => (
-  <Card 
-    elevation={0} 
-    sx={{ 
+  <Card
+    elevation={0}
+    sx={{
       bgcolor: `${color}.lighter`,
       border: '1px solid',
       borderColor: `${color}.light`,
@@ -135,10 +135,10 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subtitle = null
 const AgeIndicator = ({ createdAt }) => {
   const hours = dayjs().diff(dayjs(createdAt), 'hour');
   const days = dayjs().diff(dayjs(createdAt), 'day');
-  
+
   let color = 'success';
   let label = '';
-  
+
   if (days > 3) {
     color = 'error';
     label = `${days} أيام ⚠️`;
@@ -152,10 +152,10 @@ const AgeIndicator = ({ createdAt }) => {
     color = 'success';
     label = 'جديد';
   }
-  
+
   return (
-    <Chip 
-      size="small" 
+    <Chip
+      size="small"
       label={label}
       color={color}
       variant="outlined"
@@ -171,12 +171,12 @@ const AgeIndicator = ({ createdAt }) => {
 const PriorityBadge = ({ priority }) => {
   if (priority === 'EMERGENCY') {
     return (
-      <Chip 
+      <Chip
         icon={<EmergencyIcon />}
-        label="طارئ" 
-        color="error" 
-        size="small" 
-        sx={{ 
+        label="طارئ"
+        color="error"
+        size="small"
+        sx={{
           fontWeight: 'bold',
           animation: 'pulse 1.5s infinite',
           '@keyframes pulse': {
@@ -190,11 +190,11 @@ const PriorityBadge = ({ priority }) => {
   }
   if (priority === 'URGENT') {
     return (
-      <Chip 
+      <Chip
         icon={<UrgentIcon />}
-        label="عاجل" 
-        color="warning" 
-        size="small" 
+        label="عاجل"
+        color="warning"
+        size="small"
         variant="filled"
         sx={{ fontWeight: 'bold' }}
       />
@@ -216,7 +216,7 @@ const PreApprovalsInbox = () => {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
-  
+
   // Statistics
   const [stats, setStats] = useState({
     total: 0,
@@ -261,31 +261,31 @@ const PreApprovalsInbox = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = {
         page: page + 1,
         size: pageSize,
         sortBy: 'createdAt',
         sortDir: 'asc' // FIFO
       };
-      
+
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
       if (searchQuery) params.search = searchQuery;
       if (dateFrom) params.fromDate = dateFrom.format('YYYY-MM-DD');
       if (dateTo) params.toDate = dateTo.format('YYYY-MM-DD');
-      
+
       const response = await preApprovalsService.getPending(params);
       const items = response.items || response.content || [];
-      
+
       setPreApprovals(items);
       setTotalRows(response.total || response.totalElements || 0);
-      
+
       // Calculate statistics
       const emergency = items.filter(p => p.priority === 'EMERGENCY' || p.urgency === 'EMERGENCY').length;
       const urgent = items.filter(p => p.priority === 'URGENT' || p.urgency === 'URGENT').length;
       const today = items.filter(p => dayjs(p.createdAt).isSame(dayjs(), 'day')).length;
-      
+
       setStats({
         total: response.total || response.totalElements || items.length,
         emergency,
@@ -293,7 +293,7 @@ const PreApprovalsInbox = () => {
         normal: items.length - emergency - urgent,
         todayNew: today
       });
-      
+
     } catch (err) {
       console.error('Error fetching pre-approvals:', err);
       setError(err.userMessage || err.response?.data?.message || 'فشل في تحميل طلبات الموافقة المسبقة');
@@ -415,7 +415,7 @@ const PreApprovalsInbox = () => {
         formData.append('attachmentType', 'MEDICAL_REPORT');
 
         await preApprovalsService.uploadAttachment(selectedPreApproval.id, formData);
-        
+
         // Update progress
         const progress = Math.round(((index + 1) / selectedFiles.length) * 100);
         setUploadProgress(progress);
@@ -451,9 +451,9 @@ const PreApprovalsInbox = () => {
     };
     const config = configs[status] || configs.PENDING;
     const Icon = config.icon;
-    
+
     return (
-      <Chip 
+      <Chip
         label={config.label}
         color={config.color}
         size="small"
@@ -500,7 +500,7 @@ const PreApprovalsInbox = () => {
           </Avatar>
           <Box>
             <Typography variant="body2" fontWeight={500}>
-              {params.row?.memberName || params.row?.memberFullName || params.row?.memberFullNameArabic || '-'}
+              {params.row?.memberName || params.row?.memberFullName || params.row?.fullName || '-'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {params.row?.memberNationalNumber || params.row?.memberCivilId || ''}
@@ -572,11 +572,11 @@ const PreApprovalsInbox = () => {
         return (
           <Stack direction="row" spacing={0.5}>
             <Tooltip title="عرض التفاصيل">
-              <IconButton 
-                size="small" 
-                onClick={() => navigate(`/pre-approvals/${params.row.id}`)} 
+              <IconButton
+                size="small"
+                onClick={() => navigate(`/pre-approvals/${params.row.id}`)}
                 disabled={actionLoading}
-                sx={{ 
+                sx={{
                   bgcolor: 'primary.lighter',
                   '&:hover': { bgcolor: 'primary.light' }
                 }}
@@ -586,11 +586,11 @@ const PreApprovalsInbox = () => {
             </Tooltip>
 
             <Tooltip title="رفع مستندات">
-              <IconButton 
-                size="small" 
-                onClick={() => handleOpenUpload(params.row)} 
+              <IconButton
+                size="small"
+                onClick={() => handleOpenUpload(params.row)}
                 disabled={actionLoading}
-                sx={{ 
+                sx={{
                   bgcolor: 'secondary.lighter',
                   '&:hover': { bgcolor: 'secondary.light' }
                 }}
@@ -603,11 +603,11 @@ const PreApprovalsInbox = () => {
             {isPending && (
               <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
                 <Tooltip title="بدء المراجعة">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleStartReview(params.row)} 
+                  <IconButton
+                    size="small"
+                    onClick={() => handleStartReview(params.row)}
                     disabled={actionLoading}
-                    sx={{ 
+                    sx={{
                       bgcolor: 'info.lighter',
                       '&:hover': { bgcolor: 'info.light' }
                     }}
@@ -626,7 +626,7 @@ const PreApprovalsInbox = () => {
                     size="small"
                     onClick={() => handleOpenApprove(params.row)}
                     disabled={actionLoading}
-                    sx={{ 
+                    sx={{
                       bgcolor: 'success.lighter',
                       '&:hover': { bgcolor: 'success.light' }
                     }}
@@ -639,7 +639,7 @@ const PreApprovalsInbox = () => {
                     size="small"
                     onClick={() => handleOpenReject(params.row)}
                     disabled={actionLoading}
-                    sx={{ 
+                    sx={{
                       bgcolor: 'error.lighter',
                       '&:hover': { bgcolor: 'error.light' }
                     }}
@@ -666,17 +666,17 @@ const PreApprovalsInbox = () => {
         icon={PreApprovalIcon}
         actions={
           <Stack direction="row" spacing={1}>
-            <Button 
+            <Button
               variant="outlined"
-              startIcon={showFilters ? <CollapseIcon /> : <FilterIcon />} 
+              startIcon={showFilters ? <CollapseIcon /> : <FilterIcon />}
               onClick={() => setShowFilters(!showFilters)}
             >
               {showFilters ? 'إخفاء الفلاتر' : 'فلترة'}
             </Button>
-            <Button 
+            <Button
               variant="contained"
-              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />} 
-              onClick={fetchPreApprovals} 
+              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
+              onClick={fetchPreApprovals}
               disabled={loading}
             >
               تحديث
@@ -700,38 +700,38 @@ const PreApprovalsInbox = () => {
       {/* ══════════ STATISTICS CARDS ══════════ */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="إجمالي الطلبات المعلقة" 
-            value={stats.total} 
-            icon={PreApprovalIcon} 
+          <StatCard
+            title="إجمالي الطلبات المعلقة"
+            value={stats.total}
+            icon={PreApprovalIcon}
             color="primary"
             subtitle="تنتظر المراجعة"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="طلبات طارئة" 
-            value={stats.emergency} 
-            icon={EmergencyIcon} 
+          <StatCard
+            title="طلبات طارئة"
+            value={stats.emergency}
+            icon={EmergencyIcon}
             color="error"
             subtitle="تتطلب استجابة فورية"
             badge={stats.emergency > 0 ? '!' : null}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="طلبات عاجلة" 
-            value={stats.urgent} 
-            icon={UrgentIcon} 
+          <StatCard
+            title="طلبات عاجلة"
+            value={stats.urgent}
+            icon={UrgentIcon}
             color="warning"
             subtitle="أولوية عالية"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="وصل اليوم" 
-            value={stats.todayNew} 
-            icon={TrendingIcon} 
+          <StatCard
+            title="وصل اليوم"
+            value={stats.todayNew}
+            icon={TrendingIcon}
             color="success"
             subtitle="طلبات جديدة"
           />
@@ -797,15 +797,15 @@ const PreApprovalsInbox = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <Stack direction="row" spacing={1}>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={fetchPreApprovals}
                   startIcon={<SearchIcon />}
                 >
                   بحث
                 </Button>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   onClick={handleResetFilters}
                   startIcon={<ClearIcon />}
                 >
@@ -859,10 +859,10 @@ const PreApprovalsInbox = () => {
       </MainCard>
 
       {/* ══════════ APPROVE DIALOG ══════════ */}
-      <Dialog 
-        open={approveDialogOpen} 
-        onClose={() => !actionLoading && setApproveDialogOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={approveDialogOpen}
+        onClose={() => !actionLoading && setApproveDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
@@ -947,10 +947,10 @@ const PreApprovalsInbox = () => {
       </Dialog>
 
       {/* ══════════ REJECT DIALOG ══════════ */}
-      <Dialog 
-        open={rejectDialogOpen} 
-        onClose={() => !actionLoading && setRejectDialogOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => !actionLoading && setRejectDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
@@ -966,7 +966,7 @@ const PreApprovalsInbox = () => {
               سيتم إبلاغ مقدم الخدمة بسبب الرفض. يرجى كتابة سبب واضح ومهني.
             </Typography>
           </Alert>
-          
+
           <TextField
             fullWidth
             required
@@ -998,10 +998,10 @@ const PreApprovalsInbox = () => {
       </Dialog>
 
       {/* ══════════ UPLOAD DIALOG ══════════ */}
-      <Dialog 
-        open={uploadDialogOpen} 
-        onClose={() => !uploading && setUploadDialogOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={uploadDialogOpen}
+        onClose={() => !uploading && setUploadDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >

@@ -26,27 +26,11 @@ public class Provider {
     private Long id;
 
     /**
-     * Provider name in Arabic (الاسم بالعربية)
-     * Maps to DB column: name_arabic
+     * Provider name (اسم مقدم الخدمة)
+     * Unified single name field
      */
-    @Column(name = "name_arabic", nullable = false, length = 200)
-    private String nameArabic;
-
-    /**
-     * Provider name in English
-     * Maps to DB column: name_english
-     */
-    @Column(name = "name_english", nullable = false, length = 200)
-    private String nameEnglish;
-
-    /**
-     * Convenience method: Returns Arabic name (primary display)
-     * This provides backward compatibility for code using getName()
-     */
-    @Transient
-    public String getName() {
-        return nameArabic != null ? nameArabic : nameEnglish;
-    }
+    @Column(name = "name", nullable = false, length = 200)
+    private String name;
 
     @Column(unique = true, nullable = false, length = 100)
     private String licenseNumber;

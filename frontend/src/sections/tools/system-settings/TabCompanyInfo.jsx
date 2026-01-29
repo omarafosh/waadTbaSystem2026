@@ -22,8 +22,7 @@ import { SaveOutlined, UploadOutlined, BankOutlined, DeleteOutlined, ReloadOutli
 
 export default function TabCompanyInfo() {
   const initialValues = {
-    companyNameEn: 'TBA WAAD Insurance Administration',
-    companyNameAr: 'إدارة التأمينات الصحية TBA WAAD',
+    companyName: 'إدارة التأمينات الصحية TBA WAAD',
     registrationNumber: 'LY-REG-2024-001',
     taxId: 'TAX-LY-123456789',
     address: 'Tripoli, Libya\nMedical Insurance Building\n3rd Floor',
@@ -196,23 +195,13 @@ export default function TabCompanyInfo() {
               </Divider>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={12}>
               <TextField
                 fullWidth
-                label="Company Name (English)"
-                value={formData.companyNameEn}
-                onChange={handleChange('companyNameEn')}
-                placeholder="Enter company name in English"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Company Name (Arabic)"
-                value={formData.companyNameAr}
-                onChange={handleChange('companyNameAr')}
-                placeholder="أدخل اسم الشركة بالعربية"
+                label="اسم الشركة"
+                value={formData.companyName}
+                onChange={handleChange('companyName')}
+                placeholder="أدخل اسم الشركة"
                 dir="rtl"
               />
             </Grid>

@@ -136,7 +136,7 @@ const KPICard = ({
                 <Typography
                   variant="h4"
                   fontWeight={700}
-                  sx={{ 
+                  sx={{
                     fontFamily: 'Roboto, sans-serif',
                     color: warning ? 'warning.dark' : 'text.primary'
                   }}
@@ -145,7 +145,7 @@ const KPICard = ({
                 </Typography>
               )}
             </Stack>
-            
+
             <Box
               sx={{
                 p: 1,
@@ -164,12 +164,12 @@ const KPICard = ({
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
               {trend !== undefined && (
                 <Stack direction="row" alignItems="center" spacing={0.5}>
-                  {trend >= 0 ? 
-                    <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} /> : 
+                  {trend >= 0 ?
+                    <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} /> :
                     <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
                   }
-                  <Typography 
-                    variant="caption" 
+                  <Typography
+                    variant="caption"
                     fontWeight={600}
                     color={trend >= 0 ? 'success.main' : 'error.main'}
                   >
@@ -433,12 +433,12 @@ export default function Dashboard() {
   } = useClaimsList(
     canViewClaims
       ? {
-          page: 0,
-          size: 10,
-          employerId: selectedEmployerId,
-          sortBy: 'createdAt',
-          sortDir: 'desc'
-        }
+        page: 0,
+        size: 10,
+        employerId: selectedEmployerId,
+        sortBy: 'createdAt',
+        sortDir: 'desc'
+      }
       : { skip: true }
   );
 
@@ -488,29 +488,29 @@ export default function Dashboard() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   const InfoRow = ({ label, value, icon: Icon, color = 'primary', loading }) => {
-     const theme = useTheme();
-     const colorValue = theme.palette[color]?.main || theme.palette.primary.main;
-     
-     return (
-      <Stack 
-        direction="row" 
-        justifyContent="space-between" 
-        alignItems="center" 
-        sx={{ 
+    const theme = useTheme();
+    const colorValue = theme.palette[color]?.main || theme.palette.primary.main;
+
+    return (
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{
           py: 0.75, // Reduced padding
-          borderBottom: '1px dashed', 
+          borderBottom: '1px dashed',
           borderColor: 'divider',
           '&:last-child': { borderBottom: 0, pb: 0 },
           '&:first-of-type': { pt: 0 }
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1}>
-          <Box sx={{ 
-            display: 'flex', 
-            p: 0.25, 
-            borderRadius: 0.75, 
-            bgcolor: alpha(colorValue, 0.1), 
-            color: colorValue 
+          <Box sx={{
+            display: 'flex',
+            p: 0.25,
+            borderRadius: 0.75,
+            bgcolor: alpha(colorValue, 0.1),
+            color: colorValue
           }}>
             <Icon sx={{ fontSize: 16 }} />
           </Box>
@@ -526,13 +526,13 @@ export default function Dashboard() {
           </Typography>
         )}
       </Stack>
-     );
+    );
   };
 
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      
+
       {/* ─────────────────────────────────────────────────────────────────────────
           Compact Header (No Scroll Design)
           ───────────────────────────────────────────────────────────────────────── */}
@@ -540,7 +540,7 @@ export default function Dashboard() {
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        sx={{ mb: 2, px: 0.5 }}
+        sx={{ mb: 1, px: 0.5 }}
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <DashboardIcon sx={{ fontSize: 24, color: 'text.secondary' }} />
@@ -548,127 +548,118 @@ export default function Dashboard() {
             لوحة التحكم
           </Typography>
         </Stack>
-        
+
         <Stack direction="row" spacing={1} alignItems="center">
-            <EmployerFilterSelector size="small" />
-            <IconButton 
-              size="small" 
-              onClick={handleRefreshAll} 
-              disabled={summaryLoading}
-              color="secondary"
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-            >
-              <RefreshIcon fontSize="small" />
-            </IconButton>
+          <EmployerFilterSelector size="small" label="" />
         </Stack>
       </Stack>
 
       <Grid container spacing={2} sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        
+
         {/* ─────────────────────────────────────────────────────────────────────────
             Stats Column (Right Side) - Consolidated Panels
             ───────────────────────────────────────────────────────────────────────── */}
         <Grid size={{ xs: 12, lg: 3 }} sx={{ height: '100%' }}>
           <Stack spacing={2} sx={{ height: '100%' }}>
-            
+
             {/* 1. Financial Panel (Condensed) */}
-            <MainCard 
-              title={<Typography variant="subtitle2" fontWeight={700}>الوضع المالي</Typography>} 
+            <MainCard
+              title={<Typography variant="subtitle2" fontWeight={700}>الوضع المالي</Typography>}
               sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}
               contentSX={{ p: 1.25, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
             >
               <Stack spacing={0.5} sx={{ width: '100%' }}>
-                <InfoRow 
-                  label="إجمالي التكلفة" 
-                  value={formatLYD(totalMedicalCost)} 
-                  icon={AttachMoneyIcon} 
-                  color="success" 
+                <InfoRow
+                  label="إجمالي التكلفة"
+                  value={formatLYD(totalMedicalCost)}
+                  icon={AttachMoneyIcon}
+                  color="success"
                   loading={summaryLoading}
                 />
-                <InfoRow 
-                  label="متوسط المطالبة" 
-                  value={totalClaims > 0 ? formatLYD(totalMedicalCost / totalClaims) : '0.00 د.ل'} 
-                  icon={TrendingUpIcon} 
-                  color="info" 
+                <InfoRow
+                  label="متوسط المطالبة"
+                  value={totalClaims > 0 ? formatLYD(totalMedicalCost / totalClaims) : '0.00 د.ل'}
+                  icon={TrendingUpIcon}
+                  color="info"
                   loading={summaryLoading}
                 />
-                <InfoRow 
-                  label="النمو الشهري" 
-                  value={`${monthlyGrowth > 0 ? '+' : ''}${monthlyGrowth}%`} 
-                  icon={monthlyGrowth >= 0 ? TrendingUpIcon : TrendingDownIcon} 
-                  color={monthlyGrowth >= 0 ? 'success' : 'error'} 
+                <InfoRow
+                  label="النمو الشهري"
+                  value={`${monthlyGrowth > 0 ? '+' : ''}${monthlyGrowth}%`}
+                  icon={monthlyGrowth >= 0 ? TrendingUpIcon : TrendingDownIcon}
+                  color={monthlyGrowth >= 0 ? 'success' : 'error'}
                   loading={summaryLoading}
                 />
               </Stack>
             </MainCard>
 
             {/* 2. Operations Panel (Full Details) */}
-            <MainCard 
-              title={<Typography variant="subtitle2" fontWeight={700}>عمليات المطالبات</Typography>} 
+            <MainCard
+              title={<Typography variant="subtitle2" fontWeight={700}>عمليات المطالبات</Typography>}
               sx={{ flex: 1.2, display: 'flex', flexDirection: 'column' }}
               contentSX={{ p: 1.25, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
             >
               <Stack spacing={0.5} sx={{ width: '100%' }}>
-                 <InfoRow 
-                  label="إجمالي المطالبات" 
-                  value={totalClaims} 
-                  icon={ReceiptLongIcon} 
-                  color="primary" 
+                <InfoRow
+                  label="إجمالي المطالبات"
+                  value={totalClaims}
+                  icon={ReceiptLongIcon}
+                  color="primary"
                   loading={summaryLoading}
                 />
-                <InfoRow 
-                  label="معتمدة" 
-                  value={approvedClaims} 
-                  icon={CheckCircleIcon} 
-                  color="success" 
+                <InfoRow
+                  label="معتمدة"
+                  value={approvedClaims}
+                  icon={CheckCircleIcon}
+                  color="success"
                   loading={summaryLoading}
                 />
-                <InfoRow 
-                  label="قيد المعالجة" 
-                  value={openClaims} 
-                  icon={PendingIcon} 
-                  color="warning" 
+                <InfoRow
+                  label="قيد المعالجة"
+                  value={openClaims}
+                  icon={PendingIcon}
+                  color="warning"
                   loading={summaryLoading}
                 />
-                <InfoRow 
-                  label="مرفوضة" 
-                  value="-" 
-                  icon={CancelIcon} 
-                  color="error" 
+                <InfoRow
+                  label="مرفوضة"
+                  value="-"
+                  icon={CancelIcon}
+                  color="error"
                   loading={summaryLoading}
                 />
               </Stack>
             </MainCard>
 
-             {/* 3. Network Panel */}
-             <MainCard 
-                title={<Typography variant="subtitle2" fontWeight={700}>الشبكة الطبية</Typography>}
-                sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-                contentSX={{ p: 1.25, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-             >
-               <Stack spacing={0.5} sx={{ width: '100%' }}>
-                 <InfoRow 
-                    label="مقدمي الخدمات" 
-                    value={activeProviders} 
-                    icon={LocalHospitalIcon} 
-                    color="primary" 
-                    loading={summaryLoading}
-                  />
-                 <InfoRow 
-                    label="العقود السارية" 
-                    value={summary?.activeContracts || 0} 
-                    icon={ReceiptLongIcon} 
-                    color="info" 
-                    loading={summaryLoading}
-                  />
-                  <InfoRow 
-                    label="المستفيدين" 
-                    value={activeMembers} 
-                    icon={PeopleIcon} 
-                    color="secondary" 
-                    loading={summaryLoading}
-                  />
-                </Stack>
+            {/* 3. Network Panel */}
+            <MainCard
+              title={<Typography variant="subtitle2" fontWeight={700}>الشبكة الطبية</Typography>}
+              sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+              contentSX={{ p: 1.25, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+            >
+              <Stack spacing={0.5} sx={{ width: '100%' }}>
+                <InfoRow
+                  label="مقدمي الخدمات"
+                  value={activeProviders}
+                  icon={LocalHospitalIcon}
+                  color="primary"
+                  loading={summaryLoading}
+                />
+                <InfoRow
+                  label="العقود السارية"
+                  value={summary?.activeContracts || 0}
+                  icon={ReceiptLongIcon}
+                  color="info"
+                  loading={summaryLoading}
+                />
+                <InfoRow
+                  label="المستفيدين"
+                  value={activeMembers}
+                  icon={PeopleIcon}
+                  color="secondary"
+                  loading={summaryLoading}
+                />
+              </Stack>
             </MainCard>
 
           </Stack>
@@ -678,14 +669,14 @@ export default function Dashboard() {
             Content Column (Left Side) - Table (Takes remaining space)
             ───────────────────────────────────────────────────────────────────────── */}
         <Grid size={{ xs: 12, lg: 9 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-           {canViewClaims && (
-             <Box sx={{ flexGrow: 1, '& .MuiPaper-root': { height: '100%', display: 'flex', flexDirection: 'column' }, '& .MuiTableContainer-root': { flexGrow: 1 } }}>
-                <RecentClaimsTable
-                  claims={claimsData?.content || []}
-                  loading={claimsLoading}
-                  onViewClaim={handleViewClaim}
-                />
-             </Box>
+          {canViewClaims && (
+            <Box sx={{ flexGrow: 1, '& .MuiPaper-root': { height: '100%', display: 'flex', flexDirection: 'column' }, '& .MuiTableContainer-root': { flexGrow: 1 } }}>
+              <RecentClaimsTable
+                claims={claimsData?.content || []}
+                loading={claimsLoading}
+                onViewClaim={handleViewClaim}
+              />
+            </Box>
           )}
         </Grid>
 

@@ -3,9 +3,12 @@ package com.waad.tba.modules.provider.controller;
 import com.waad.tba.common.dto.ApiResponse;
 import com.waad.tba.common.dto.PaginationResponse;
 import com.waad.tba.modules.provider.dto.*;
+import com.waad.tba.modules.providercontract.dto.ProviderContractCreateDto;
+import com.waad.tba.modules.providercontract.dto.ProviderContractResponseDto;
+import com.waad.tba.modules.providercontract.dto.ProviderContractUpdateDto;
 import com.waad.tba.modules.provider.service.ProviderService;
 import com.waad.tba.modules.provider.service.ProviderServiceService;
-import com.waad.tba.modules.provider.service.ProviderContractService;
+import com.waad.tba.modules.providercontract.service.ProviderContractService;
 import com.waad.tba.security.AuthorizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -262,7 +265,7 @@ public class ProviderController {
             @RequestParam(defaultValue = "true") boolean activeOnly,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "effectiveFrom") String sortBy,
+            @RequestParam(defaultValue = "startDate") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
         
         log.info("[PROVIDER-CONTRACTS] GET /api/providers/{}/contracts?activeOnly={}&page={}&size={}", 
@@ -355,14 +358,14 @@ public class ProviderController {
      */
     @GetMapping("/{id}/contract/services/requiring-preauth")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN') or hasRole('REVIEWER') or hasAuthority('VIEW_PROVIDERS') or hasAuthority('REVIEW_PREAPPROVALS')")
-    public ResponseEntity<ApiResponse<java.util.List<ProviderPortalController.ProviderServiceDto>>> getServicesRequiringPreAuth(
+    public ResponseEntity<ApiResponse<java.util.List<ProviderServiceDto>>> getServicesRequiringPreAuth(
             @PathVariable Long id,
             @RequestParam Long memberId) {
         
         log.info("[PROVIDER-CONTRACTS] GET /api/providers/{}/contract/services/requiring-preauth?memberId={}", 
                 id, memberId);
         
-        java.util.List<ProviderPortalController.ProviderServiceDto> services = providerContractService.getServicesRequiringPreAuth(id, memberId);
+        java.util.List<ProviderServiceDto> services = providerContractService.getServicesRequiringPreAuth(id, memberId);
         
         return ResponseEntity.ok(ApiResponse.success(
             "Services requiring pre-approval retrieved", 

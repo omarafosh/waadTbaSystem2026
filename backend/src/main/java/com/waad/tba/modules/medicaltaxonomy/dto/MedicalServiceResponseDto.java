@@ -20,7 +20,6 @@ public class MedicalServiceResponseDto {
     private Long id;
     private String code;
     private String name;
-    private String nameEn;
     private Long categoryId;
     private String categoryName; // For UX - display category name
     private String categoryCode; // For reference

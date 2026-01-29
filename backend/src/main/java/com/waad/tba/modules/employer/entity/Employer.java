@@ -12,12 +12,16 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+
 /**
  * Legacy employer entity - READ ONLY.
  * 
- * @deprecated Use {@link com.waad.tba.common.entity.Organization} with type=EMPLOYER instead.
- *             This entity is kept for backward compatibility only. All new code must use Organization.
- *             Writing to this entity is prohibited - use Organization with OrganizationType.EMPLOYER.
+ * @deprecated Use {@link com.waad.tba.common.entity.Organization} with
+ *             type=EMPLOYER instead.
+ *             This entity is kept for backward compatibility only. All new code
+ *             must use Organization.
+ *             Writing to this entity is prohibited - use Organization with
+ *             OrganizationType.EMPLOYER.
  */
 @Deprecated
 @Entity
@@ -41,10 +45,13 @@ public class Employer {
     @Column(nullable = false, name = "name_ar")
     private String nameAr;
 
-    @NotBlank(message = "Employer name (English) is required")
-    @Column(nullable = false, name = "name_en")
-    private String nameEn;
-    
+    /*
+     * Legacy field removed: nameEn
+     * 
+     * @Column(nullable = false, name = "name_en")
+     * private String nameEn;
+     */
+
     private String address;
 
     private String phone;
@@ -61,4 +68,12 @@ public class Employer {
 
     @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    /**
+     * Gets the display name of the employer.
+     * Currently returns Arabic name as English name was removed.
+     */
+    public String getName() {
+        return this.nameAr;
+    }
 }

@@ -28,7 +28,6 @@ public class MemberCreateDto {
     // Personal Information
     @Schema(description = "Full name (Arabic or English)", example = "أحمد محمد علي", required = true)
     @NotBlank(message = "Full name is required")
-    @JsonAlias({"nameAr", "name_ar", "fullNameArabic", "nameEn", "name_en", "fullNameEnglish"})
     private String fullName;
 
     @Schema(description = "National Number (الرقم الوطني) - OPTIONAL", example = "289123456789")

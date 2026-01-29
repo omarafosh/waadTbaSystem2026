@@ -97,8 +97,7 @@ public interface MedicalCategoryRepository extends JpaRepository<MedicalCategory
      */
     @Query("""
         SELECT mc FROM MedicalCategory mc
-        WHERE (LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-           OR LOWER(mc.nameEn) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+        WHERE (LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
           AND mc.active = true
     """)
     List<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm);
@@ -108,8 +107,7 @@ public interface MedicalCategoryRepository extends JpaRepository<MedicalCategory
      */
     @Query("""
         SELECT mc FROM MedicalCategory mc
-        WHERE (LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-           OR LOWER(mc.nameEn) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+        WHERE (LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
           AND mc.active = true
     """)
     Page<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);

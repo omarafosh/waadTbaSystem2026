@@ -26,6 +26,7 @@ import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
 
 import useAuth from 'hooks/useAuth';
+import { useCompanySettings } from 'contexts/CompanySettingsContext';
 
 // assets
 import EyeOutlined from '@ant-design/icons/EyeOutlined';
@@ -41,6 +42,7 @@ export default function AuthLogin({ isDemo = false }) {
   const theme = useTheme();
 
   const { login } = useAuth();
+  const { settings } = useCompanySettings();
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -93,11 +95,11 @@ export default function AuthLogin({ isDemo = false }) {
       >
         {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
           <form noValidate onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               {/* Username/Email Field */}
               <Grid size={12}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="email-login" sx={{ fontWeight: 600 }}>
+                <Stack sx={{ gap: 0.5 }}>
+                  <InputLabel htmlFor="email-login" sx={{ fontWeight: 600, fontSize: `${settings?.fontSize || 12}px` }}>
                     اسم المستخدم أو البريد الإلكتروني
                   </InputLabel>
                   <OutlinedInput
@@ -112,7 +114,7 @@ export default function AuthLogin({ isDemo = false }) {
                     error={Boolean(touched.email && errors.email)}
                     startAdornment={
                       <InputAdornment position="start">
-                        <PersonOutlineIcon color="action" />
+                        <PersonOutlineIcon color="action" sx={{ fontSize: `${(settings?.fontSize || 12) * 1.5}px` }} />
                       </InputAdornment>
                     }
                     sx={{
@@ -137,8 +139,8 @@ export default function AuthLogin({ isDemo = false }) {
 
               {/* Password Field */}
               <Grid size={12}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="password-login" sx={{ fontWeight: 600 }}>
+                <Stack sx={{ gap: 0.5 }}>
+                  <InputLabel htmlFor="password-login" sx={{ fontWeight: 600, fontSize: `${settings?.fontSize || 12}px` }}>
                     كلمة المرور
                   </InputLabel>
                   <OutlinedInput
@@ -152,7 +154,7 @@ export default function AuthLogin({ isDemo = false }) {
                     onChange={handleChange}
                     startAdornment={
                       <InputAdornment position="start">
-                        <LockOutlinedIcon color="action" />
+                        <LockOutlinedIcon color="action" sx={{ fontSize: `${(settings?.fontSize || 12) * 1.5}px` }} />
                       </InputAdornment>
                     }
                     endAdornment={
@@ -209,7 +211,7 @@ export default function AuthLogin({ isDemo = false }) {
                     component={RouterLink}
                     to={isDemo ? '/auth/forgot-password' : auth ? `/${auth}/forgot-password?auth=jwt` : '/forgot-password'}
                     color="primary"
-                    sx={{ 
+                    sx={{
                       textDecoration: 'none',
                       '&:hover': {
                         textDecoration: 'underline'
@@ -224,9 +226,9 @@ export default function AuthLogin({ isDemo = false }) {
               {/* Error Message */}
               {errors.submit && (
                 <Grid size={12}>
-                  <FormHelperText 
-                    error 
-                    sx={{ 
+                  <FormHelperText
+                    error
+                    sx={{
                       fontSize: '0.875rem',
                       textAlign: 'center',
                       bgcolor: alpha(theme.palette.error.main, 0.1),
@@ -242,20 +244,20 @@ export default function AuthLogin({ isDemo = false }) {
               {/* Submit Button */}
               <Grid size={12}>
                 <AnimateButton>
-                  <Button 
-                    disableElevation 
-                    disabled={isSubmitting} 
-                    fullWidth 
-                    size="large" 
-                    type="submit" 
-                    variant="contained" 
+                  <Button
+                    disableElevation
+                    disabled={isSubmitting}
+                    fullWidth
+                    size="large"
+                    type="submit"
+                    variant="contained"
                     color="primary"
                     startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
                     sx={{
-                      py: 1.5,
+                      py: (settings?.fontSize || 12) > 12 ? 1.5 : 1.2,
                       borderRadius: 2,
-                      fontWeight: 600,
-                      fontSize: '1rem',
+                      fontWeight: 700,
+                      fontSize: `${(settings?.fontSize || 12) * 1.1}px`,
                       boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
                       background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                       '&:hover': {

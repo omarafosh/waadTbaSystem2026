@@ -66,7 +66,6 @@ import { openSnackbar } from 'api/snackbar';
 const INITIAL_FORM_STATE = {
   code: '',
   name: '',
-  nameEn: '',
   categoryId: '',
   description: '',
   basePrice: '',
@@ -146,7 +145,6 @@ const MedicalServiceCreate = () => {
         const payload = {
           code: form.code?.trim() || '',
           name: form.name?.trim() || '',
-          nameEn: form.nameEn?.trim() || null, // English name is optional
           categoryId: form.categoryId ? parseInt(form.categoryId, 10) : null,
           description: form.description?.trim() || null,
           basePrice: form.basePrice ? parseFloat(form.basePrice) : null,
@@ -155,12 +153,12 @@ const MedicalServiceCreate = () => {
         };
 
         await createMedicalService(payload);
-        
+
         openSnackbar({
           message: 'تم إنشاء الخدمة الطبية بنجاح',
           variant: 'success'
         });
-        
+
         triggerRefresh();
         navigate('/medical-services');
       } catch (err) {
@@ -222,32 +220,18 @@ const MedicalServiceCreate = () => {
               />
             </Grid>
 
-            {/* Name (Arabic) */}
-            <Grid item xs={12} md={4}>
+            {/* Name */}
+            <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
-                label="الاسم (عربي)"
-                placeholder="أدخل اسم الخدمة بالعربية"
+                label="الاسم"
+                placeholder="أدخل اسم الخدمة"
                 value={form.name}
                 onChange={handleChange('name')}
                 error={!!errors.name}
                 helperText={errors.name}
                 required
                 disabled={submitting}
-              />
-            </Grid>
-
-            {/* Name (English) */}
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="الاسم (إنجليزي)"
-                placeholder="Enter service name in English"
-                value={form.nameEn}
-                onChange={handleChange('nameEn')}
-                disabled={submitting}
-                dir="ltr"
-                inputProps={{ style: { textAlign: 'left' } }}
               />
             </Grid>
 

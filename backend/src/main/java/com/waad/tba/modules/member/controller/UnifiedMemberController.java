@@ -89,6 +89,7 @@ public class UnifiedMemberController {
 
     private final UnifiedMemberService unifiedMemberService;
     private final MemberFinancialSummaryService financialSummaryService;
+    private final com.waad.tba.modules.member.service.MemberDocumentService memberDocumentService;
     private final PdfTemplateService pdfTemplateService;
     private final HtmlToPdfService htmlToPdfService;
 
@@ -340,6 +341,17 @@ public class UnifiedMemberController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    /**
+     * Restore a deleted member
+     */
+    @PutMapping("/{id}/restore")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER')")
+    @Operation(summary = "Restore deleted member", description = "Restores a soft-deleted member to active status.")
+    public ResponseEntity<ApiResponse<?>> restoreMember(@PathVariable Long id) {
+        unifiedMemberService.restoreMember(id);
+        return ResponseEntity.ok(ApiResponse.success("تم استعادة العضو بنجاح"));
+    }
+
     // ==================== READ OPERATIONS ====================
 
     /**
@@ -401,8 +413,9 @@ public class UnifiedMemberController {
     public ResponseEntity<Long> countMembers(
             @RequestParam(required = false) Long organizationId,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(unifiedMemberService.countMembers(organizationId, status, type));
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "false") boolean deleted) {
+        return ResponseEntity.ok(unifiedMemberService.countMembers(organizationId, status, type, deleted));
     }
 
     /**
@@ -463,16 +476,17 @@ public class UnifiedMemberController {
             @RequestParam(defaultValue = "DESC") String direction,
             @RequestParam(required = false) Long organizationId,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type) {
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "false") boolean deleted) {
         
-        log.info("Retrieving all Members: page={}, size={}, organizationId={}, status={}, type={}", 
-                 page, size, organizationId, status, type);
+        log.info("Retrieving all Members: page={}, size={}, organizationId={}, status={}, type={}, deleted={}", 
+                 page, size, organizationId, status, type, deleted);
         
         Sort.Direction sortDirection = Sort.Direction.fromString(direction != null ? direction : "DESC");
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
         
         Page<MemberViewDto> members = unifiedMemberService.getAllMembers(
-            pageable, organizationId, status, type);
+            pageable, organizationId, status, type, deleted);
         
         log.info("Members retrieved: totalElements={}, totalPages={}", 
                  members.getTotalElements(), members.getTotalPages());
@@ -551,21 +565,25 @@ public class UnifiedMemberController {
             @RequestParam(required = false) Long benefitPolicyId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "false") boolean deleted,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
-        log.info("Searching Members: fullName={}, nameAr={}, civilId={}, barcode={}, cardNumber={}", 
-                 fullName, nameAr, civilId, barcode, cardNumber);
+        log.info("Searching Members: fullName={}, nameAr={}, civilId={}, barcode={}, cardNumber={}, deleted={}", 
+                 fullName, nameAr, civilId, barcode, cardNumber, deleted);
         
-        // If fullName is provided, use it for both nameAr and nameEn
+        // If fullName is provided, use it for both nameAr and nameEn logic
         String searchNameAr = (fullName != null && !fullName.trim().isEmpty()) ? fullName : nameAr;
         String searchNameEn = (fullName != null && !fullName.trim().isEmpty()) ? fullName : nameEn;
+        
+        // Combine into single search term for unified service
+        String searchTerm = (searchNameAr != null && !searchNameAr.trim().isEmpty()) ? searchNameAr : searchNameEn;
         
         Pageable pageable = PageRequest.of(page, size);
         
         Page<MemberViewDto> results = unifiedMemberService.searchMembers(
-            searchNameAr, searchNameEn, civilId, barcode, cardNumber, 
-            organizationId, benefitPolicyId, status, type, pageable);
+            searchTerm, civilId, barcode, cardNumber, 
+            organizationId, benefitPolicyId, status, type, deleted, pageable);
         
         log.info("Search completed: found {} results", results.getTotalElements());
         
@@ -701,9 +719,11 @@ public class UnifiedMemberController {
         // Note: For reporting, we might want a limit, e.g., 1000 records
         Pageable pageable = PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "id"));
         
+        String searchTerm = (nameAr != null && !nameAr.trim().isEmpty()) ? nameAr : nameEn;
+        
         Page<MemberViewDto> membersPage = unifiedMemberService.searchMembers(
-            nameAr, nameEn, civilId, barcode, cardNumber, 
-            organizationId, benefitPolicyId, status, type, pageable);
+            searchTerm, civilId, barcode, cardNumber, 
+            organizationId, benefitPolicyId, status, type, false, pageable);
         
         List<MemberViewDto> members = membersPage.getContent();
         
@@ -792,6 +812,25 @@ public class UnifiedMemberController {
 
 
     // ==================== UPDATE OPERATIONS ====================
+
+    /**
+     * Upload Profile Photo for Member
+     * This allows professional creation flow (Create -> Upload Photo immediately)
+     */
+    @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER')")
+    @Operation(summary = "Upload Member Photo", description = "Uploads a profile photo for the member.")
+    public ResponseEntity<ApiResponse<String>> uploadMemberPhoto(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        
+        log.info("Uploading photo for member: id={}", id);
+        
+        var doc = memberDocumentService.uploadDocument(
+            id, file, com.waad.tba.modules.member.entity.MemberDocument.DocumentType.PHOTO, "System");
+            
+        return ResponseEntity.ok(ApiResponse.success("تم رفع الصورة بنجاح", doc.getFilePath()));
+    }
 
     /**
      * Update Member (Principal or Dependent)
@@ -1114,71 +1153,91 @@ public class UnifiedMemberController {
      */
     @GetMapping("/{memberId}/financial-summary")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN') or hasRole('EMPLOYER_ADMIN') or hasAuthority('VIEW_MEMBERS')")
-    @Operation(
-        summary = "Get Member Financial Summary",
-        description = "Returns comprehensive financial overview including policy info, utilization metrics, " +
-                      "claim statistics, and alerts. **PHASE 1 Critical Endpoint** for financial visibility.",
-        parameters = {
-            @Parameter(name = "memberId", description = "Member ID (Principal or Dependent)", required = true)
+    public ResponseEntity<MemberFinancialSummaryDto> getFinancialSummary(@PathVariable Long memberId) {
+        return ResponseEntity.ok(financialSummaryService.getFinancialSummary(memberId));
+    }
+
+    // ==================== ENTERPRISE WORKFLOW & DOCUMENTS ====================
+
+    @PostMapping("/draft")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN')")
+    @Operation(summary = "Create Draft Member", description = "Requirement 6: Creates a member in DRAFT status.")
+    public ResponseEntity<ApiResponse<MemberViewDto>> createDraftMember(@Valid @RequestBody MemberCreateDto dto) {
+        MemberViewDto created = unifiedMemberService.createDraftMember(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Draft created", created));
+    }
+
+    @PutMapping("/{id}/promote")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    @Operation(summary = "Promote to Active", description = "Requirement 6: Promotes a draft member to ACTIVE.")
+    public ResponseEntity<ApiResponse<MemberViewDto>> promoteToActive(@PathVariable Long id, @RequestParam String reason) {
+        MemberViewDto promoted = unifiedMemberService.promoteToActive(id, reason);
+        return ResponseEntity.ok(ApiResponse.success("Member promoted to ACTIVE", promoted));
+    }
+
+    @GetMapping("/{id}/workflow-history")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN')")
+    @Operation(summary = "Get Workflow History", description = "Returns status transition history for a member.")
+    public ResponseEntity<List<com.waad.tba.modules.member.entity.MemberWorkflowHistory>> getWorkflowHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(unifiedMemberService.getWorkflowHistory(id));
+    }
+
+    @PostMapping(value = "/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN')")
+    @Operation(summary = "Upload Member Document", description = "Requirement 5: Uploads and links a document to a member.")
+    public ResponseEntity<ApiResponse<com.waad.tba.modules.member.entity.MemberDocument>> uploadDocument(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam("type") com.waad.tba.modules.member.entity.MemberDocument.DocumentType type) {
+        String currentUser = "System"; // In real impl, get from security context
+        com.waad.tba.modules.member.entity.MemberDocument doc = memberDocumentService.uploadDocument(id, file, type, currentUser);
+        return ResponseEntity.ok(ApiResponse.success("Document uploaded", doc));
+    }
+
+    @GetMapping("/{id}/documents")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN')")
+    public ResponseEntity<List<com.waad.tba.modules.member.entity.MemberDocument>> getDocuments(@PathVariable Long id) {
+        return ResponseEntity.ok(memberDocumentService.getMemberDocuments(id));
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteDocument(@PathVariable Long documentId) {
+        memberDocumentService.deleteDocument(documentId);
+        return ResponseEntity.ok(ApiResponse.success("Document deleted", null));
+    }
+
+    // ==================== PHOTO OPERATIONS ====================
+
+    /**
+     * Get Member Profile Photo
+     */
+    @GetMapping(value = "/{id}/photo", produces = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})
+    @Operation(summary = "Get Member Profile Photo")
+    public ResponseEntity<byte[]> getMemberPhoto(@PathVariable Long id) {
+        // Retrieve member documents
+        List<com.waad.tba.modules.member.entity.MemberDocument> docs = memberDocumentService.getMemberDocuments(id);
+        
+        // Find the photo
+        var photoDoc = docs.stream()
+                .filter(d -> d.getDocumentType() == com.waad.tba.modules.member.entity.MemberDocument.DocumentType.PHOTO)
+                .findFirst();
+        
+        if (photoDoc.isPresent()) {
+            try {
+                // In a real implementation with FileStorageService, we would read the bytes here.
+                // For this MVP, we will assume local storage or similar.
+                // Since we don't have the 'read' method exposed in FileStorageService in the context yet,
+                // we will return 404 to allow the frontend to show the fallback avatar.
+                // To make it work fully, we would need: fileStorageService.read(photoDoc.get().getFilePath())
+                
+                // TODO: Implement file reading logic
+                return ResponseEntity.notFound().build();
+            } catch (Exception e) {
+                return ResponseEntity.notFound().build();
+            }
         }
-    )
-    @ApiResponses(value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "Financial summary retrieved successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = MemberFinancialSummaryDto.class),
-                examples = @ExampleObject(
-                    name = "Financial Summary",
-                    value = """
-                    {
-                      "memberId": 123,
-                      "fullName": "أحمد محمد علي",
-                      "cardNumber": "000123",
-                      "barcode": "WAHA-2026-000123",
-                      "isDependent": false,
-                      "policyId": 1,
-                      "policyName": "Gold Plan",
-                      "annualLimit": 50000.00,
-                      "policyStartDate": "2026-01-01",
-                      "policyEndDate": "2026-12-31",
-                      "policyActive": true,
-                      "totalClaimed": 15000.00,
-                      "totalApproved": 12000.00,
-                      "totalPaid": 10000.00,
-                      "remainingCoverage": 38000.00,
-                      "utilizationPercent": 24.00,
-                      "claimsCount": 5,
-                      "pendingClaimsCount": 1,
-                      "approvedClaimsCount": 3,
-                      "rejectedClaimsCount": 1,
-                      "lastClaimDate": "2026-01-05",
-                      "totalPatientCoPay": 3000.00,
-                      "totalDeductibleApplied": 500.00,
-                      "warningMessage": null,
-                      "nearingLimit": false,
-                      "policyExpiringSoon": false
-                    }
-                    """
-                )
-            )
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "404",
-            description = "Member not found"
-        )
-    })
-    public ResponseEntity<MemberFinancialSummaryDto> getFinancialSummary(
-            @PathVariable Long memberId) {
         
-        log.info("📊 Retrieving financial summary for member: memberId={}", memberId);
-        
-        MemberFinancialSummaryDto summary = financialSummaryService.getFinancialSummary(memberId);
-        
-        log.info("✅ Financial summary retrieved: memberId={}, utilization={}%", 
-                 memberId, summary.getUtilizationPercent());
-        
-        return ResponseEntity.ok(summary);
+        return ResponseEntity.notFound().build();
     }
 }

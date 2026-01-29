@@ -189,7 +189,7 @@ export const searchMedicalServices = async (params = {}) => {
  *   CODE + NAME + CATEGORY
  * 
  * Features:
- * - Search by: code, nameAr, nameEn, categoryNameAr, categoryNameEn
+ * - Search by: code, name, categoryNameAr
  * - Optional filter by categoryId
  * - Returns full context for display
  * 

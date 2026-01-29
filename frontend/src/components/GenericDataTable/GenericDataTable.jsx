@@ -22,8 +22,9 @@
  * />
  */
 
-import { useMemo, Fragment } from 'react';
+import { useMemo, Fragment, memo } from 'react';
 import PropTypes from 'prop-types';
+import { alpha } from '@mui/material/styles';
 
 // TanStack React Table
 import {
@@ -60,6 +61,8 @@ import {
 // MUI Icons
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';   // New Import
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'; // New Import
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
@@ -124,10 +127,10 @@ ColumnFilter.propTypes = {
 };
 
 // ============================================================================
-// MAIN COMPONENT
+// MAIN COMPONENT WRAPPED IN MEMO FOR PERFORMANCE
 // ============================================================================
 
-const GenericDataTable = ({
+const GenericDataTable = memo(({
   columns = [],
   data = [],
   totalCount = 0,
@@ -141,7 +144,11 @@ const GenericDataTable = ({
   maxHeight = 'calc(100vh - 300px)',
   onRowClick,
   emptyMessage = 'لا توجد بيانات',
-  rowsPerPageOptions = [5, 10, 25, 50, 100]
+  rowsPerPageOptions = [5, 10, 15, 25, 50, 100], 
+  
+  // Custom Styles Props
+  headerVariant = 'light', // 'light' | 'primary'
+  cellPadding = 'normal'   // 'normal' | 'dense'
 }) => {
   // ========================================
   // TABLE CONFIGURATION
@@ -176,6 +183,8 @@ const GenericDataTable = ({
     },
     onSortingChange: tableState.setSorting,
     getCoreRowModel: getCoreRowModel(),
+    // Since we are doing Server-Side, we DO NOT need client-side sorters affecting the view directly
+    // but TanStack table still needs the model to renders headers correctly.
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -212,7 +221,13 @@ const GenericDataTable = ({
         position: stickyHeader ? 'sticky' : 'static',
         top: 0,
         zIndex: 10,
-        backgroundColor: 'background.paper'
+        backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'background.paper',
+        '& .MuiTableCell-head': {
+          color: headerVariant === 'primary' ? 'common.white' : 'text.primary',
+          backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'primary.lighter',
+          fontWeight: 'bold', 
+          py: headerVariant === 'primary' ? 1.5 : 2
+        }
       }}
     >
       {table.getHeaderGroups().map((headerGroup) => (
@@ -222,28 +237,67 @@ const GenericDataTable = ({
             {headerGroup.headers.map((header) => (
               <TableCell
                 key={header.id}
-                align={header.column.columnDef.align || 'right'}
+                align={header.column.columnDef.align || 'center'} // Changed Default to center per user request for "same level"
                 sx={{
                   fontWeight: 'bold',
-                  backgroundColor: 'primary.lighter',
                   minWidth: header.column.columnDef.minWidth || 100,
                   width: header.column.columnDef.width,
-                  maxWidth: header.column.columnDef.maxWidth
+                  maxWidth: header.column.columnDef.maxWidth,
+                  verticalAlign: 'middle', // User request: Center elements vertically
+                  borderBottom: headerVariant === 'primary' ? 'none' : undefined,
+                  // SORT ICON COLOR OVERRIDE
+                  '& .MuiTableSortLabel-icon': {
+                     color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                     opacity: headerVariant === 'primary' ? 0.7 : 1,
+                     fontSize: '1.2rem' // Scalable unit
+                  },
+                  '& .MuiTableSortLabel-root:hover .MuiTableSortLabel-icon': {
+                     opacity: 1
+                  },
+                  '& .Mui-active .MuiTableSortLabel-icon': {
+                     color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                     opacity: 1
+                  }
                 }}
               >
                 {header.isPlaceholder ? null : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+                  <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
                     {header.column.getCanSort() ? (
                       <TableSortLabel
                         active={header.column.getIsSorted() !== false}
                         direction={header.column.getIsSorted() || 'asc'}
                         onClick={header.column.getToggleSortingHandler()}
                         IconComponent={header.column.getIsSorted() === 'desc' ? ArrowDownwardIcon : ArrowUpwardIcon}
+                        hideSortIcon={false} 
+                        sx={{
+                           color: 'inherit',
+                           '&.Mui-active': { 
+                               color: 'inherit',
+                               '& .MuiTableSortLabel-icon': {
+                                   color: headerVariant === 'primary' ? 'common.white !important' : 'primary.main',
+                                   opacity: 1
+                               }
+                           },
+                           flexDirection: 'row',
+                           '& .MuiTableSortLabel-icon': {
+                               opacity: header.column.getIsSorted() ? 1 : 0, // Only show if sorted
+                               transition: 'opacity 0.2s',
+                               width: 20, 
+                               height: 20
+                           },
+                           '&:hover .MuiTableSortLabel-icon': {
+                               opacity: 0.5
+                           }
+                        }}
                       >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
+                         <Typography variant="subtitle2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                         </Typography>
                       </TableSortLabel>
                     ) : (
-                      <Typography variant="subtitle2">{flexRender(header.column.columnDef.header, header.getContext())}</Typography>
+                      <Typography variant="subtitle2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }} color="inherit">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </Typography>
                     )}
                   </Box>
                 )}
@@ -317,7 +371,14 @@ const GenericDataTable = ({
             }}
           >
             {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id} align={cell.column.columnDef.align || 'right'}>
+              <TableCell 
+                key={cell.id} 
+                align={cell.column.columnDef.align || 'center'}
+                sx={{
+                  py: cellPadding === 'dense' ? 1 : 2,
+                  verticalAlign: 'middle'
+                }}
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
@@ -332,7 +393,7 @@ const GenericDataTable = ({
   // ========================================
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Active Filters Display */}
       {enableFiltering && tableState.hasActiveFilters && (
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -366,21 +427,28 @@ const GenericDataTable = ({
       {/* Table Container */}
       <TableContainer
         component={Paper}
+        elevation={0}
         sx={{
-          minHeight,
-          maxHeight,
+          flex: 1, // Auto expand to fill remaining space
+          minHeight: 0, // Critical for flexbox scrolling
           overflow: 'auto',
+          width: '100%',
+          borderRadius: 0,
           '&::-webkit-scrollbar': {
             width: 8,
             height: 8
           },
           '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'grey.400',
+            backgroundColor: 'grey.300',
             borderRadius: 4
           }
         }}
       >
-        <Table stickyHeader={stickyHeader} size="medium">
+        <Table 
+          stickyHeader={stickyHeader} 
+          size={cellPadding === 'dense' ? 'small' : 'medium'}
+          sx={{ minWidth: 650, width: '100%' }}
+        >
           {renderTableHeader()}
           {renderTableBody()}
         </Table>
@@ -401,15 +469,39 @@ const GenericDataTable = ({
           sx={{
             borderTop: 1,
             borderColor: 'divider',
+            overflow: 'visible', // Ensure dropdowns aren't clipped
+            '.MuiTablePagination-toolbar': {
+              minHeight: 52,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end', // Keep controls to the end (left in LTR, right in RTL)
+              gap: 2,
+              flexWrap: 'wrap' // Allow wrapping on very small screens
+            },
             '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
-              mb: 0
+              mb: 0,
+              mt: 0,
+              fontSize: '0.875rem' // Ensure consistent font size
+            },
+            '.MuiTablePagination-select': {
+              paddingTop: 0.5,
+              paddingBottom: 0.5,
+              display: 'flex',
+              alignItems: 'center'
+            },
+            '.MuiTablePagination-actions': {
+              marginLeft: 2,
+              display: 'flex',
+              alignItems: 'center'
             }
           }}
         />
       )}
     </Box>
   );
-};
+});
+
+GenericDataTable.displayName = 'GenericDataTable';
 
 // ============================================================================
 // PROP TYPES

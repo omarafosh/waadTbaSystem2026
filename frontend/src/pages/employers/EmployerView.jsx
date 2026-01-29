@@ -36,15 +36,14 @@ import RBACGuard from 'components/tba/RBACGuard';
 
 // Static Arabic labels
 const LABELS = {
-  list: 'الشركاء',
-  view: 'عرض شريك',
-  viewSubtitle: 'عرض معلومات الشريك',
+  list: 'جهات العمل',
+  view: 'عرض جهة العمل',
+  viewSubtitle: 'عرض معلومات جهة العمل',
   back: 'رجوع',
   backToList: 'رجوع إلى القائمة',
   edit: 'تعديل',
-  employerCode: 'الرمز',
   code: 'الرمز',
-  name: 'اسم الشريك',
+  name: 'اسم جهة العمل',
   status: 'الحالة',
   active: 'نشط',
   inactive: 'غير نشط',
@@ -56,10 +55,10 @@ const LABELS = {
   totalMembers: 'إجمالي المنتفعين',
   activePolicies: 'الوثائق النشطة',
   totalClaims: 'إجمالي المطالبات',
-  loadError: 'فشل في تحميل الشريك',
+  loadError: 'فشل في تحميل جهة العمل',
   refreshPolicies: 'تعيين وثيقة المنافع للمنتفعين',
   refreshPoliciesTitle: 'تعيين وثيقة المنافع',
-  refreshPoliciesConfirm: 'هل أنت متأكد من تعيين وثيقة المنافع النشطة لجميع منتفعي هذا الشريك؟',
+  refreshPoliciesConfirm: 'هل أنت متأكد من تعيين وثيقة المنافع النشطة لجميع منتفعي هذه الجهة؟',
   refreshPoliciesSuccess: 'تم تحديث وثيقة المنافع لـ {count} منتفع',
   refreshPoliciesError: 'فشل في تعيين وثيقة المنافع',
   confirm: 'تأكيد',
@@ -313,7 +312,7 @@ const EmployerView = () => {
         <DialogContent>
           <DialogContentText>{LABELS.refreshPoliciesConfirm}</DialogContentText>
           <Alert severity="info" sx={{ mt: 2 }}>
-            سيتم تعيين الوثيقة النشطة الحالية لجميع أعضاء الشريك هذا.
+            سيتم تعيين الوثيقة النشطة الحالية لجميع منتفعي هذه الجهة.
           </Alert>
         </DialogContent>
         <DialogActions>

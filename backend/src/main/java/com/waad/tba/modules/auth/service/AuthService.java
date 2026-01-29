@@ -95,7 +95,7 @@ public class AuthService {
         String providerName = null;
         if (user.getProviderId() != null) {
             providerName = providerRepository.findById(user.getProviderId())
-                    .map(Provider::getNameArabic)
+                    .map(Provider::getName)
                     .orElse(null);
         }
 
@@ -170,7 +170,7 @@ public class AuthService {
             
             if (!provider.getActive()) {
                 log.error("❌ LOGIN_BLOCKED: PROVIDER user {} linked to inactive provider {} (id={})", 
-                    user.getUsername(), provider.getNameArabic(), user.getProviderId());
+                    user.getUsername(), provider.getName(), user.getProviderId());
                 throw new BusinessRuleException(
                     "مقدم الخدمة المرتبط بالحساب غير نشط. " +
                     "يرجى التواصل مع مدير النظام. / " +
@@ -180,7 +180,7 @@ public class AuthService {
             }
             
             log.info("✅ PROVIDER binding validated: user={}, providerId={}, providerName={}", 
-                user.getUsername(), user.getProviderId(), provider.getNameArabic());
+                user.getUsername(), user.getProviderId(), provider.getName());
         }
 
         // EMPLOYER_ADMIN SHOULD have employerId (warning only, don't block)
@@ -269,7 +269,7 @@ public class AuthService {
         String providerName = null;
         if (user.getProviderId() != null) {
             providerName = providerRepository.findById(user.getProviderId())
-                    .map(Provider::getNameArabic) // Use Arabic name for display
+                    .map(Provider::getName) // Use unified name field
                     .orElse(null);
         }
 

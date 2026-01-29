@@ -69,7 +69,8 @@ const INITIAL_FORM_STATE = {
   timesLimit: '',
   waitingPeriodDays: '0',
   requiresPreApproval: false,
-  notes: ''
+  notes: '',
+  encounterType: '' // null means 'ALL'
 };
 
 /**
@@ -101,7 +102,8 @@ const RuleFormModal = ({
           timesLimit: initialData.timesLimit ?? '',
           waitingPeriodDays: initialData.waitingPeriodDays ?? '0',
           requiresPreApproval: initialData.requiresPreApproval || false,
-          notes: initialData.notes || ''
+          notes: initialData.notes || '',
+          encounterType: initialData.encounterType || ''
         });
       } else {
         setFormData(INITIAL_FORM_STATE);
@@ -198,7 +200,8 @@ const RuleFormModal = ({
       timesLimit: formData.timesLimit !== '' ? Number(formData.timesLimit) : null,
       waitingPeriodDays: formData.waitingPeriodDays !== '' ? Number(formData.waitingPeriodDays) : 0,
       requiresPreApproval: formData.requiresPreApproval,
-      notes: formData.notes || null
+      notes: formData.notes || null,
+      encounterType: formData.encounterType || null
     };
 
     onSubmit(payload);
@@ -233,6 +236,19 @@ const RuleFormModal = ({
               </MenuItem>
             </Select>
             {errors.targetType && <FormHelperText>{errors.targetType}</FormHelperText>}
+          </FormControl>
+
+          {/* Encounter Type Context Selection */}
+          <FormControl fullWidth>
+            <InputLabel>سياق التغطية (نوع الزيارة)</InputLabel>
+            <Select value={formData.encounterType} onChange={handleChange('encounterType')} label="سياق التغطية (نوع الزيارة)">
+              <MenuItem value="">الكل (عام)</MenuItem>
+              <MenuItem value="OUTPATIENT">العيادات الخارجية (Outpatient)</MenuItem>
+              <MenuItem value="EMERGENCY">الطوارئ (Emergency)</MenuItem>
+              <MenuItem value="INPATIENT">الإيواء والعمليات (Inpatient)</MenuItem>
+              <MenuItem value="DAY_SURGERY">جراحة اليوم الواحد</MenuItem>
+            </Select>
+            <FormHelperText>اتركه "الكل" إذا كانت التغطية تنطبق على جميع أنواع الزيارات</FormHelperText>
           </FormControl>
 
           {/* Category Selector (shown when targetType = CATEGORY) */}
@@ -605,6 +621,7 @@ const BenefitPolicyRulesTab = ({ policyId, policyStatus }) => {
               <TableHead>
                 <TableRow>
                   <TableCell>العنصر المغطى</TableCell>
+                  <TableCell align="center">السياق</TableCell>
                   <TableCell align="center">نسبة التغطية</TableCell>
                   <TableCell align="center">حد المبلغ</TableCell>
                   <TableCell align="center">حد المرات</TableCell>
@@ -638,6 +655,30 @@ const BenefitPolicyRulesTab = ({ policyId, policyStatus }) => {
                           </Typography>
                         </Box>
                       </Stack>
+                    </TableCell>
+
+                    {/* Encounter Type */}
+                    <TableCell align="center">
+                      {rule.encounterType ? (
+                        <Chip
+                          label={
+                            rule.encounterType === 'OUTPATIENT'
+                              ? 'عيادات'
+                              : rule.encounterType === 'EMERGENCY'
+                                ? 'طوارئ'
+                                : rule.encounterType === 'INPATIENT'
+                                  ? 'إيواء'
+                                  : rule.encounterType
+                          }
+                          size="small"
+                          color="info"
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          عام
+                        </Typography>
+                      )}
                     </TableCell>
 
                     {/* Coverage % */}

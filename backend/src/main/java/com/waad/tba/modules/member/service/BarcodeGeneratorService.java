@@ -38,6 +38,7 @@ public class BarcodeGeneratorService {
     private EntityManager entityManager;
     
     private final MemberRepository memberRepository;
+    private final com.waad.tba.modules.company.repository.CompanyRepository companyRepository;
 
     /**
      * Generate barcode for PRINCIPAL members only.
@@ -68,6 +69,27 @@ public class BarcodeGeneratorService {
         String barcode = String.format("WAHA-%d-%06d", currentYear, seq);
         
         log.info("Generated barcode for PRINCIPAL member: {}", barcode);
+        return barcode;
+    }
+
+    /**
+     * Generate barcode based on Card Number.
+     * Format: [ORG_PREFIX]-[CARD_NUMBER]
+     * Example: WAAD-EMP-2026-100012
+     */
+    @Transactional
+    public String generateFromCardNumber(com.waad.tba.modules.member.entity.Member member) {
+        if (member.getCardNumber() == null) {
+            throw new IllegalStateException("Card number must be generated before barcode");
+        }
+        
+        // Fetch System-Wide Prefix from Company Settings (Admin Config)
+        String prefix = companyRepository.findByIsDefaultTrue()
+            .map(com.waad.tba.modules.company.entity.Company::getBarcodePrefix)
+            .orElse("WAAD");
+        
+        String barcode = prefix + "-" + member.getCardNumber();
+        log.info("Generated derived barcode: {}", barcode);
         return barcode;
     }
     

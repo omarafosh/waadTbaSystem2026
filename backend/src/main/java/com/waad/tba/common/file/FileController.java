@@ -64,25 +64,35 @@ public class FileController {
     /**
      * Download a file
      * 
-     * @param fileKey File identifier (folder/filename)
+     * @param fileKey File identifier
      * @return File content with appropriate headers
      */
-    @GetMapping("/{folder}/{filename}/download")
+    @GetMapping("/download")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Resource> downloadFile(
-            @PathVariable String folder,
-            @PathVariable String filename) {
+    public ResponseEntity<Resource> downloadFile(@RequestParam("key") String fileKey) {
         
-        String fileKey = folder + "/" + filename;
         log.info("Downloading file: {}", fileKey);
         
         try {
             byte[] fileContent = fileStorageService.download(fileKey);
             ByteArrayResource resource = new ByteArrayResource(fileContent);
             
+            // Extract filename from key
+            String filename = fileKey.substring(fileKey.lastIndexOf('/') + 1);
+            
+            // Determine Content-Type
+            String contentType = "application/octet-stream";
+            if (filename.toLowerCase().endsWith(".pdf")) {
+                contentType = "application/pdf";
+            } else if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
+                contentType = "image/jpeg";
+            } else if (filename.toLowerCase().endsWith(".png")) {
+                contentType = "image/png";
+            }
+            
             return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                 .body(resource);
                 
         } catch (FileStorageException e) {

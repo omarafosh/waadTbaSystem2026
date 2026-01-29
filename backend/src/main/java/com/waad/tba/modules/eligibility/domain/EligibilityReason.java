@@ -281,6 +281,20 @@ public enum EligibilityReason {
         "العضو مؤهل مع ملاحظات",
         "Member is eligible with warnings",
         false
+    ),
+
+    CONTRACT_NOT_FOUND(
+        "CONTRACT_NOT_FOUND",
+        "عقد غير موجود",
+        "Contract not found",
+        true
+    ),
+
+    OTHER(
+        "OTHER",
+        "سبب آخر",
+        "Other reason",
+        true
     );
 
     /**

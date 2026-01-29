@@ -361,7 +361,7 @@ const EmployerContractDetails = () => {
               <Box>
                 <Typography variant="caption" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <BusinessIcon fontSize="small" />
-                  الشريك
+                  جهة العمل
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
                   {contract.employerName || '-'}

@@ -59,4 +59,9 @@ public class BenefitPolicyRuleUpdateDto {
      * Whether the rule is active
      */
     private Boolean active;
+
+    /**
+     * The type of encounter this rule applies to
+     */
+    private com.waad.tba.modules.visit.entity.VisitType encounterType;
 }

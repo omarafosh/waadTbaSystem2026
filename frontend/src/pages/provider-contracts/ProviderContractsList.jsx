@@ -55,7 +55,7 @@ const ProviderContractsList = () => {
     }
     navigate(`/provider-contracts/${id}`);
   }, [navigate]);
-  
+
   // Note: Edit redirects to View page since there's no dedicated Edit page yet
   const handleNavigateEdit = useCallback((id) => {
     if (!id) {
@@ -104,7 +104,7 @@ const ProviderContractsList = () => {
         meta: { filterType: 'text' },
         cell: ({ row }) => (
           <Stack spacing={0}>
-            <Typography variant="body2" fontWeight={500}>{row.original?.providerName || row.original?.provider?.nameAr || '-'}</Typography>
+            <Typography variant="body2" fontWeight={500}>{row.original?.providerName || row.original?.provider?.name || '-'}</Typography>
             {row.original?.provider?.city && <Typography variant="caption" color="text.secondary">{row.original.provider.city}</Typography>}
           </Stack>
         )

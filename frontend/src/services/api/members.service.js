@@ -10,7 +10,7 @@ import { normalizePaginatedResponse } from 'utils/api-response-normalizer';
  * - Status Management: suspend, activate, terminate
  * - Card Management: block, activate
  * - Eligibility Check: real-time eligibility verification
- * - Field Normalization: nameAr ↔ fullNameArabic, nameEn ↔ fullNameEnglish
+ * - Field Normalization: Use fullName directly
  */
 const BASE_URL = '/members';
 
@@ -24,37 +24,11 @@ const unwrap = (response) => response.data?.data || response.data;
 // PHASE 2: FIELD NORMALIZERS
 // ============================================================================
 
-/**
- * Normalize member request (Frontend → Backend)
- * Converts: nameAr → fullNameArabic, nameEn → fullNameEnglish
- * 
- * ✅ ENHANCED: Remove backend-generated fields and handle optional fields
- *
- * @param {Object} payload - Frontend payload with nameAr/nameEn
- * @returns {Object} Backend payload with fullNameArabic/fullNameEnglish
- */
 export const normalizeMemberRequest = (payload) => {
   if (!payload) return payload;
 
   const normalized = { ...payload };
 
-  // Map frontend field names to backend field names
-  if (payload.nameAr !== undefined) {
-    normalized.fullNameArabic = payload.nameAr;
-    delete normalized.nameAr;
-  }
-  if (payload.nameEn !== undefined) {
-    normalized.fullNameEnglish = payload.nameEn;
-    delete normalized.nameEn;
-  }
-  if (payload.name_ar !== undefined) {
-    normalized.fullNameArabic = payload.name_ar;
-    delete normalized.name_ar;
-  }
-  if (payload.name_en !== undefined) {
-    normalized.fullNameEnglish = payload.name_en;
-    delete normalized.name_en;
-  }
 
   // ✅ FIX: Remove backend-generated fields
   delete normalized.barcode; // Backend generates this automatically
@@ -65,10 +39,10 @@ export const normalizeMemberRequest = (payload) => {
   delete normalized.updatedBy;
 
   // ✅ FIX: Handle optional fields - convert empty strings to null
-  const optionalFields = ['nationalNumber', 'birthDate', 'gender', 'maritalStatus', 
-                          'nationality', 'phone', 'email', 'address', 'civilId',
-                          'policyNumber', 'benefitPolicyId', 'startDate', 'endDate', 'notes'];
-  
+  const optionalFields = ['nationalNumber', 'birthDate', 'gender', 'maritalStatus',
+    'nationality', 'phone', 'email', 'address', 'civilId',
+    'policyNumber', 'benefitPolicyId', 'startDate', 'endDate', 'notes'];
+
   optionalFields.forEach(field => {
     if (normalized[field] === '' || normalized[field] === undefined) {
       normalized[field] = null;
@@ -81,14 +55,14 @@ export const normalizeMemberRequest = (payload) => {
       const cleanedFm = { ...fm };
       delete cleanedFm.barcode; // Backend generates this
       delete cleanedFm.id; // Should not be sent
-      
+
       // Convert empty strings to null for optional fields
       ['nationalNumber', 'birthDate', 'gender'].forEach(field => {
         if (cleanedFm[field] === '' || cleanedFm[field] === undefined) {
           cleanedFm[field] = null;
         }
       });
-      
+
       return cleanedFm;
     });
   }
@@ -96,27 +70,11 @@ export const normalizeMemberRequest = (payload) => {
   return normalized;
 };
 
-/**
- * Normalize member response (Backend → Frontend)
- * Converts: fullNameArabic → nameAr, fullNameEnglish → nameEn
- *
- * @param {Object} data - Backend response with fullNameArabic/fullNameEnglish
- * @returns {Object} Frontend data with nameAr/nameEn
- */
 export const normalizeMemberResponse = (data) => {
   if (!data) return data;
 
   const normalized = { ...data };
 
-  // Map backend field names to frontend field names
-  if (data.fullNameArabic !== undefined) {
-    normalized.nameAr = data.fullNameArabic;
-    // Keep both for compatibility
-  }
-  if (data.fullNameEnglish !== undefined) {
-    normalized.nameEn = data.fullNameEnglish;
-    // Keep both for compatibility
-  }
 
   // Handle nested family members
   if (normalized.familyMembers && Array.isArray(normalized.familyMembers)) {
@@ -162,7 +120,7 @@ export const deleteAllMembersByEmployer = async (employerId) => {
  */
 export const exportMembersPdf = async (params = {}) => {
   console.log('📄 [PDF Export] Starting PDF export with params:', params);
-  
+
   try {
     const response = await axiosClient.get(`${BASE_URL}/export/pdf`, {
       params,
@@ -172,7 +130,7 @@ export const exportMembersPdf = async (params = {}) => {
         'Accept': 'application/pdf'
       }
     });
-    
+
     console.log('✅ [PDF Export] PDF generated successfully, size:', response.data.size, 'bytes');
     return response.data;
   } catch (error) {
@@ -215,11 +173,11 @@ export const previewPdf = (blob, title = 'معاينة PDF') => {
   console.log('👁️ [PDF Preview] Opening PDF preview, Size:', blob.size, 'bytes');
   const url = window.URL.createObjectURL(blob);
   const previewWindow = window.open(url, '_blank', 'width=1024,height=768');
-  
+
   if (previewWindow) {
     previewWindow.document.title = title;
     console.log('✅ [PDF Preview] Preview window opened successfully');
-    
+
     // Clean up URL after window is loaded
     previewWindow.onload = () => {
       setTimeout(() => {
@@ -266,27 +224,25 @@ export const getMemberById = async (id) => {
  * 
  * ✅ ENHANCED: Better logging and error handling
  * 
- * @param {Object} payload - MemberCreateDto
- * @param {string} payload.nameAr - Full name in Arabic (required) - will be normalized to fullNameArabic
- * @param {string} payload.nameEn - Full name in English (optional) - will be normalized to fullNameEnglish
+ * @param {string} payload.fullName - Full name (required)
  * @param {string} payload.civilId - Civil ID (OPTIONAL - can be null)
  * @param {string} payload.birthDate - Birth date yyyy-MM-dd (OPTIONAL)
  * @param {string} payload.gender - Gender: MALE, FEMALE, UNDEFINED (OPTIONAL)
  * @param {number} payload.employerId - Employer ID (required)
  * @param {Array} payload.familyMembers - Family members array (optional)
- * @returns {Promise<Object>} Created MemberViewDto (normalized with nameAr/nameEn)
+ * @returns {Promise<Object>} Created MemberViewDto
  */
 export const createMember = async (payload) => {
   console.log('🆕 [Create Member] Original payload:', JSON.stringify(payload, null, 2));
-  
+
   const normalizedPayload = normalizeMemberRequest(payload);
-  
+
   console.log('🆕 [Create Member] Normalized payload (after cleanup):', JSON.stringify(normalizedPayload, null, 2));
-  
+
   try {
     const response = await axiosClient.post(BASE_URL, normalizedPayload);
     const result = normalizeMemberResponse(unwrap(response));
-    
+
     console.log('✅ [Create Member] Member created successfully:', result);
     return result;
   } catch (error) {
@@ -314,15 +270,15 @@ export const createMember = async (payload) => {
  */
 export const updateMember = async (id, payload) => {
   console.log(`📝 [Update Member] Updating member ID ${id}, Original payload:`, JSON.stringify(payload, null, 2));
-  
+
   const normalizedPayload = normalizeMemberRequest(payload);
-  
+
   console.log(`📝 [Update Member] Normalized payload (after cleanup):`, JSON.stringify(normalizedPayload, null, 2));
-  
+
   try {
     const response = await axiosClient.put(`${BASE_URL}/${id}`, normalizedPayload);
     const result = unwrap(response);
-    
+
     console.log(`✅ [Update Member] Member ${id} updated successfully:`, result);
     return result;
   } catch (error) {
@@ -895,7 +851,7 @@ export const exportMemberCardPdf = async (id, params = {}) => {
       responseType: 'blob',
       timeout: 120000 // 2 minutes timeout for PDF generation
     });
-    
+
     console.log(`✅ [Export Member Card PDF] PDF generated, size: ${response.data.size} bytes`);
     return response.data;
   } catch (error) {

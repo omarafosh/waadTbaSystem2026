@@ -87,7 +87,7 @@ const MedicalPackageView = () => {
     <>
       <ModernPageHeader
         title="تفاصيل الباقة"
-        subtitle={pkg.nameAr || pkg.nameEn}
+        subtitle={pkg.name}
         icon={InventoryIcon}
         breadcrumbs={breadcrumbs}
         actions={
@@ -126,21 +126,10 @@ const MedicalPackageView = () => {
           <Grid item xs={12} md={6}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="caption" color="text.secondary">
-                الاسم بالعربية
+                الاسم
               </Typography>
               <Typography variant="body1" fontWeight="medium">
-                {pkg.nameAr || '-'}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                الاسم بالإنجليزية
-              </Typography>
-              <Typography variant="body1" fontWeight="medium">
-                {pkg.nameEn || '-'}
+                {pkg.name || '-'}
               </Typography>
             </Paper>
           </Grid>
@@ -199,8 +188,7 @@ const MedicalPackageView = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>الكود</TableCell>
-                      <TableCell>الاسم بالعربية</TableCell>
-                      <TableCell>الاسم بالإنجليزية</TableCell>
+                      <TableCell>الاسم</TableCell>
                       <TableCell align="center">التصنيف</TableCell>
                       <TableCell align="right">السعر</TableCell>
                       <TableCell align="center">يتطلب موافقة</TableCell>
@@ -210,9 +198,8 @@ const MedicalPackageView = () => {
                     {pkg.services.map((service) => (
                       <TableRow key={service.id}>
                         <TableCell>{service.code}</TableCell>
-                        <TableCell>{service.nameAr || '-'}</TableCell>
-                        <TableCell>{service.nameEn || '-'}</TableCell>
-                        <TableCell align="center">{service.category?.nameAr || service.category?.nameEn || '-'}</TableCell>
+                        <TableCell>{service.name || '-'}</TableCell>
+                        <TableCell align="center">{service.category?.name || '-'}</TableCell>
                         <TableCell align="right">{service.priceLyd ? `${service.priceLyd.toFixed(2)}` : '-'}</TableCell>
                         <TableCell align="center">
                           {service.requiresApproval ? (

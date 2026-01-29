@@ -101,7 +101,7 @@ const RolesList = () => {
     try {
       const response = await rolesService.getAllRoles();
       const allRoles = response?.data?.data || response?.data || response || [];
-      
+
       // Client-side filtering by search term
       let filtered = allRoles;
       if (searchTerm) {
@@ -109,16 +109,15 @@ const RolesList = () => {
         filtered = allRoles.filter(
           (r) =>
             r.name?.toLowerCase().includes(term) ||
-            r.nameAr?.toLowerCase().includes(term) ||
             r.description?.toLowerCase().includes(term)
         );
       }
-      
+
       // Client-side pagination
       const total = filtered.length;
       const start = page * rowsPerPage;
       const paginated = filtered.slice(start, start + rowsPerPage);
-      
+
       setRoles(paginated);
       setTotalElements(total);
     } catch (error) {
@@ -262,17 +261,17 @@ const RolesList = () => {
                       const isProtected = PROTECTED_ROLES.includes(role?.name);
                       const permissionsCount = role?.permissions?.length || 0;
                       const usersCount = role?.usersCount || role?.users?.length || 0;
-                      
+
                       return (
                         <TableRow key={role.id} hover>
                           <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={1.5} alignItems="center">
-                              <Avatar 
-                                sx={{ 
-                                  width: 36, 
-                                  height: 36, 
-                                  bgcolor: `${getRoleColor(role?.name)}.main` 
+                              <Avatar
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  bgcolor: `${getRoleColor(role?.name)}.main`
                                 }}
                               >
                                 <AdminPanelSettingsIcon fontSize="small" />
@@ -280,7 +279,7 @@ const RolesList = () => {
                               <Box>
                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                   <Typography variant="body2" fontWeight="medium">
-                                    {role?.nameAr || role?.name || '-'}
+                                    {role?.name || '-'}
                                   </Typography>
                                   {isProtected && (
                                     <Tooltip title="دور محمي من النظام">

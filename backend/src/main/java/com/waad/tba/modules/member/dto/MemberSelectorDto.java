@@ -13,5 +13,4 @@ public class MemberSelectorDto {
     private Long id;
     private String cardNumber;
     private String fullName;
-    private String fullNameAr;
 }

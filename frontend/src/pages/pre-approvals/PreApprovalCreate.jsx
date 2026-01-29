@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { 
-  Box, 
-  Button, 
-  Grid, 
-  TextField, 
-  Stack, 
-  Alert, 
-  Typography, 
+import {
+  Box,
+  Button,
+  Grid,
+  TextField,
+  Stack,
+  Alert,
+  Typography,
   Chip,
   Card,
   CardContent,
@@ -29,11 +29,11 @@ import {
   Collapse,
   LinearProgress
 } from '@mui/material';
-import { 
-  Save as SaveIcon, 
-  ArrowBack, 
-  AssignmentTurnedIn as PreApprovalIcon, 
-  Lock as LockIcon, 
+import {
+  Save as SaveIcon,
+  ArrowBack,
+  AssignmentTurnedIn as PreApprovalIcon,
+  Lock as LockIcon,
   Block as BlockIcon,
   Person as PersonIcon,
   LocalHospital as VisitIcon,
@@ -70,8 +70,8 @@ import SuccessDialog from 'components/SuccessDialog';
 import { useAuth } from 'contexts/AuthContext';
 import { useCreatePreApproval } from 'hooks/usePreApprovals';
 import axiosClient from 'utils/axios';
-import { 
-  getActiveContractByProvider, 
+import {
+  getActiveContractByProvider,
   getContractPricingItems,
   getMyActiveContract,
   getMyContractServices
@@ -96,11 +96,11 @@ import {
 
 const InfoCard = ({ icon: Icon, title, children, color = 'primary', expanded = true, collapsible = false }) => {
   const [isExpanded, setIsExpanded] = useState(expanded);
-  
+
   return (
-    <Card 
-      elevation={0} 
-      sx={{ 
+    <Card
+      elevation={0}
+      sx={{
         border: '1px solid',
         borderColor: `${color}.light`,
         borderRadius: 2,
@@ -108,10 +108,10 @@ const InfoCard = ({ icon: Icon, title, children, color = 'primary', expanded = t
         mb: 2
       }}
     >
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'space-between',
           p: 2,
           bgcolor: `${color}.lighter`,
@@ -156,8 +156,8 @@ const DataField = ({ icon: Icon, label, value, highlight = false, fullWidth = fa
         <Typography variant="caption" color="text.secondary" display="block">
           {label}
         </Typography>
-        <Typography 
-          variant="body2" 
+        <Typography
+          variant="body2"
           fontWeight={highlight ? 600 : 500}
           color={highlight ? 'primary.main' : 'text.primary'}
           sx={{ wordBreak: 'break-word' }}
@@ -181,7 +181,7 @@ const ServiceRow = ({ service, index, onRemove, onQuantityChange }) => (
       </Stack>
     </TableCell>
     <TableCell>
-      <Typography variant="body2">{service.nameAr || service.name}</Typography>
+      <Typography variant="body2">{service.name}</Typography>
     </TableCell>
     <TableCell align="center">
       <TextField
@@ -193,7 +193,7 @@ const ServiceRow = ({ service, index, onRemove, onQuantityChange }) => (
       />
     </TableCell>
     <TableCell align="right">
-      <Chip 
+      <Chip
         label={`${Number(service.price || 0).toLocaleString()} د.ل`}
         color="success"
         size="small"
@@ -261,12 +261,12 @@ const PreApprovalCreate = () => {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  
+
   // ========================= MEDICAL SERVICES STATE =========================
   const [medicalServices, setMedicalServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [serviceSearch, setServiceSearch] = useState(null);
-  
+
   // ========================= TOAST HELPERS =========================
   const showSuccessToast = (msg) => enqueueSnackbar(msg, { variant: 'success' });
   const showErrorToast = (msg) => enqueueSnackbar(msg, { variant: 'error' });
@@ -279,31 +279,31 @@ const PreApprovalCreate = () => {
       setMedicalServices([]);
       return;
     }
-    
+
     try {
       setLoadingServices(true);
-      
+
       // ════════════════════════════════════════════════════════════════════════
       // FIX 2026-01-25: Use new endpoint that returns ONLY services requiring
       // pre-approval based on member's BenefitPolicyRule
       // ════════════════════════════════════════════════════════════════════════
-      
+
       if (isProviderUser) {
         // PROVIDER role: Use self-access endpoint for services requiring pre-auth
         try {
           const response = await axiosClient.get('/provider/my-contract/services/requiring-preauth', {
             params: { memberId: linkedMemberId }
           });
-          
+
           const data = response.data?.data || response.data;
           const items = Array.isArray(data) ? data : (data?.content || data?.items || []);
-          
+
           if (items.length === 0) {
             console.log('✅ No services require pre-approval for this member');
             setMedicalServices([]);
             return;
           }
-          
+
           // Map to standard service format
           const mappedServices = items.map(item => {
             const serviceId = item.medicalServiceId || item.id;
@@ -313,16 +313,15 @@ const PreApprovalCreate = () => {
               pricingItemId: item.id,
               code: item.serviceCode,
               name: item.serviceName,
-              nameAr: item.serviceNameAr || item.serviceName,
               category: item.categoryName,
               price: item.contractPrice,
               requiresPreAuth: true,  // All items here require pre-auth
               isActive: true,
               hasContract: true,
-              displayLabel: `${item.serviceCode} - ${item.serviceNameAr || item.serviceName}`
+              displayLabel: `${item.serviceCode} - ${item.serviceName}`
             };
           });
-          
+
           console.log(`✅ Loaded ${mappedServices.length} services requiring pre-approval`);
           setMedicalServices(mappedServices);
         } catch (providerErr) {
@@ -336,10 +335,10 @@ const PreApprovalCreate = () => {
           const response = await axiosClient.get(`/providers/${linkedProviderId}/contract/services/requiring-preauth`, {
             params: { memberId: linkedMemberId }
           });
-          
+
           const data = response.data?.data || response.data;
           const items = Array.isArray(data) ? data : (data?.content || data?.items || []);
-          
+
           const mappedServices = items.map(item => {
             const svc = item.medicalService || {};
             const serviceId = svc.id || item.medicalServiceId || item.id;
@@ -348,14 +347,13 @@ const PreApprovalCreate = () => {
               pricingItemId: item.id,
               code: svc.code || item.serviceCode,
               name: svc.name || item.serviceName,
-              nameAr: svc.nameAr || item.serviceNameAr || svc.name,
-              category: svc.category?.nameAr || item.categoryName,
+              category: svc.category?.name || item.categoryName,
               price: item.contractPrice,
               basePrice: item.basePrice,
               requiresPreAuth: true,
               isActive: true,
               hasContract: true,
-              displayLabel: `${svc.code || item.serviceCode} - ${svc.nameAr || item.serviceNameAr}`
+              displayLabel: `${svc.code || item.serviceCode} - ${svc.name || item.serviceName}`
             };
           });
 
@@ -366,14 +364,13 @@ const PreApprovalCreate = () => {
           try {
             const pricingResponse = await getContractPricingItems(await getActiveContractByProvider(linkedProviderId).then(c => c?.id), { size: 2000 });
             const items = pricingResponse?.content || pricingResponse?.items || [];
-            
+
             setMedicalServices(items.map(item => {
               const svc = item.medicalService || {};
               return {
                 id: svc.id || item.medicalServiceId || item.id,
                 code: svc.code || item.serviceCode,
                 name: svc.name || item.serviceName,
-                nameAr: svc.nameAr || item.serviceNameAr || svc.name,
                 category: item.categoryName,
                 price: item.contractPrice,
                 hasContract: true
@@ -387,7 +384,7 @@ const PreApprovalCreate = () => {
         // No provider context - fallback to all services
         setMedicalServices([]);
       }
-      
+
     } catch (err) {
       console.error('Error fetching medical services:', err);
       showErrorToast('فشل في تحميل قائمة الخدمات');
@@ -405,18 +402,18 @@ const PreApprovalCreate = () => {
     }
 
     if (!linkedProviderId || !service?.code) return service;
-    
+
     try {
       // ════════════════════════════════════════════════════════════════════════
       // FIX: Use Provider Portal endpoint for PROVIDER role (supports PROVIDER auth)
       // Admin roles continue using the admin endpoint
       // ════════════════════════════════════════════════════════════════════════
-      const endpoint = isProviderUser 
+      const endpoint = isProviderUser
         ? `/provider/my-services/${service.code}/price`
         : `/providers/${linkedProviderId}/services/${service.code}/price`;
-      
+
       const response = await axiosClient.get(endpoint, { params: { date: linkedVisitDate } });
-      
+
       const priceData = response.data?.data || response.data;
       return {
         ...service,
@@ -440,27 +437,27 @@ const PreApprovalCreate = () => {
   const handleAddService = async (selectedService) => {
     // Handle both formats: direct value or (event, value) from Autocomplete
     const newValue = selectedService?.target ? null : selectedService;
-    
+
     if (!newValue) return;
-    
+
     // Check if already added
     if (selectedServices.some(s => s.id === newValue.id)) {
       showInfoToast('الخدمة مضافة مسبقاً');
       setServiceSearch(null);
       return;
     }
-    
-    console.log('📋 Adding service:', { id: newValue.id, code: newValue.code, name: newValue.nameAr || newValue.name, price: newValue.price });
-    
+
+    console.log('📋 Adding service:', { id: newValue.id, code: newValue.code, name: newValue.name, price: newValue.price });
+
     // OPTIMIZATION: Use price from pre-loaded service if available
     let serviceWithPrice = newValue;
     if (!newValue.hasContract || newValue.price === undefined) {
       serviceWithPrice = await fetchServicePrice(newValue);
     }
-    
+
     setSelectedServices(prev => [...prev, { ...serviceWithPrice, quantity: 1 }]);
     setServiceSearch(null);
-    
+
     if (formErrors.services) {
       setFormErrors(prev => ({ ...prev, services: null }));
     }
@@ -503,27 +500,27 @@ const PreApprovalCreate = () => {
 
   const uploadFiles = async (preAuthId) => {
     if (pendingFiles.length === 0) return;
-    
+
     setUploading(true);
     let uploaded = 0;
-    
+
     for (const { file, type } of pendingFiles) {
       try {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('attachmentType', type);
-        
+
         await axiosClient.post(`/pre-authorizations/${preAuthId}/attachments`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        
+
         uploaded++;
         setUploadProgress(Math.round((uploaded / pendingFiles.length) * 100));
       } catch (err) {
         console.error('Upload error:', err);
       }
     }
-    
+
     setUploading(false);
     setUploadProgress(0);
   };
@@ -571,7 +568,7 @@ const PreApprovalCreate = () => {
       // Create pre-auth for the first service (main service)
       // In a real multi-service system, you'd create a bundle or loop
       const mainService = selectedServices[0];
-      
+
       const payload = {
         memberId: linkedMemberId,
         visitId: linkedVisitId,
@@ -582,19 +579,19 @@ const PreApprovalCreate = () => {
         doctorName: doctorName?.trim() || null,
         notes: notes?.trim() || null,
         // Additional services info in notes
-        additionalInfo: selectedServices.length > 1 
+        additionalInfo: selectedServices.length > 1
           ? `خدمات إضافية: ${selectedServices.slice(1).map(s => s.code).join(', ')}`
           : null
       };
 
       const result = await create(payload);
-      
+
       if (result && result.id) {
         // Upload files if any
         if (pendingFiles.length > 0) {
           await uploadFiles(result.id);
         }
-        
+
         showSuccessToast(`تم إنشاء طلب الموافقة رقم #${result.id} بنجاح`);
         setPreAuthId(result.id);
       }
@@ -679,8 +676,8 @@ const PreApprovalCreate = () => {
         subtitle="نظام الموافقات الطبية المسبقة"
         icon={PreApprovalIcon}
         breadcrumbs={[
-          { label: 'الرئيسية', href: '/' }, 
-          { label: 'سجل الزيارات', href: '/provider/visits' }, 
+          { label: 'الرئيسية', href: '/' },
+          { label: 'سجل الزيارات', href: '/provider/visits' },
           { label: 'طلب موافقة مسبقة' }
         ]}
         actions={
@@ -733,7 +730,7 @@ const PreApprovalCreate = () => {
                 <Alert severity="info" sx={{ mb: 2 }} icon={<InfoIcon />}>
                   اختر الخدمات الطبية من القائمة. يمكنك البحث بالكود أو الاسم أو الفلترة بالتصنيف.
                 </Alert>
-                
+
                 <MedicalServicePicker
                   services={medicalServices}
                   loading={loadingServices}
@@ -779,12 +776,12 @@ const PreApprovalCreate = () => {
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Paper 
-                    elevation={0} 
-                    sx={{ 
-                      p: 4, 
-                      textAlign: 'center', 
-                      bgcolor: 'grey.50', 
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 4,
+                      textAlign: 'center',
+                      bgcolor: 'grey.50',
                       border: '2px dashed',
                       borderColor: 'grey.300',
                       borderRadius: 2,
@@ -800,14 +797,14 @@ const PreApprovalCreate = () => {
 
                 {/* Total */}
                 {selectedServices.length > 0 && (
-                  <Paper 
-                    elevation={0} 
-                    sx={{ 
-                      p: 2, 
-                      bgcolor: 'success.lighter', 
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      bgcolor: 'success.lighter',
                       border: '2px solid',
                       borderColor: 'success.main',
-                      borderRadius: 2 
+                      borderRadius: 2
                     }}
                   >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -865,14 +862,14 @@ const PreApprovalCreate = () => {
                 <Alert severity="info" sx={{ mb: 2 }}>
                   يمكنك إرفاق التقارير الطبية، نتائج الفحوصات، أو الأشعة لدعم الطلب.
                 </Alert>
-                
+
                 <Button
                   variant="outlined"
                   component="label"
                   fullWidth
                   startIcon={<UploadIcon />}
-                  sx={{ 
-                    height: 80, 
+                  sx={{
+                    height: 80,
                     borderStyle: 'dashed',
                     borderWidth: 2,
                     mb: 2
@@ -954,10 +951,10 @@ const PreApprovalCreate = () => {
             <Grid size={12}>
               <Divider sx={{ mb: 3 }} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between">
-                <Button 
-                  variant="outlined" 
-                  startIcon={<ArrowBack />} 
-                  onClick={handleCancel} 
+                <Button
+                  variant="outlined"
+                  startIcon={<ArrowBack />}
+                  onClick={handleCancel}
                   disabled={creating || uploading}
                   size="large"
                 >
@@ -965,16 +962,16 @@ const PreApprovalCreate = () => {
                 </Button>
                 <Stack direction="row" spacing={2}>
                   {pendingFiles.length > 0 && (
-                    <Chip 
-                      icon={<AttachmentIcon />} 
+                    <Chip
+                      icon={<AttachmentIcon />}
                       label={`${pendingFiles.length} مرفق`}
                       color="info"
                     />
                   )}
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
-                    startIcon={creating || uploading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} 
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    startIcon={creating || uploading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                     disabled={creating || uploading || selectedServices.length === 0}
                     size="large"
                     color="success"

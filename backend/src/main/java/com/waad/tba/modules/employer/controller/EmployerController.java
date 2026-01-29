@@ -23,38 +23,37 @@ public class EmployerController {
     private final EmployerService service;
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<List<EmployerResponseDto>>> getAll(
-            @RequestParam(required = false, defaultValue = "false") boolean includeArchived) {
-        List<EmployerResponseDto> employers = includeArchived 
-            ? service.getAllIncludingArchived() 
-            : service.getAll();
+            @RequestParam(required = false) Boolean deleted) {
+        List<EmployerResponseDto> employers = service.getAll(deleted);
         return ResponseEntity.ok(ApiResponse.success(employers));
     }
 
-    @GetMapping({"/selectors", "/selector"})
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @GetMapping({ "/selectors", "/selector" })
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<List<EmployerSelectorDto>>> selectors() {
         List<EmployerSelectorDto> selectors = service.getSelectors();
         return ResponseEntity.ok(ApiResponse.success(selectors));
     }
 
     @GetMapping("/{id:\\d+}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> getById(@PathVariable Long id) {
         EmployerResponseDto employer = service.getById(id);
         return ResponseEntity.ok(ApiResponse.success("Employer retrieved successfully", employer));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> create(@Valid @RequestBody EmployerCreateDto dto) {
         EmployerResponseDto created = service.create(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Employer created successfully", created));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Employer created successfully", created));
     }
 
     @PutMapping("/{id:\\d+}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> update(
             @PathVariable Long id,
             @Valid @RequestBody EmployerUpdateDto dto) {
@@ -63,7 +62,7 @@ public class EmployerController {
     }
 
     @DeleteMapping("/{id:\\d+}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Employer deleted successfully", null));
@@ -74,7 +73,7 @@ public class EmployerController {
      * Sets archived=true, hiding from default lists while preserving all data
      */
     @PostMapping("/{id:\\d+}/archive")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> archive(@PathVariable Long id) {
         EmployerResponseDto archived = service.archive(id);
         return ResponseEntity.ok(ApiResponse.success("Employer archived successfully", archived));
@@ -85,14 +84,14 @@ public class EmployerController {
      * Sets archived=false, making employer visible again
      */
     @PostMapping("/{id:\\d+}/restore")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> restore(@PathVariable Long id) {
         EmployerResponseDto restored = service.restore(id);
         return ResponseEntity.ok(ApiResponse.success("Employer restored successfully", restored));
     }
 
     @GetMapping("/count")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<Long>> count() {
         long total = service.count();
         return ResponseEntity.ok(ApiResponse.success(total));

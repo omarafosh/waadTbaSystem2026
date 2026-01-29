@@ -168,6 +168,7 @@ public class EligibilityEngineServiceImpl implements EligibilityEngineService {
                 .providerId(request.getProviderId())
                 .serviceDate(request.getServiceDate())
                 .serviceCode(request.getServiceCode())
+                .visitType(request.getEncounterType())
                 .member(member)
                 .benefitPolicy(benefitPolicy)
                 .provider(provider)

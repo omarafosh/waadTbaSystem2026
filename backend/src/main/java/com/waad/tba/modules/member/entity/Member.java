@@ -138,6 +138,33 @@ public class Member {
     @JoinColumn(name = "benefit_policy_id")
     private BenefitPolicy benefitPolicy;
 
+    // ==================== ENTERPRISE SMART CARD FIELDS ====================
+    
+    @Column(name = "relationship_code", length = 5)
+    private String relationshipCode; // P, D, S, C, T, G
+
+    @Column(name = "provider_code", length = 3)
+    private String providerCode;
+
+    @Column(name = "company_code", length = 20)
+    private String companyCode;
+
+    @Column(name = "internal_id_part", length = 20)
+    private String internalIdPart;
+
+    @Column(name = "card_activated_at")
+    private LocalDateTime cardActivatedAt;
+
+    @Column(name = "is_smart_card")
+    @Builder.Default
+    private Boolean isSmartCard = false;
+
+    @Column(name = "secondary_status", length = 50)
+    private String secondaryStatus;
+
+    @Column(name = "profile_photo_path", length = 1000)
+    private String profilePhotoPath;
+
     // Personal Information
     @NotBlank(message = "Full name is required")
     @Column(nullable = false, length = 200, name = "full_name")
@@ -392,7 +419,7 @@ public class Member {
     }
 
     public enum MemberStatus {
-        ACTIVE, SUSPENDED, TERMINATED, PENDING
+        ACTIVE, SUSPENDED, TERMINATED, PENDING, DRAFT, PENDING_VERIFICATION
     }
 
     public enum CardStatus {

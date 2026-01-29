@@ -15,23 +15,19 @@ public interface ProviderRepository extends JpaRepository<Provider, Long> {
 
     /**
      * Search active providers with pagination
-     * Searches in both Arabic and English names
      */
     @Query("SELECT p FROM Provider p " +
            "WHERE p.active = true " +
-           "AND (LOWER(p.nameArabic) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(p.nameEnglish) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(p.licenseNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Provider> searchPaged(@Param("keyword") String keyword, Pageable pageable);
 
     /**
      * Search ALL providers (active and inactive) with pagination
-     * Searches in both Arabic and English names
      */
     @Query("SELECT p FROM Provider p " +
-           "WHERE (LOWER(p.nameArabic) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(p.nameEnglish) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "WHERE (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(p.licenseNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')))") 
     Page<Provider> searchPagedAll(@Param("keyword") String keyword, Pageable pageable);
@@ -43,25 +39,17 @@ public interface ProviderRepository extends JpaRepository<Provider, Long> {
     long countActive();
 
     /**
-     * Search providers by name (Arabic or English) or license number
+     * Search providers by name or license number
      */
     @Query("SELECT p FROM Provider p " +
-           "WHERE LOWER(p.nameArabic) LIKE LOWER(CONCAT('%', :query, '%')) " +
-           "OR LOWER(p.nameEnglish) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "OR LOWER(p.licenseNumber) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Provider> search(@Param("query") String query);
 
     /**
-     * @deprecated Use existsByNameArabic or existsByNameEnglish
+     * Check if provider exists by name
      */
-    @Deprecated
-    default boolean existsByName(String name) {
-        return existsByNameArabic(name) || existsByNameEnglish(name);
-    }
-    
-    boolean existsByNameArabic(String nameArabic);
-    
-    boolean existsByNameEnglish(String nameEnglish);
+    boolean existsByName(String name);
 
     boolean existsByLicenseNumber(String licenseNumber);
     

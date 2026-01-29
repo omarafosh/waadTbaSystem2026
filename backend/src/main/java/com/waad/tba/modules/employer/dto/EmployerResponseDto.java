@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class EmployerResponseDto {
 
     /**
@@ -32,10 +34,9 @@ public class EmployerResponseDto {
     private String code;
 
     /**
-     * Employer name in Arabic
-     * Frontend expects 'nameAr' in responses
+     * Employer name
+     * Unified Name
      */
-    @JsonProperty("nameAr")
     private String name;
 
     /**
@@ -53,6 +54,16 @@ public class EmployerResponseDto {
      * Creation timestamp (audit field)
      */
     private LocalDateTime createdAt;
+
+    /**
+     * Active Benefit Policy Name
+     */
+    private String activePolicyName;
+
+    /**
+     * Active Benefit Policy ID
+     */
+    private Long activePolicyId;
 
     /**
      * Last update timestamp (audit field)

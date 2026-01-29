@@ -67,7 +67,6 @@ import { openSnackbar } from 'api/snackbar';
 const INITIAL_FORM_STATE = {
   code: '',
   name: '',
-  nameEn: '',
   categoryId: '',
   description: '',
   basePrice: '',
@@ -156,7 +155,6 @@ const MedicalServiceEdit = () => {
       setForm({
         code: service?.code || '',
         name: service?.name || '',
-        nameEn: service?.nameEn || '',
         categoryId: service?.categoryId || '',
         description: service?.description || '',
         basePrice: service?.basePrice ?? '',
@@ -204,7 +202,6 @@ const MedicalServiceEdit = () => {
       try {
         const payload = {
           name: form.name?.trim() || '',
-          nameEn: form.nameEn?.trim() || null,
           categoryId: form.categoryId ? parseInt(form.categoryId, 10) : null,
           description: form.description?.trim() || null,
           basePrice: form.basePrice ? parseFloat(form.basePrice) : null,
@@ -213,12 +210,12 @@ const MedicalServiceEdit = () => {
         };
 
         await updateMedicalService(id, payload);
-        
+
         openSnackbar({
           message: 'تم تحديث الخدمة بنجاح',
           variant: 'success'
         });
-        
+
         triggerRefresh();
         navigate('/medical-services');
       } catch (err) {
@@ -342,10 +339,10 @@ const MedicalServiceEdit = () => {
             </Grid>
 
             {/* Name */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
-                label="الاسم (عربي)"
+                label="الاسم"
                 value={form.name}
                 onChange={handleChange('name')}
                 error={!!errors.name}
@@ -355,17 +352,6 @@ const MedicalServiceEdit = () => {
               />
             </Grid>
 
-            {/* English Name */}
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="الاسم (إنجليزي - اختياري)"
-                value={form.nameEn}
-                onChange={handleChange('nameEn')}
-                dir="ltr"
-                disabled={submitting}
-              />
-            </Grid>
 
             {/* Description */}
             <Grid item xs={12}>

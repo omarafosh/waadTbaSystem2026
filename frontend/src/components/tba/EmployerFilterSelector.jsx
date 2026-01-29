@@ -57,7 +57,7 @@ const EmployerFilterSelector = ({
 }) => {
   // Auto-connect to EmployerFilterContext when no props provided
   const { selectedEmployerId: contextEmployerId, setEmployer, clearFilter } = useEmployerFilter();
-  
+
   // Use props if provided, otherwise fall back to context
   const selectedEmployerId = propSelectedEmployerId !== undefined ? propSelectedEmployerId : contextEmployerId;
   const onEmployerChange = propOnEmployerChange || ((emp) => {
@@ -80,28 +80,28 @@ const EmployerFilterSelector = ({
       try {
         setLoading(true);
         const response = await getEmployerSelectors();
-        
+
         // Response should be array of { id, label, code }
         let items = Array.isArray(response) ? response : [];
-        
+
         // Add "All" option if requested
         if (showAllOption) {
           const allOption = { id: 'ALL', label: 'الكل (All)', nameAr: 'الكل', nameEn: 'All' };
           items = [allOption, ...items];
         }
-        
+
         setEmployers(items);
-        
+
         // If selectedEmployerId is provided, find and set the employer object
         if (selectedEmployerId) {
-            if (selectedEmployerId === 'ALL') {
-                 setSelectedValue(items[0]);
-            } else {
-                 const found = items.find(emp => emp.id === selectedEmployerId);
-                 if (found) {
-                     setSelectedValue(found);
-                 }
+          if (selectedEmployerId === 'ALL') {
+            setSelectedValue(items[0]);
+          } else {
+            const found = items.find(emp => emp.id === selectedEmployerId);
+            if (found) {
+              setSelectedValue(found);
             }
+          }
         }
       } catch (error) {
         console.error('[EmployerFilter] Failed to load employers:', error);
@@ -133,15 +133,15 @@ const EmployerFilterSelector = ({
    */
   const handleChange = (event, value) => {
     setSelectedValue(value);
-    
+
     // Call parent handler with full employer object
     if (onEmployerChange) {
-        // If "ALL" is selected, pass null to parent to clear filter
-        if (value && value.id === 'ALL') {
-            onEmployerChange(null);
-        } else {
-            onEmployerChange(value);
-        }
+      // If "ALL" is selected, pass null to parent to clear filter
+      if (value && value.id === 'ALL') {
+        onEmployerChange(null);
+      } else {
+        onEmployerChange(value);
+      }
     }
   };
 
@@ -150,7 +150,7 @@ const EmployerFilterSelector = ({
    */
   const handleClear = () => {
     setSelectedValue(null);
-    
+
     if (onEmployerChange) {
       onEmployerChange(null);
     }
@@ -171,7 +171,7 @@ const EmployerFilterSelector = ({
         renderInput={(params) => (
           <TextField
             {...params}
-            label={label}
+            {...(label ? { label } : {})}
             placeholder={placeholder}
             size={size}
             InputProps={{

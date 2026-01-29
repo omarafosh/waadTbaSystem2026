@@ -206,7 +206,7 @@
                 <version>3.14.1</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
+                    <forceLegacyJavacApi>true</forceLegacyJavacApi>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

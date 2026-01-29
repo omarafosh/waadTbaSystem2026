@@ -7,7 +7,7 @@ import com.waad.tba.modules.preauthorization.entity.PreAuthorization.Priority;
 import com.waad.tba.modules.preauthorization.repository.PreAuthorizationRepository;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
-import com.waad.tba.modules.provider.service.ProviderContractService;
+import com.waad.tba.modules.providercontract.service.ProviderContractService;
 import com.waad.tba.modules.provider.dto.EffectivePriceResponseDto;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
@@ -741,7 +741,6 @@ public class PreAuthorizationService {
                 .medicalServiceId(service != null ? service.getId() : null)
                 .serviceCode(preAuth.getServiceCode())
                 .serviceName(service != null ? service.getName() : null)
-                .serviceNameEn(service != null ? service.getNameEn() : null)
                 .serviceCategoryId(preAuth.getServiceCategoryId())
                 .requiresPA(preAuth.getRequiresPA())
                 // Diagnosis

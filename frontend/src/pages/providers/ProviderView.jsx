@@ -16,7 +16,15 @@ import {
   TableRow,
   Stack,
   Divider,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   ArrowBack,
@@ -27,8 +35,11 @@ import {
   Business,
   Badge,
   VerifiedUser,
-  LocalHospital as ProviderIcon
+  LocalHospital as ProviderIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
+import { openSnackbar } from 'api/snackbar';
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import { useProviderDetails } from 'hooks/useProviders';
@@ -86,28 +97,92 @@ const ProviderView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { provider, loading } = useProviderDetails(id);
+
   const [contracts, setContracts] = useState([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
 
-  useEffect(() => {
-    const fetchContracts = async () => {
-      if (id) {
-        setLoadingContracts(true);
-        try {
-          // TODO: Add getContracts method to providersService
-          // const data = await providersService.getContracts(id);
-          // setContracts(data || []);
-          setContracts([]);
-        } catch (error) {
-          console.error('Failed to fetch contracts:', error);
-          setContracts([]);
-        } finally {
-          setLoadingContracts(false);
-        }
+  const [openContractDialog, setOpenContractDialog] = useState(false);
+  const [contractForm, setContractForm] = useState({
+    contractNumber: '',
+    startDate: '',
+    endDate: '',
+    discountRate: 0,
+    autoRenew: false,
+    insuranceOrganizationId: 1 // Default to GIG for now
+  });
+
+  const fetchContracts = async () => {
+    if (id) {
+      setLoadingContracts(true);
+      try {
+        const data = await providersService.getContracts(id);
+        setContracts(data || []);
+      } catch (error) {
+        console.error('Failed to fetch contracts:', error);
+        setContracts([]);
+      } finally {
+        setLoadingContracts(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchContracts();
   }, [id]);
+
+  const handleOpenContractDialog = () => {
+    setContractForm({
+      contractNumber: `CONT-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+      discountRate: 0,
+      autoRenew: true,
+      insuranceOrganizationId: 1
+    });
+    setOpenContractDialog(true);
+  };
+
+  const handleSaveContract = async () => {
+    try {
+      await providersService.createContract(id, contractForm);
+      openSnackbar({
+        open: true,
+        message: 'تم إضافة العقد بنجاح',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+      setOpenContractDialog(false);
+      fetchContracts();
+    } catch (error) {
+      openSnackbar({
+        open: true,
+        message: 'فشل إضافة العقد',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    }
+  };
+
+  const handleDeleteContract = async (contractId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا العقد؟')) return;
+    try {
+      await providersService.deleteContract(id, contractId);
+      openSnackbar({
+        open: true,
+        message: 'تم حذف العقد بنجاح',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+      fetchContracts();
+    } catch (error) {
+      openSnackbar({
+        open: true,
+        message: 'فشل حذف العقد',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -139,9 +214,8 @@ const ProviderView = () => {
   }
 
   // Derive values defensively
-  const providerNameArabic = provider?.nameArabic ?? provider?.name ?? '—';
-  const providerNameEnglish = provider?.nameEnglish ?? '';
-  const providerDisplayName = providerNameArabic;
+  const providerName = provider?.name ?? '—';
+  const providerDisplayName = providerName;
   const providerStatus = getProviderStatus(provider);
   const networkTier = getNetworkTier(provider);
 
@@ -204,18 +278,10 @@ const ProviderView = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary">
-                    اسم مقدم الخدمة بالعربية
+                    اسم مقدم الخدمة
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} dir="rtl">
-                    {providerNameArabic}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    اسم مقدم الخدمة بالإنجليزية
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500} dir="ltr">
-                    {providerNameEnglish || '—'}
+                  <Typography variant="body1" fontWeight={500}>
+                    {providerName}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -377,8 +443,17 @@ const ProviderView = () => {
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <VerifiedUser sx={{ color: '#1890ff' }} />
-                <Typography variant="h5">عقود مقدم الخدمة</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <VerifiedUser sx={{ color: '#1890ff' }} />
+                  <Typography variant="h5">عقود مقدم الخدمة</Typography>
+                </Stack>
+                <Button
+                  vocab="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenContractDialog}
+                >
+                  إضافة عقد
+                </Button>
               </Stack>
               <Divider sx={{ mb: 2 }} />
               {loadingContracts ? (
@@ -424,6 +499,13 @@ const ProviderView = () => {
                                 size="small"
                               />
                             </TableCell>
+                            <TableCell>
+                              <Tooltip title="حذف العقد">
+                                <IconButton color="error" size="small" onClick={() => handleDeleteContract(contract.id)}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
                           </TableRow>
                         ))}
                     </TableBody>
@@ -434,6 +516,62 @@ const ProviderView = () => {
           </Grid>
         </Grid>
       </MainCard>
+
+      {/* Contract Dialog */}
+      <Dialog open={openContractDialog} onClose={() => setOpenContractDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>إضافة عقد جديد</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="رقم العقد"
+                value={contractForm.contractNumber}
+                onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="تاريخ البداية"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={contractForm.startDate}
+                onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="تاريخ النهاية"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={contractForm.endDate}
+                onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="نسبة الخصم %"
+                type="number"
+                value={contractForm.discountRate}
+                onChange={(e) => setContractForm({ ...contractForm, discountRate: parseFloat(e.target.value) })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={<Checkbox checked={contractForm.autoRenew} onChange={(e) => setContractForm({ ...contractForm, autoRenew: e.target.checked })} />}
+                label="تجديد تلقائي"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenContractDialog(false)}>إلغاء</Button>
+          <Button onClick={handleSaveContract} variant="contained" color="primary">حفظ</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };
