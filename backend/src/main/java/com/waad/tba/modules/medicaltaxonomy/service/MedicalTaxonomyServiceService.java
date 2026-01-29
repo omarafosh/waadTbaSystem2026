@@ -62,7 +62,7 @@ public class MedicalTaxonomyServiceService {
         MedicalService service = MedicalService.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
-                .nameEn(dto.getName())
+
                 .categoryId(dto.getCategoryId())
                 .basePrice(dto.getBasePrice())
                 .requiresPA(dto.getRequiresPA() != null ? dto.getRequiresPA() : false)
@@ -147,9 +147,7 @@ public class MedicalTaxonomyServiceService {
         if (dto.getName() != null) {
             service.setName(dto.getName());
         }
-        if (dto.getName() != null) {
-            service.setNameEn(dto.getName());
-        }
+
         if (dto.getCategoryId() != null) {
             // Validate category exists and is active
             categoryRepository.findActiveById(dto.getCategoryId())
@@ -208,7 +206,7 @@ public class MedicalTaxonomyServiceService {
                 .id(service.getId())
                 .code(service.getCode())
                 .name(service.getName())
-                .nameEn(service.getName())
+
                 .categoryId(service.getCategoryId())
                 .categoryName(category != null ? category.getName() : null)
                 .categoryCode(category != null ? category.getCode() : null)

@@ -149,7 +149,7 @@ public class PreAuthorizationReportTemplate {
         List<PdfTableBuilder.KeyValue> data = new ArrayList<>();
         data.add(new PdfTableBuilder.KeyValue("كود الخدمة", preAuth.getServiceCode()));
         data.add(new PdfTableBuilder.KeyValue("اسم الخدمة", preAuth.getServiceName()));
-        data.add(new PdfTableBuilder.KeyValue("الاسم الإنجليزي", preAuth.getServiceNameEn()));
+
         data.add(new PdfTableBuilder.KeyValue("رمز التشخيص", preAuth.getDiagnosisCode()));
         data.add(new PdfTableBuilder.KeyValue("وصف التشخيص", preAuth.getDiagnosisDescription()));
         return tableBuilder.buildKeyValueTable(data);

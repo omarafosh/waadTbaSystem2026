@@ -233,6 +233,17 @@ export const deleteBenefitPolicy = async (id) => {
   return unwrap(response);
 };
 
+/**
+ * Restore a deleted benefit policy
+ * Endpoint: POST /api/benefit-policies/{id}/restore
+ * @param {number} id - Policy ID
+ * @returns {Promise<Object>} Restored policy
+ */
+export const restoreBenefitPolicy = async (id) => {
+  const response = await axiosClient.post(`${BASE_URL}/${id}/restore`);
+  return unwrap(response);
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ADMIN OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -270,6 +281,7 @@ export default {
   suspendBenefitPolicy,
   cancelBenefitPolicy,
   deleteBenefitPolicy,
+  restoreBenefitPolicy,
   // Admin
   expireOldPolicies
 };

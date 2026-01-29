@@ -84,17 +84,7 @@ public class MedicalCategoryExcelTemplateService {
                 .width(30)
                 .build(),
                 
-            // English Name - Optional
-            ExcelTemplateColumn.builder()
-                .name("name_en")
-                .nameAr("الاسم بالإنجليزية")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("Medical Tests")
-                .description("Category name in English (optional)")
-                .descriptionAr("اسم الفئة بالإنجليزية (اختياري)")
-                .width(30)
-                .build(),
+
                 
             // Active - Optional Boolean
             ExcelTemplateColumn.builder()
@@ -199,7 +189,7 @@ public class MedicalCategoryExcelTemplateService {
         // Read columns
         String categoryCode = getCellValue(row, 0); // Column A
         String nameAr = getCellValue(row, 1);       // Column B
-        String nameEn = getCellValue(row, 2);       // Column C
+
         String activeStr = getCellValue(row, 3);    // Column D
         String description = getCellValue(row, 4);  // Column E
         
@@ -233,7 +223,7 @@ public class MedicalCategoryExcelTemplateService {
         
         // Set/Update fields
         category.setName(nameAr.trim()); // name field is Arabic
-        category.setNameEn(nameEn != null ? nameEn.trim() : null);
+
         category.setActive(active);
         
         // Save

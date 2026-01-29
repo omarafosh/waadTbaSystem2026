@@ -114,6 +114,7 @@ public class BenefitPolicyResponseDto {
             case EXPIRED -> "منتهي";
             case SUSPENDED -> "موقوف";
             case CANCELLED -> "ملغي";
+            case INACTIVE -> "غير نشط";
         };
     }
 }

@@ -289,6 +289,8 @@ public class BenefitPolicy {
         /** Policy is temporarily suspended */
         SUSPENDED,
         /** Policy has been cancelled */
-        CANCELLED
+        CANCELLED,
+        /** Policy is inactive (auto-deactivated or manually set) */
+        INACTIVE
     }
 }

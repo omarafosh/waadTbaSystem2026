@@ -32,7 +32,8 @@ import {
   Percent as PercentIcon,
   Code as CodeIcon,
   Info as InfoIcon,
-  Rule as RuleIcon
+  Rule as RuleIcon,
+  RestoreFromTrash as RestoreIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -46,7 +47,8 @@ import {
   activateBenefitPolicy,
   suspendBenefitPolicy,
   cancelBenefitPolicy,
-  deleteBenefitPolicy
+  deleteBenefitPolicy,
+  restoreBenefitPolicy
 } from 'services/api/benefit-policies.service';
 
 import BenefitPolicyRulesTab from './BenefitPolicyRulesTab';
@@ -258,6 +260,18 @@ const BenefitPolicyView = () => {
     }
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: () => restoreBenefitPolicy(id),
+    onSuccess: () => {
+      enqueueSnackbar('تم استعادة الوثيقة بنجاح', { variant: 'success' });
+      queryClient.invalidateQueries(['benefit-policy', id]);
+      refetch();
+    },
+    onError: (err) => {
+      enqueueSnackbar(err.response?.data?.message || 'فشلت عملية الاستعادة', { variant: 'error' });
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ACTION HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -284,11 +298,17 @@ const BenefitPolicyView = () => {
       case 'delete':
         deleteMutation.mutate();
         break;
+      case 'delete':
+        deleteMutation.mutate();
+        break;
+      case 'restore':
+        restoreMutation.mutate();
+        break;
       default:
         break;
     }
     closeDialog();
-  }, [dialogState.action, activateMutation, suspendMutation, cancelMutation, deleteMutation, closeDialog]);
+  }, [dialogState.action, activateMutation, suspendMutation, cancelMutation, deleteMutation, restoreMutation, closeDialog]);
 
   const handleActivate = () => {
     openConfirmDialog(
@@ -312,6 +332,10 @@ const BenefitPolicyView = () => {
 
   const handleDelete = () => {
     openConfirmDialog('delete', 'حذف الوثيقة', 'هل أنت متأكد من حذف هذه الوثيقة؟ سيتم حذفها بشكل نهائي.');
+  };
+
+  const handleRestore = () => {
+    openConfirmDialog('restore', 'استعادة الوثيقة', 'هل أنت متأكد من استعادة هذه الوثيقة؟');
   };
 
   // Tab change handler
@@ -356,7 +380,8 @@ const BenefitPolicyView = () => {
   }
 
   const statusConfig = STATUS_CONFIG[policy?.status] || STATUS_CONFIG.DRAFT;
-  const isLoading_Action = activateMutation.isPending || suspendMutation.isPending || cancelMutation.isPending || deleteMutation.isPending;
+  const isLoading_Action = activateMutation.isPending || suspendMutation.isPending || cancelMutation.isPending || deleteMutation.isPending || restoreMutation.isPending;
+  const isDeleted = policy?.active === false;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -367,7 +392,7 @@ const BenefitPolicyView = () => {
       {/* Page Header */}
       <ModernPageHeader
         title={policy?.name || 'وثيقة المنافع'}
-        subtitle={`رقم الوثيقة: ${policy?.policyCode || 'N/A'}`}
+        subtitle={`رقم الوثيقة: ${policy?.policyCode || 'N/A'}${isDeleted ? ' (محذوفة)' : ''}`}
         icon={PolicyIcon}
         breadcrumbs={[
           { label: 'وثائق المنافع', path: '/benefit-policies' },
@@ -380,22 +405,40 @@ const BenefitPolicyView = () => {
               رجوع
             </Button>
 
-            {/* Edit Button */}
-            <RBACGuard requiredPermissions={['benefit_policies.update']}>
-              <Button
-                startIcon={<EditIcon />}
-                onClick={() => navigate(`/benefit-policies/edit/${id}`)}
-                variant="outlined"
-                color="primary"
-                size="small"
-                disabled={policy?.status === 'CANCELLED'}
-              >
-                تعديل
-              </Button>
-            </RBACGuard>
+            {/* Restore Button - يظهر فقط للمحذوفات */}
+            {isDeleted && (
+              <RBACGuard requiredPermissions={['benefit_policies.delete']}>
+                <Button
+                  startIcon={<RestoreIcon />}
+                  onClick={handleRestore}
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  disabled={isLoading_Action}
+                >
+                  استعادة
+                </Button>
+              </RBACGuard>
+            )}
+
+            {/* Edit Button - يخفى للمحذوفات */}
+            {!isDeleted && (
+              <RBACGuard requiredPermissions={['benefit_policies.update']}>
+                <Button
+                  startIcon={<EditIcon />}
+                  onClick={() => navigate(`/benefit-policies/edit/${id}`)}
+                  variant="outlined"
+                  color="primary"
+                  size="small"
+                  disabled={policy?.status === 'CANCELLED'}
+                >
+                  تعديل
+                </Button>
+              </RBACGuard>
+            )}
 
             {/* Activate Button */}
-            {statusConfig.canActivate && (
+            {!isDeleted && statusConfig.canActivate && (
               <RBACGuard requiredPermissions={['benefit_policies.activate']}>
                 <Button
                   startIcon={<ActivateIcon />}
@@ -411,7 +454,7 @@ const BenefitPolicyView = () => {
             )}
 
             {/* Suspend Button */}
-            {statusConfig.canSuspend && (
+            {!isDeleted && statusConfig.canSuspend && (
               <RBACGuard requiredPermissions={['benefit_policies.suspend']}>
                 <Button
                   startIcon={<SuspendIcon />}
@@ -427,7 +470,7 @@ const BenefitPolicyView = () => {
             )}
 
             {/* Cancel Button */}
-            {statusConfig.canCancel && (
+            {!isDeleted && statusConfig.canCancel && (
               <RBACGuard requiredPermissions={['benefit_policies.cancel']}>
                 <Button
                   startIcon={<CancelIcon />}
@@ -443,7 +486,7 @@ const BenefitPolicyView = () => {
             )}
 
             {/* Delete Button */}
-            {statusConfig.canDelete && (
+            {!isDeleted && statusConfig.canDelete && (
               <RBACGuard requiredPermissions={['benefit_policies.delete']}>
                 <Button
                   startIcon={<DeleteIcon />}

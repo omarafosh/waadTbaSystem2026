@@ -81,8 +81,7 @@ public class ProviderContractPricingItemResponseDto {
             serviceDto = ServiceSummaryDto.builder()
                     .id(entity.getMedicalService().getId())
                     .code(entity.getMedicalService().getCode())
-                    .nameAr(entity.getMedicalService().getName())
-                    .nameEn(entity.getMedicalService().getName())
+                    .name(entity.getMedicalService().getName())
                     .build();
         }
 
@@ -91,8 +90,7 @@ public class ProviderContractPricingItemResponseDto {
             categoryDto = CategorySummaryDto.builder()
                     .id(entity.getMedicalCategory().getId())
                     .code(entity.getMedicalCategory().getCode())
-                    .nameAr(entity.getMedicalCategory().getName())
-                    .nameEn(entity.getMedicalCategory().getName())
+                    .name(entity.getMedicalCategory().getName())
                     .build();
         }
 
@@ -102,8 +100,7 @@ public class ProviderContractPricingItemResponseDto {
             effectiveCategoryDto = CategorySummaryDto.builder()
                     .id(effectiveCategory.getId())
                     .code(effectiveCategory.getCode())
-                    .nameAr(effectiveCategory.getName())
-                    .nameEn(effectiveCategory.getName())
+                    .name(effectiveCategory.getName())
                     .build();
         }
 
@@ -148,8 +145,7 @@ public class ProviderContractPricingItemResponseDto {
     public static class ServiceSummaryDto {
         private Long id;
         private String code;
-        private String nameAr;
-        private String nameEn;
+        private String name;
     }
 
     /**
@@ -162,7 +158,6 @@ public class ProviderContractPricingItemResponseDto {
     public static class CategorySummaryDto {
         private Long id;
         private String code;
-        private String nameAr;
-        private String nameEn;
+        private String name;
     }
 }

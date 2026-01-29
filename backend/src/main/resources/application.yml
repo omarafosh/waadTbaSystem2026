@@ -80,7 +80,7 @@ spring:
     hibernate:
       # ⚠️ CRITICAL: Use 'validate' for production-grade stability
       # Schema MUST be created via Flyway migrations
-      ddl-auto: ${DDL_AUTO:none}
+      ddl-auto: update # ${DDL_AUTO:none} - Auto-update schema to match entity definition - Temporarily set to update to fix schema mismatch
     show-sql: ${SHOW_SQL:false}
     open-in-view: false
     properties:

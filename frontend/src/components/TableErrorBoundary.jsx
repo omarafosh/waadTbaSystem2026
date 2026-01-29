@@ -1,6 +1,7 @@
 import { SystemErrorBoundary as ErrorBoundary } from 'components/ErrorBoundary';
 import ModernEmptyState from 'components/tba/ModernEmptyState';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { Button } from '@mui/material';
 
 /**
  * Table Error Boundary
@@ -19,10 +20,15 @@ const TableErrorBoundary = ({ children }) => {
       icon={ErrorOutlineIcon}
       title="حدث خطأ في عرض البيانات"
       message="يرجى تحديث الصفحة أو المحاولة لاحقاً"
-      action={{
-        label: 'تحديث الصفحة',
-        onClick: () => window.location.reload()
-      }}
+      action={
+        <Button
+          variant="contained"
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          تحديث الصفحة
+        </Button>
+      }
     />
   );
 

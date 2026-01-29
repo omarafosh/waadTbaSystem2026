@@ -38,7 +38,7 @@ public class SystemSettingsService {
     /**
      * Initialize default settings on application startup.
      */
-    @PostConstruct
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     @Transactional
     public void initializeDefaultSettings() {
         log.info("🔧 Initializing system settings...");

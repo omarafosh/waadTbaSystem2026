@@ -63,7 +63,7 @@ public class MedicalService {
     @Builder.Default
     private MedicalServiceStatus status = MedicalServiceStatus.ACTIVE;
 
-    @Column(name = "name_ar", nullable = false, length = 200)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
 
     /**

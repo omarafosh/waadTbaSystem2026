@@ -53,6 +53,21 @@ public class BenefitPolicyService {
     }
 
     /**
+     * Get all benefit policies (paginated) with optional deleted items
+     */
+    @Transactional(readOnly = true)
+    public Page<BenefitPolicyResponseDto> findAll(boolean includeDeleted, Pageable pageable) {
+        log.debug("Finding all benefit policies, includeDeleted: {}, page: {}", includeDeleted, pageable.getPageNumber());
+        Page<BenefitPolicy> page;
+        if (includeDeleted) {
+            page = benefitPolicyRepository.findByActiveFalse(pageable);
+        } else {
+            page = benefitPolicyRepository.findByActiveTrue(pageable);
+        }
+        return page.map(BenefitPolicyResponseDto::fromEntity);
+    }
+
+    /**
      * Get benefit policy by ID
      */
     @Transactional(readOnly = true)
@@ -91,9 +106,25 @@ public class BenefitPolicyService {
      */
     @Transactional(readOnly = true)
     public Page<BenefitPolicyResponseDto> findByEmployer(Long employerOrgId, Pageable pageable) {
-        log.debug("Finding benefit policies for employer: {}, page: {}", employerOrgId, pageable.getPageNumber());
-        return benefitPolicyRepository.findByEmployerOrganizationIdAndActiveTrue(employerOrgId, pageable)
-                .map(BenefitPolicyResponseDto::fromEntity);
+        return findByEmployer(employerOrgId, false, pageable);
+    }
+
+    /**
+     * Get paginated policies for an employer with optional deleted items
+     */
+    @Transactional(readOnly = true)
+    public Page<BenefitPolicyResponseDto> findByEmployer(Long employerOrgId, boolean includeDeleted, Pageable pageable) {
+        log.debug("Finding benefit policies for employer: {}, includeDeleted: {}, page: {}", 
+                employerOrgId, includeDeleted, pageable.getPageNumber());
+        
+        Page<BenefitPolicy> page;
+        if (includeDeleted) {
+            page = benefitPolicyRepository.findByEmployerOrganizationId(employerOrgId, pageable);
+        } else {
+            page = benefitPolicyRepository.findByEmployerOrganizationIdAndActiveTrue(employerOrgId, pageable);
+        }
+        
+        return page.map(BenefitPolicyResponseDto::fromEntity);
     }
 
     /**
@@ -408,6 +439,27 @@ public class BenefitPolicyService {
         log.info("✅ Soft deleted benefit policy: {}", id);
     }
 
+    /**
+     * Restore a soft-deleted benefit policy
+     */
+    @Transactional
+    public BenefitPolicyResponseDto restore(Long id) {
+        log.info("Restoring benefit policy: {}", id);
+
+        BenefitPolicy policy = benefitPolicyRepository.findById(id)
+                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+
+        // Restore
+        policy.setActive(true);
+        // Reset to INACTIVE so it doesn't immediately conflict with existing active policies
+        policy.setStatus(BenefitPolicyStatus.INACTIVE); 
+        
+        policy = benefitPolicyRepository.save(policy);
+        log.info("✅ Restored benefit policy: {}", id);
+        
+        return BenefitPolicyResponseDto.fromEntity(policy);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // MAINTENANCE OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -464,20 +516,28 @@ public class BenefitPolicyService {
     /**
      * Check if there's an overlapping active policy for the employer
      */
+    /**
+     * Check for any other active policies and AUTO-DEACTIVATE them.
+     * Enforces strictly ONE active policy per employer.
+     */
     private void checkOverlappingActivePolicy(Long employerOrgId, LocalDate startDate, LocalDate endDate, Long excludeId) {
-        boolean hasOverlap;
-        if (excludeId != null) {
-            hasOverlap = benefitPolicyRepository.existsOverlappingActivePolicy(
-                    employerOrgId, startDate, endDate, excludeId);
-        } else {
-            hasOverlap = benefitPolicyRepository.existsOverlappingActivePolicyNew(
-                    employerOrgId, startDate, endDate);
-        }
+        // Find ALL active policies for this employer, regardless of date
+        List<BenefitPolicy> activePolicies = benefitPolicyRepository.findByEmployerOrganizationIdAndStatusAndActiveTrue(
+                employerOrgId, BenefitPolicyStatus.ACTIVE);
         
-        if (hasOverlap) {
-            throw new BusinessRuleException(
-                    "An active benefit policy already exists for this employer in the specified date range. " +
-                    "Only one active policy is allowed per employer per period.");
+        if (!activePolicies.isEmpty()) {
+            for (BenefitPolicy conflict : activePolicies) {
+                // Skip the current policy we are working on (if it exists)
+                if (excludeId != null && conflict.getId().equals(excludeId)) {
+                    continue;
+                }
+
+                log.info("Auto-deactivating policy '{}' (ID: {}) to enforce single active policy rule", 
+                        conflict.getName(), conflict.getId());
+                
+                conflict.setStatus(BenefitPolicyStatus.INACTIVE);
+                benefitPolicyRepository.save(conflict);
+            }
         }
     }
 

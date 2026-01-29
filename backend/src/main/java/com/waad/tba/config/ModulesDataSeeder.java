@@ -127,7 +127,7 @@ public class ModulesDataSeeder implements CommandLineRunner {
     private MedicalService createService(String nameEn, String nameAr, String code) {
         if (medicalServiceRepository.existsByCode(code)) return medicalServiceRepository.findByCode(code).get();
         return medicalServiceRepository.save(MedicalService.builder()
-                .nameEn(nameEn).name(nameAr).code(code)
+                .name(nameAr).code(code)
                 .active(true).build());
     }
 

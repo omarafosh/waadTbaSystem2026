@@ -371,7 +371,7 @@ public class MedicalServiceBulkImportService {
 
         // Set fields
         service.setName(name);
-        service.setNameEn(name);
+
         if (category != null) {
             service.setCategoryId(category.getId());
         }
@@ -408,9 +408,7 @@ public class MedicalServiceBulkImportService {
             if (cat.getName() != null) {
                 cache.put(cat.getName().trim(), cat);
             }
-            if (cat.getNameEn() != null) {
-                cache.put(cat.getNameEn().trim(), cat);
-            }
+
         }
         
         return cache;

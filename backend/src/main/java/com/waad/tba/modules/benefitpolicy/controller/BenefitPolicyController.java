@@ -70,11 +70,12 @@ public class BenefitPolicyController {
             @Parameter(description = "Employer ID for filtering (null = show all for admin)") @RequestParam(required = false) Long employerId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Include deleted policies") @RequestParam(defaultValue = "false") boolean includeDeleted,
             @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt") String sortBy,
             @Parameter(description = "Sort direction") @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        log.info("[BENEFIT-POLICIES] GET /api/benefit-policies - employerId={}, page={}, size={}, sortBy={}, sortDir={}",
-                employerId, page, size, sortBy, sortDir);
+        log.info("[BENEFIT-POLICIES] GET /api/benefit-policies - employerId={}, includeDeleted={}, page={}, size={}",
+                employerId, includeDeleted, page, size);
 
         // ═══════════════════════════════════════════════════════════════════════════
         // EMPLOYER_ADMIN SECURITY FILTER (2026-01-16)
@@ -107,9 +108,17 @@ public class BenefitPolicyController {
 
         Page<BenefitPolicyResponseDto> result;
         if (effectiveEmployerId != null) {
-            result = benefitPolicyService.findByEmployer(effectiveEmployerId, pageable);
+            result = benefitPolicyService.findByEmployer(effectiveEmployerId, includeDeleted, pageable);
         } else {
-            result = benefitPolicyService.findAll(pageable);
+            // Admin viewing all - support includeDeleted if implemented in service
+            // For now, if no employer selected, we might default to active only OR implement findAll(includeDeleted)
+            if (includeDeleted) {
+                // TODO: Implement findAll(includeDeleted, pageable) in service if needed for super admin
+                // For now, fallback to active only or all depending on service implementation
+                 result = benefitPolicyService.findAll(includeDeleted, pageable);
+            } else {
+                 result = benefitPolicyService.findAll(pageable);
+            }
         }
         
         log.info("[BENEFIT-POLICIES] Returning {} records (totalElements: {}, totalPages: {})",
@@ -315,6 +324,15 @@ public class BenefitPolicyController {
         log.info("Deleting benefit policy: {}", id);
         benefitPolicyService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Benefit policy deleted", null));
+    }
+
+    @PostMapping("/{id:\\d+}/restore")
+    @PreAuthorize("hasAuthority('benefit_policies.delete') or hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Restore a soft-deleted benefit policy")
+    public ResponseEntity<ApiResponse<BenefitPolicyResponseDto>> restore(@PathVariable Long id) {
+        log.info("Restoring benefit policy: {}", id);
+        BenefitPolicyResponseDto result = benefitPolicyService.restore(id);
+        return ResponseEntity.ok(ApiResponse.success("Benefit policy restored", result));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

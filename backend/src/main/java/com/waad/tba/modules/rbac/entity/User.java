@@ -68,7 +68,7 @@ public class User {
     @Column(name = "password_changed_at")
     private LocalDateTime passwordChangedAt;
 
-    @Column(name = "is_active")
+    @Column(name = "active")
     @Builder.Default
     private Boolean active = true;
 

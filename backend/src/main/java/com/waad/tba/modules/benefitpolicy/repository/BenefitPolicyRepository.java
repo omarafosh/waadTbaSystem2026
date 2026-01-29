@@ -39,6 +39,11 @@ public interface BenefitPolicyRepository extends JpaRepository<BenefitPolicy, Lo
     Page<BenefitPolicy> findByActiveTrue(Pageable pageable);
 
     /**
+     * Find all deleted (soft-deleted) policies - paginated
+     */
+    Page<BenefitPolicy> findByActiveFalse(Pageable pageable);
+
+    /**
      * Find all policies with a specific status
      */
     List<BenefitPolicy> findByStatus(BenefitPolicyStatus status);
@@ -70,6 +75,14 @@ public interface BenefitPolicyRepository extends JpaRepository<BenefitPolicy, Lo
 
     /**
      * Find paginated policies for an employer
+     */
+    /**
+     * Find paginated policies for an employer (including inactive/deleted)
+     */
+    Page<BenefitPolicy> findByEmployerOrganizationId(Long employerOrgId, Pageable pageable);
+
+    /**
+     * Find paginated policies for an employer (active only)
      */
     Page<BenefitPolicy> findByEmployerOrganizationIdAndActiveTrue(Long employerOrgId, Pageable pageable);
 
@@ -133,6 +146,22 @@ public interface BenefitPolicyRepository extends JpaRepository<BenefitPolicy, Lo
             @Param("employerOrgId") Long employerOrgId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    /**
+     * Find overlapping active policies (to auto-deactivate them)
+     */
+    @Query("SELECT bp FROM BenefitPolicy bp " +
+           "WHERE bp.employerOrganization.id = :employerOrgId " +
+           "AND bp.status = 'ACTIVE' " +
+           "AND bp.active = true " +
+           "AND (:excludeId IS NULL OR bp.id != :excludeId) " +
+           "AND bp.startDate <= :endDate " +
+           "AND bp.endDate >= :startDate")
+    List<BenefitPolicy> findOverlappingActivePolicies(
+            @Param("employerOrgId") Long employerOrgId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("excludeId") Long excludeId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SEARCH & FILTER QUERIES

@@ -36,7 +36,7 @@ public class MedicalCategory {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
-    @Column(name = "name_ar", nullable = false, length = 200)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
 
     /**
