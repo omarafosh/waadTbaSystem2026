@@ -224,7 +224,7 @@ public class PreAuthorizationController {
     @GetMapping("/inbox/pending")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PRE_AUTH')")
     public ResponseEntity<ApiResponse<Page<PreAuthorizationResponseDto>>> getPendingInbox(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "ASC") String sortDir) {
@@ -232,7 +232,8 @@ public class PreAuthorizationController {
         log.info("[API] Fetching pending pre-authorizations for inbox, page: {}, size: {}", page, size);
         
         Sort.Direction direction = Sort.Direction.fromString(sortDir);
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        // Convert 1-based page to 0-based for Spring Data (like ClaimController does)
+        Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, Sort.by(direction, sortBy));
         
         Page<PreAuthorizationResponseDto> pageResult = preAuthorizationService.getPendingInbox(pageable);
         

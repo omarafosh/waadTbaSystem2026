@@ -90,9 +90,35 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     // ==================== Find by Status ====================
 
     /**
-     * Find pending pre-authorizations
+     * Find pre-authorizations by single status (active only)
      */
     Page<PreAuthorization> findByStatusAndActiveTrue(PreAuthStatus status, Pageable pageable);
+
+    // ==================== INBOX QUERIES (CANONICAL 2026-01-26) ====================
+
+    /**
+     * Find pre-authorizations by status list with pagination (for inbox views).
+     * Mirrors ClaimRepository.findByStatusIn() pattern.
+     * 
+     * CANONICAL: Includes full fetch joins to prevent N+1 queries
+     * 
+     * @param statuses List of PreAuthStatus values to include
+     * @param pageable Pagination information
+     * @return Page of PreAuthorizations with related entities fetched
+     */
+    @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.visit v " +
+           "LEFT JOIN FETCH pa.medicalService ms " +
+           "WHERE pa.active = true " +
+           "AND pa.status IN :statuses",
+           countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.active = true AND pa.status IN :statuses")
+    Page<PreAuthorization> findByStatusIn(@Param("statuses") List<PreAuthStatus> statuses, Pageable pageable);
+
+    /**
+     * Count pre-authorizations by status list.
+     */
+    @Query("SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.active = true AND pa.status IN :statuses")
+    long countByStatusIn(@Param("statuses") List<PreAuthStatus> statuses);
 
     /**
      * Find expired approved pre-authorizations

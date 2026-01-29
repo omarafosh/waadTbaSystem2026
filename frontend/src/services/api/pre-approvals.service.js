@@ -162,7 +162,8 @@ export const preApprovalsService = {
   getPending: async (params = {}) => {
     try {
       const queryParams = new URLSearchParams();
-      if (params.page !== undefined) queryParams.append('page', params.page);
+      // Pass page directly (component sends page+1, backend handles conversion)
+      if (params.page) queryParams.append('page', params.page);
       if (params.size) queryParams.append('size', params.size);
       if (params.sortBy) queryParams.append('sortBy', params.sortBy);
       if (params.sortDir) queryParams.append('sortDir', params.sortDir);

@@ -35,7 +35,6 @@ public class UiVisibilityDto {
         private boolean showFamilyTab;
         private boolean showDocumentsTab;
         private boolean showBenefitsTab;
-        private boolean showChronicTab;
     }
 
     /**
@@ -85,7 +84,6 @@ public class UiVisibilityDto {
                 .showFamilyTab(true)
                 .showDocumentsTab(true)
                 .showBenefitsTab(true)
-                .showChronicTab(true)
                 .build())
             .claims(ClaimsVisibility.builder()
                 .showFilesSection(true)

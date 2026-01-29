@@ -60,7 +60,6 @@ import {
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import MemberChronicConditionsTab from 'components/members/MemberChronicConditionsTab';
 import { getMember, deleteMember, MEMBER_TYPES, RELATIONSHIPS, GENDERS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
@@ -609,21 +608,6 @@ const UnifiedMemberView = () => {
             </Accordion>
           </Grid>
         )}
-
-        {/* Chronic Conditions Section */}
-        <Grid item xs={12}>
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <LocalHospitalIcon color="error" />
-                <Typography variant="h5">الأمراض المزمنة</Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails>
-              <MemberChronicConditionsTab memberId={member.id} />
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
       </Grid>
 
       {/* Delete Confirmation Dialog */}

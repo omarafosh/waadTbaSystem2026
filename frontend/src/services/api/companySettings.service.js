@@ -37,8 +37,7 @@ import axiosClient from 'utils/axios';
  *   members: {
  *     showFamilyTab: true,
  *     showDocumentsTab: true,
- *     showBenefitsTab: true,
- *     showChronicTab: true
+ *     showBenefitsTab: true
  *   },
  *   claims: {
  *     showFilesSection: true,

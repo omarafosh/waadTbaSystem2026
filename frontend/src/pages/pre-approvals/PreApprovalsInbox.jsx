@@ -171,80 +171,88 @@ const PreApprovalsInbox = () => {
     }
   };
 
-  // Status chip
+  // Status chip (using exact Backend enum values) - CANONICAL 2026-01-26
+  // PreAuth workflow: PENDING → UNDER_REVIEW → APPROVED/REJECTED
   const getStatusChip = (status) => {
     const configs = {
-      PENDING: { color: 'warning', label: 'قيد المراجعة' },
+      PENDING: { color: 'warning', label: 'معلق' },
+      UNDER_REVIEW: { color: 'info', label: 'قيد المراجعة' },
       APPROVED: { color: 'success', label: 'موافق عليه' },
       REJECTED: { color: 'error', label: 'مرفوض' },
       EXPIRED: { color: 'default', label: 'منتهي' },
+      CANCELLED: { color: 'default', label: 'ملغي' },
       USED: { color: 'info', label: 'مستخدم' }
     };
     const config = configs[status] || configs.PENDING;
     return <Chip size="small" color={config.color} label={config.label} />;
   };
 
-  // Priority indicator based on urgency
-  const getUrgencyBadge = (urgency) => {
-    if (urgency === 'EMERGENCY') {
+  // Priority badge (using exact Backend enum values)
+  const getUrgencyBadge = (priority) => {
+    if (priority === 'EMERGENCY') {
       return <Chip size="small" color="error" label="طارئ" variant="filled" />;
     }
-    if (urgency === 'URGENT') {
+    if (priority === 'URGENT') {
       return <Chip size="small" color="warning" label="عاجل" variant="outlined" />;
+    }
+    if (priority === 'ROUTINE') {
+      return <Chip size="small" color="default" label="عادي" variant="outlined" />;
     }
     return null;
   };
 
-  // DataGrid columns
+  // DataGrid columns (CANONICAL - follows Backend DTO exactly)
   const columns = [
     {
       field: 'id',
       headerName: '#',
       width: 100,
-      valueGetter: (value, row) => row?.referenceNumber || `PA-${row?.id}` || row?.id
+      valueGetter: (value, row) => row.referenceNumber || `-`
     },
     {
       field: 'memberName',
       headerName: 'اسم المؤمن عليه',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'
+      valueGetter: (value, row) => row.memberName || '-'
     },
     {
       field: 'providerName',
       headerName: 'مقدم الخدمة',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => row?.providerName || '-'
+      valueGetter: (value, row) => row.providerName || '-'
     },
     {
       field: 'serviceName',
       headerName: 'الخدمة',
       width: 150,
-      valueGetter: (value, row) => row?.serviceName || row?.serviceCode || row?.serviceType || '-'
+      valueGetter: (value, row) => row.serviceName || '-'
     },
     {
       field: 'contractPrice',
       headerName: 'المبلغ',
       width: 120,
       valueGetter: (value, row) => {
-        const amount = row?.contractPrice || row?.requestedAmount || row?.approvedAmount;
-        return amount ? `${Number(amount).toFixed(2)} د.ل` : '-';
+        return row.contractPrice 
+          ? `${Number(row.contractPrice).toFixed(2)} ${row.currency || 'د.ل'}`
+          : '-';
       }
     },
     {
       field: 'priority',
       headerName: 'الأولوية',
       width: 100,
-      renderCell: (params) => getUrgencyBadge(params.row?.priority || params.row?.urgency)
+      renderCell: (params) => getUrgencyBadge(params.row.priority)
     },
     {
       field: 'requestDate',
       headerName: 'تاريخ الطلب',
       width: 130,
       valueGetter: (value, row) => {
-        const date = row?.requestDate || row?.createdAt;
-        return date ? new Date(date).toLocaleDateString('en-US') : '-';
+        return row.requestDate 
+          ? new Date(row.requestDate).toLocaleDateString('ar-LY')
+          : '-';
       }
     },
     {
@@ -275,8 +283,10 @@ const PreApprovalsInbox = () => {
             </IconButton>
           </Tooltip>
 
-          {/* SUBMITTED → Start Review */}
-          {params.row.status === 'SUBMITTED' && (
+          {/* PENDING → Start Review (transition to UNDER_REVIEW)
+              CANONICAL 2026-01-26: PreAuth workflow starts at PENDING, not SUBMITTED
+              PENDING means newly created and awaiting initial review */}
+          {params.row.status === 'PENDING' && (
             <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
               <Tooltip title="بدء المراجعة">
                 <span>
@@ -288,7 +298,8 @@ const PreApprovalsInbox = () => {
             </RBACGuard>
           )}
 
-          {/* PENDING/UNDER_REVIEW → Approve/Reject */}
+          {/* PENDING/UNDER_REVIEW → Approve/Reject
+              CANONICAL: Both states allow approval/rejection actions */}
           {(params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW') && (
             <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
               <Tooltip title="موافقة">

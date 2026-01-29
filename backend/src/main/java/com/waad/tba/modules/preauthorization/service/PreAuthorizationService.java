@@ -516,16 +516,33 @@ public class PreAuthorizationService {
     }
 
     /**
-     * Get pending pre-authorizations for inbox (Operations Queue)
+     * Get pending pre-authorizations for inbox (Operations Queue) - CANONICAL 2026-01-26
+     * 
+     * Returns pre-authorizations with PENDING or UNDER_REVIEW status for processing.
+     * Mirrors ClaimService.getPendingClaims() behavior.
+     * 
      * FIFO pattern - oldest first for fair processing.
+     * 
+     * Status Logic:
+     * - PENDING: Newly created, awaiting initial review
+     * - UNDER_REVIEW: Currently being reviewed by operations staff
+     * 
+     * @param pageable Pagination parameters (page, size, sort)
+     * @return Page of PreAuthorizationResponseDto with all required fields for inbox display
      */
     @Transactional(readOnly = true)
     public Page<PreAuthorizationResponseDto> getPendingInbox(Pageable pageable) {
-        log.info("[SERVICE] Fetching pending pre-authorizations for inbox");
-        Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusAndActiveTrue(
-                PreAuthStatus.PENDING, 
+        log.info("[SERVICE] Fetching pending pre-authorizations for inbox (PENDING + UNDER_REVIEW)");
+        
+        // CANONICAL: Include both PENDING and UNDER_REVIEW statuses (like Claims)
+        List<PreAuthStatus> inboxStatuses = List.of(PreAuthStatus.PENDING, PreAuthStatus.UNDER_REVIEW);
+        
+        Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusIn(
+                inboxStatuses, 
                 pageable
         );
+        
+        log.info("[SERVICE] Found {} pre-authorizations in inbox", preAuths.getTotalElements());
         return preAuths.map(this::mapToResponseDtoLight);
     }
 

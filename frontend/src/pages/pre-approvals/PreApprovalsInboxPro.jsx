@@ -435,16 +435,18 @@ const PreApprovalsInbox = () => {
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // STATUS RENDERER
+  // STATUS RENDERER - CANONICAL 2026-01-26
+  // PreAuth workflow: PENDING → UNDER_REVIEW → APPROVED/REJECTED
+  // (No SUBMITTED status - that's Claims workflow)
   // ════════════════════════════════════════════════════════════════════════════
   const renderStatus = (status) => {
     const configs = {
-      SUBMITTED: { color: 'warning', label: 'جديد', icon: PendingIcon },
       PENDING: { color: 'warning', label: 'معلق', icon: PendingIcon },
       UNDER_REVIEW: { color: 'info', label: 'قيد المراجعة', icon: PreApprovalIcon },
       APPROVED: { color: 'success', label: 'موافق عليه', icon: ApproveIcon },
       REJECTED: { color: 'error', label: 'مرفوض', icon: RejectIcon },
       EXPIRED: { color: 'default', label: 'منتهي', icon: TimerIcon },
+      CANCELLED: { color: 'default', label: 'ملغي', icon: RejectIcon },
       USED: { color: 'info', label: 'مستخدم', icon: ApproveIcon }
     };
     const config = configs[status] || configs.PENDING;
@@ -561,8 +563,11 @@ const PreApprovalsInbox = () => {
       width: 200,
       sortable: false,
       renderCell: (params) => {
-        const isSubmitted = params.row.status === 'SUBMITTED';
-        const isPending = params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW';
+        // CANONICAL 2026-01-26: PreAuth workflow uses PENDING (not SUBMITTED like Claims)
+        // PENDING = newly created, awaiting initial review
+        // UNDER_REVIEW = currently being reviewed
+        const isPending = params.row.status === 'PENDING';
+        const canProcess = params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW';
 
         return (
           <Stack direction="row" spacing={0.5}>
@@ -594,7 +599,8 @@ const PreApprovalsInbox = () => {
               </IconButton>
             </Tooltip>
 
-            {isSubmitted && (
+            {/* PENDING → Start Review (transition to UNDER_REVIEW) */}
+            {isPending && (
               <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
                 <Tooltip title="بدء المراجعة">
                   <IconButton 
@@ -612,7 +618,8 @@ const PreApprovalsInbox = () => {
               </RBACGuard>
             )}
 
-            {isPending && (
+            {/* PENDING/UNDER_REVIEW → Approve/Reject */}
+            {canProcess && (
               <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
                 <Tooltip title="موافقة">
                   <IconButton
@@ -760,7 +767,6 @@ const PreApprovalsInbox = () => {
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <MenuItem value="">الكل</MenuItem>
-                  <MenuItem value="SUBMITTED">جديد</MenuItem>
                   <MenuItem value="PENDING">معلق</MenuItem>
                   <MenuItem value="UNDER_REVIEW">قيد المراجعة</MenuItem>
                 </Select>
