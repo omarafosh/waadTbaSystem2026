@@ -1,91 +1,37 @@
 import PropTypes from 'prop-types';
-import { DataGrid } from '@mui/x-data-grid';
-import { Box, Typography, LinearProgress, Alert } from '@mui/material';
+import {
+  Box,
+  Typography,
+  LinearProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  TablePagination,
+  Skeleton
+} from '@mui/material';
 import PreAuthStatusChip from './PreAuthStatusChip';
 import { formatCurrency } from 'utils/formatters';
 
 /**
  * PreApprovalsTable Component
  *
- * Displays pre-approvals in a paginated data grid
+ * Displays pre-approvals in a paginated table
+ * Migrated from @mui/x-data-grid to MUI Table
  */
-const PreApprovalsTable = ({ preApprovals, loading, totalCount, page, rowsPerPage, onPageChange, onRowsPerPageChange }) => {
-  const columns = [
-    {
-      field: 'referenceNumber',
-      headerName: 'رقم المرجع',
-      width: 150,
-      renderCell: (params) => <Typography variant="body2" fontWeight={500}>{params.value}</Typography>
-    },
-    {
-      field: 'memberName',
-      headerName: 'المستفيد',
-      width: 200
-    },
-    {
-      field: 'employerName',
-      headerName: 'الشريك',
-      width: 200
-    },
-    {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      width: 200
-    },
-    {
-      field: 'serviceName',
-      headerName: 'الخدمة الطبية',
-      width: 200
-    },
-    {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 150,
-      renderCell: (params) => <PreAuthStatusChip status={params.value} />
-    },
-    {
-      field: 'requestedAmount',
-      headerName: 'المبلغ المطلوب',
-      width: 130,
-      type: 'number',
-      renderCell: (params) => <Typography variant="body2">{formatCurrency(params.value)}</Typography>
-    },
-    {
-      field: 'approvedAmount',
-      headerName: 'المبلغ المعتمد',
-      width: 130,
-      type: 'number',
-      renderCell: (params) => (
-        <Typography variant="body2">{params.value != null ? formatCurrency(params.value) : '—'}</Typography>
-      )
-    },
-    {
-      field: 'requestDate',
-      headerName: 'تاريخ الطلب',
-      width: 130,
-      renderCell: (params) => {
-        if (!params.value) return '—';
-        try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
-        } catch {
-          return params.value;
-        }
-      }
-    },
-    {
-      field: 'validUntil',
-      headerName: 'صالح حتى',
-      width: 130,
-      renderCell: (params) => {
-        if (!params.value) return '—';
-        try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
-        } catch {
-          return params.value;
-        }
-      }
-    }
-  ];
+const PreApprovalsTable = ({
+  preApprovals,
+  loading,
+  totalCount,
+  page,
+  rowsPerPage,
+  onPageChange,
+  onRowsPerPageChange
+}) => {
 
   // Empty state
   if (!loading && preApprovals.length === 0) {
@@ -98,32 +44,99 @@ const PreApprovalsTable = ({ preApprovals, loading, totalCount, page, rowsPerPag
 
   return (
     <Box sx={{ width: '100%' }}>
-      <DataGrid
-        rows={preApprovals}
-        columns={columns}
-        loading={loading}
-        pagination
-        paginationMode="client"
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: 'primary.lighter' }}>
+              <TableCell><strong>رقم المرجع</strong></TableCell>
+              <TableCell><strong>المستفيد</strong></TableCell>
+              <TableCell><strong>الشريك</strong></TableCell>
+              <TableCell><strong>مقدم الخدمة</strong></TableCell>
+              <TableCell><strong>الخدمة الطبية</strong></TableCell>
+              <TableCell align="center"><strong>الحالة</strong></TableCell>
+              <TableCell align="right"><strong>المبلغ المطلوب</strong></TableCell>
+              <TableCell align="right"><strong>المبلغ المعتمد</strong></TableCell>
+              <TableCell><strong>تاريخ الطلب</strong></TableCell>
+              <TableCell><strong>صالح حتى</strong></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: rowsPerPage }).map((_, index) => (
+                <TableRow key={index}>
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <TableCell key={i}>
+                      <Skeleton />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              preApprovals.map((row) => (
+                <TableRow key={row.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500}>
+                      {row.referenceNumber}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{row.memberName || '—'}</TableCell>
+                  <TableCell>{row.employerName || '—'}</TableCell>
+                  <TableCell>{row.providerName || '—'}</TableCell>
+                  <TableCell>{row.serviceName || '—'}</TableCell>
+                  <TableCell align="center">
+                    <PreAuthStatusChip status={row.status} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {formatCurrency(row.requestedAmount)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {row.approvedAmount != null ? formatCurrency(row.approvedAmount) : '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    {row.requestDate ? (
+                      (() => {
+                        try {
+                          return new Date(row.requestDate).toLocaleDateString('ar-SA');
+                        } catch {
+                          return row.requestDate;
+                        }
+                      })()
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {row.validUntil ? (
+                      (() => {
+                        try {
+                          return new Date(row.validUntil).toLocaleDateString('ar-SA');
+                        } catch {
+                          return row.validUntil;
+                        }
+                      })()
+                    ) : '—'}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Pagination */}
+      <TablePagination
+        component="div"
+        count={totalCount}
         page={page}
-        pageSize={rowsPerPage}
-        onPageChange={onPageChange}
-        onPageSizeChange={onRowsPerPageChange}
+        onPageChange={(event, newPage) => onPageChange(newPage)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(event) => onRowsPerPageChange(parseInt(event.target.value, 10))}
         rowsPerPageOptions={[10, 25, 50, 100]}
-        rowCount={totalCount}
-        disableSelectionOnClick
-        autoHeight
-        components={{
-          LoadingOverlay: LinearProgress
-        }}
-        sx={{
-          '& .MuiDataGrid-cell': {
-            fontSize: '0.875rem'
-          },
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: 'primary.lighter',
-            fontWeight: 600
-          }
-        }}
+        labelRowsPerPage="الصفوف لكل صفحة:"
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} من ${count !== -1 ? count : `أكثر من ${to}`}`}
       />
     </Box>
   );

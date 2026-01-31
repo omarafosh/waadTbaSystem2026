@@ -10,24 +10,27 @@ import {
   IconButton,
   Button,
   Stack,
-  CircularProgress,
   Alert,
   Tooltip,
-  Divider
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Skeleton
 } from '@mui/material';
 import {
   Assignment as ClaimIcon,
   MedicalServices as PreApprovalIcon,
   Visibility as ViewIcon,
-  PlayArrow as StartReviewIcon,
-  CheckCircle as ApproveIcon,
-  Cancel as RejectIcon,
   Refresh as RefreshIcon,
   Dashboard as DashboardIcon
 } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
 import { ModernPageHeader } from 'components/tba';
-import { DataGrid } from '@mui/x-data-grid';
 import { claimsService, preApprovalsService } from 'services/api';
 
 /**
@@ -38,6 +41,8 @@ import { claimsService, preApprovalsService } from 'services/api';
  * Aggregates pending tasks from:
  * 1. Claims (Canonical ClaimService)
  * 2. Pre-Authorizations (Canonical PreAuthorizationService)
+ * 
+ * Updated: Migrated from @mui/x-data-grid to MUI Table for consistency
  */
 const ApprovalsDashboard = () => {
   const navigate = useNavigate();
@@ -59,15 +64,13 @@ const ApprovalsDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch Pending Claims (SUBMITTED, UNDER_REVIEW)
-      // Using Canonical /api/claims/inbox/pending endpoint
+      // 1. Fetch Pending Claims
       const claimsPromise = claimsService.getPendingClaims({
         page: 1,
         size: 10
       });
 
-      // 2. Fetch Pending Pre-Authorizations (PENDING)
-      // Using Canonical /api/pre-authorizations endpoint
+      // 2. Fetch Pending Pre-Authorizations
       const preAuthPromise = preApprovalsService.getPending({
         page: 1,
         size: 10
@@ -104,136 +107,21 @@ const ApprovalsDashboard = () => {
     fetchData();
   }, [fetchData]);
 
-  // Columns for Pre-Approvals
-  const preAuthColumns = [
-    {
-      field: 'id',
-      headerName: 'رقم الطلب',
-      width: 100,
-      valueGetter: (value, row) => row?.referenceNumber || `PA-${row?.id}` || row?.id || '-'
-    },
-    {
-      field: 'memberName',
-      headerName: 'المستفيد',
-      width: 200,
-      valueGetter: (value, row) => row?.memberName || row?.member?.name || '-'
-    },
-    {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      width: 200,
-      valueGetter: (value, row) => row?.providerName || row?.provider?.name || '-'
-    },
-    {
-      field: 'serviceName',
-      headerName: 'الخدمة',
-      width: 180,
-      valueGetter: (value, row) => row?.serviceName || row?.serviceCode || '-'
-    },
-    {
-      field: 'serviceDate',
-      headerName: 'تاريخ الخدمة',
-      width: 120,
-      valueGetter: (value, row) => row?.requestDate || row?.visitDate || row?.serviceDate || '-'
-    },
-    {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 150,
-      renderCell: (params) => (
-        <Chip
-          label={params?.value === 'PENDING' ? 'معلق' : params?.value || '-'}
-          color={params?.value === 'PENDING' ? 'warning' : params?.value === 'APPROVED' ? 'success' : 'default'}
-          size="small"
-        />
-      )
-    },
-    {
-      field: 'actions',
-      headerName: 'إجراءات',
-      width: 150,
-      renderCell: (params) => params?.row?.id ? (
-        <Tooltip title="المراجعة">
-          <IconButton
-            color="primary"
-            onClick={() => navigate(`/pre-approvals/${params.row.id}`)}
-          >
-            <ViewIcon />
-          </IconButton>
-        </Tooltip>
-      ) : null
-    }
-  ];
-
-  // Columns for Claims
-  const claimColumns = [
-    {
-      field: 'claimNumber',
-      headerName: 'رقم المطالبة',
-      width: 150,
-      valueGetter: (value, row) => row?.claimNumber || `CLM-${row?.id}` || '-'
-    },
-    {
-      field: 'memberName',
-      headerName: 'المستفيد',
-      width: 200,
-      valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'
-    },
-    {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      width: 200,
-      valueGetter: (value, row) => row?.providerName || '-'
-    },
-    {
-      field: 'doctorName',
-      headerName: 'الطبيب',
-      width: 150,
-      valueGetter: (value, row) => row?.doctorName || '-'
-    },
-    {
-      field: 'totalAmount',
-      headerName: 'المبلغ',
-      width: 120,
-      valueGetter: (value, row) => {
-        const amount = row?.totalAmount || row?.requestedAmount;
-        return amount ? `${Number(amount).toLocaleString()} د.ل` : '-';
-      }
-    },
-    {
-      field: 'serviceDate',
-      headerName: 'التاريخ',
-      width: 120,
-      valueGetter: (value, row) => row?.serviceDate || row?.visitDate || '-'
-    },
-    {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 150,
-      renderCell: (params) => (
-        <Chip
-          label={params?.row?.statusLabel || params?.value || '-'}
-          color={params?.value === 'SUBMITTED' ? 'info' : params?.value === 'UNDER_REVIEW' ? 'warning' : 'default'}
-          size="small"
-        />
-      )
-    },
-    {
-      field: 'actions',
-      headerName: 'إجراءات',
-      width: 150,
-      renderCell: (params) => params?.row?.id ? (
-        <Tooltip title="المراجعة">
-          <IconButton
-            color="primary"
-            onClick={() => navigate(`/claims/${params.row.id}`)}
-          >
-            <ViewIcon />
-          </IconButton>
-        </Tooltip>
-      ) : null
-    }
-  ];
+  // Loading Skeleton
+  const TableSkeleton = () => (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <TableRow key={i}>
+          <TableCell><Skeleton /></TableCell>
+          <TableCell><Skeleton /></TableCell>
+          <TableCell><Skeleton /></TableCell>
+          <TableCell><Skeleton /></TableCell>
+          <TableCell><Skeleton /></TableCell>
+          <TableCell><Skeleton width={60} /></TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
 
   return (
     <>
@@ -312,18 +200,62 @@ const ApprovalsDashboard = () => {
               <PreApprovalIcon color="warning" />
               <Typography variant="h5">آخر طلبات الموافقة المسبقة</Typography>
             </Stack>
-            <Box sx={{ height: 350, width: '100%' }}>
-              <DataGrid
-                rows={preApprovals}
-                columns={preAuthColumns}
-                loading={loading}
-                pageSize={5}
-                rowsPerPageOptions={[5]}
-                disableSelectionOnClick
-                autoHeight={false}
-                sx={{ bgcolor: 'background.paper' }}
-              />
-            </Box>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'grey.50' }}>
+                    <TableCell><strong>رقم الطلب</strong></TableCell>
+                    <TableCell><strong>المستفيد</strong></TableCell>
+                    <TableCell><strong>مقدم الخدمة</strong></TableCell>
+                    <TableCell><strong>الخدمة</strong></TableCell>
+                    <TableCell><strong>التاريخ</strong></TableCell>
+                    <TableCell align="center"><strong>الحالة</strong></TableCell>
+                    <TableCell align="center"><strong>إجراء</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableSkeleton />
+                  ) : preApprovals.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          لا توجد طلبات موافقة مسبقة معلقة
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    preApprovals.slice(0, 5).map((row) => (
+                      <TableRow key={row.id} hover>
+                        <TableCell>{row?.referenceNumber || `PA-${row?.id}` || '-'}</TableCell>
+                        <TableCell>{row?.memberName || row?.member?.name || '-'}</TableCell>
+                        <TableCell>{row?.providerName || row?.provider?.name || '-'}</TableCell>
+                        <TableCell>{row?.serviceName || row?.serviceCode || '-'}</TableCell>
+                        <TableCell>{row?.requestDate || row?.visitDate || row?.serviceDate || '-'}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={row?.status === 'PENDING' ? 'معلق' : row?.status || '-'}
+                            color={row?.status === 'PENDING' ? 'warning' : row?.status === 'APPROVED' ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="المراجعة">
+                            <IconButton
+                              color="primary"
+                              size="small"
+                              onClick={() => navigate(`/pre-approvals/${row.id}`)}
+                            >
+                              <ViewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
 
           <Divider />
@@ -334,18 +266,67 @@ const ApprovalsDashboard = () => {
               <ClaimIcon color="info" />
               <Typography variant="h5">آخر المطالبات الواردة</Typography>
             </Stack>
-            <Box sx={{ height: 350, width: '100%' }}>
-              <DataGrid
-                rows={claims}
-                columns={claimColumns}
-                loading={loading}
-                pageSize={5}
-                rowsPerPageOptions={[5]}
-                disableSelectionOnClick
-                autoHeight={false}
-                sx={{ bgcolor: 'background.paper' }}
-              />
-            </Box>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'grey.50' }}>
+                    <TableCell><strong>رقم المطالبة</strong></TableCell>
+                    <TableCell><strong>المستفيد</strong></TableCell>
+                    <TableCell><strong>مقدم الخدمة</strong></TableCell>
+                    <TableCell><strong>الطبيب</strong></TableCell>
+                    <TableCell><strong>المبلغ</strong></TableCell>
+                    <TableCell><strong>التاريخ</strong></TableCell>
+                    <TableCell align="center"><strong>الحالة</strong></TableCell>
+                    <TableCell align="center"><strong>إجراء</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableSkeleton />
+                  ) : claims.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          لا توجد مطالبات للمراجعة
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    claims.slice(0, 5).map((row) => {
+                      const amount = row?.totalAmount || row?.requestedAmount;
+                      return (
+                        <TableRow key={row.id} hover>
+                          <TableCell>{row?.claimNumber || `CLM-${row?.id}` || '-'}</TableCell>
+                          <TableCell>{row?.memberName || row?.memberFullName || '-'}</TableCell>
+                          <TableCell>{row?.providerName || '-'}</TableCell>
+                          <TableCell>{row?.doctorName || '-'}</TableCell>
+                          <TableCell>{amount ? `${Number(amount).toLocaleString()} د.ل` : '-'}</TableCell>
+                          <TableCell>{row?.serviceDate || row?.visitDate || '-'}</TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={row?.statusLabel || row?.status || '-'}
+                              color={row?.status === 'SUBMITTED' ? 'info' : row?.status === 'UNDER_REVIEW' ? 'warning' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="المراجعة">
+                              <IconButton
+                                color="primary"
+                                size="small"
+                                onClick={() => navigate(`/claims/${row.id}`)}
+                              >
+                                <ViewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         </Stack>
 

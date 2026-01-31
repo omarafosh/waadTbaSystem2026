@@ -17,7 +17,6 @@ import { TrendingUp, TrendingDown, CheckCircle, Cancel, Pending, Warning, Schedu
 import { PieChart } from '@mui/x-charts/PieChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { BarChart } from '@mui/x-charts/BarChart';
-import { DataGrid } from '@mui/x-data-grid';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/ar';
@@ -25,7 +24,7 @@ import 'dayjs/locale/ar';
 dayjs.extend(relativeTime);
 dayjs.locale('ar');
 
-// ============================|| STATS CARD ||============================ //
+// ===========================|| STATS CARD ||============================ //
 
 export const StatsCard = ({ title, value, change, icon: Icon, color = 'primary', prefix = '', suffix = '' }) => {
   const isPositive = change > 0;
@@ -176,68 +175,6 @@ StatusDistributionChart.propTypes = {
 // ============================|| HIGH PRIORITY QUEUE ||============================ //
 
 export const HighPriorityQueue = ({ data, loading, onView, onEdit, onDelete }) => {
-  const columns = [
-    {
-      field: 'referenceNumber',
-      headerName: 'الرقم المرجعي',
-      flex: 1,
-      minWidth: 150
-    },
-    {
-      field: 'memberName',
-      headerName: 'المريض',
-      flex: 1,
-      minWidth: 150
-    },
-    {
-      field: 'priority',
-      headerName: 'الأولوية',
-      width: 120,
-      renderCell: (params) => {
-        const color = params.value === 'EMERGENCY' ? 'error' : 'warning';
-        const label = params.value === 'EMERGENCY' ? 'طارئ' : 'عاجل';
-        return <Chip label={label} color={color} size="small" />;
-      }
-    },
-    {
-      field: 'requestedAmount',
-      headerName: 'المبلغ',
-      width: 120,
-      renderCell: (params) => <Typography variant="body2">{params.value?.toLocaleString('en-US')} ر.س</Typography>
-    },
-    {
-      field: 'submittedDate',
-      headerName: 'تاريخ التقديم',
-      width: 140,
-      renderCell: (params) => dayjs(params.value).format('YYYY/MM/DD')
-    },
-    {
-      field: 'actions',
-      headerName: 'إجراءات',
-      width: 150,
-      sortable: false,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="عرض">
-            <IconButton size="small" onClick={() => onView?.(params.row)}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" onClick={() => onEdit?.(params.row)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <IconButton size="small" color="error" onClick={() => onDelete?.(params.row)}>
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      )
-    }
-  ];
-
   return (
     <Card>
       <CardHeader
@@ -246,27 +183,91 @@ export const HighPriorityQueue = ({ data, loading, onView, onEdit, onDelete }) =
         action={<Chip label={`${data?.length || 0} طلب`} color="warning" size="small" />}
       />
       <CardContent>
-        <DataGrid
-          rows={data || []}
-          columns={columns}
-          loading={loading}
-          autoHeight
-          pageSize={5}
-          rowsPerPageOptions={[5]}
-          disableSelectionOnClick
-          sx={{
-            '& .MuiDataGrid-root': {
-              border: 'none'
-            },
-            '& .MuiDataGrid-cell': {
-              borderBottom: '1px solid #f0f0f0'
-            },
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: '#fafafa',
-              borderBottom: '2px solid #e0e0e0'
-            }
-          }}
-        />
+        <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#fafafa', borderBottom: '2px solid #e0e0e0' }}>
+                <th style={{ padding: '12px 8px', textAlign: 'right' }}>الرقم المرجعي</th>
+                <th style={{ padding: '12px 8px', textAlign: 'right' }}>المريض</th>
+                <th style={{ padding: '12px 8px', textAlign: 'center' }}>الأولوية</th>
+                <th style={{ padding: '12px 8px', textAlign: 'right' }}>المبلغ</th>
+                <th style={{ padding: '12px 8px', textAlign: 'right' }}>تاريخ التقديم</th>
+                <th style={{ padding: '12px 8px', textAlign: 'center' }}>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
+                    <LinearProgress />
+                  </td>
+                </tr>
+              ) : !data || data.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
+                    <Typography color="text.secondary">لا توجد طلبات عاجلة</Typography>
+                  </td>
+                </tr>
+              ) : (
+                data.slice(0, 5).map((row) => {
+                  const priorityColor = row.priority === 'EMERGENCY' ? 'error' : 'warning';
+                  const priorityLabel = row.priority === 'EMERGENCY' ? 'طارئ' : 'عاجل';
+
+                  return (
+                    <tr
+                      key={row.id}
+                      style={{
+                        borderBottom: '1px solid #f0f0f0',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <td style={{ padding: '12px 8px' }}>
+                        <Typography variant="body2">{row.referenceNumber || '—'}</Typography>
+                      </td>
+                      <td style={{ padding: '12px 8px' }}>
+                        <Typography variant="body2">{row.memberName || '—'}</Typography>
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <Chip label={priorityLabel} color={priorityColor} size="small" />
+                      </td>
+                      <td style={{ padding: '12px 8px' }}>
+                        <Typography variant="body2">
+                          {row.requestedAmount?.toLocaleString('en-US')} ر.س
+                        </Typography>
+                      </td>
+                      <td style={{ padding: '12px 8px' }}>
+                        <Typography variant="body2">
+                          {dayjs(row.submittedDate).format('YYYY/MM/DD')}
+                        </Typography>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          <Tooltip title="عرض">
+                            <IconButton size="small" onClick={() => onView?.(row)}>
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="تعديل">
+                            <IconButton size="small" onClick={() => onEdit?.(row)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="حذف">
+                            <IconButton size="small" color="error" onClick={() => onDelete?.(row)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -334,7 +335,7 @@ export const ExpiringSoonAlerts = ({ data, loading, withinDays = 7 }) => {
                   <Stack alignItems="center" spacing={0.5}>
                     <Chip icon={<Schedule />} label={`${daysLeft} يوم`} color={isUrgent ? 'error' : 'warning'} size="small" />
                     <Typography variant="caption" color="text.secondary">
-                      ينتهي {dayjs(item.expiryDate).format('YYYY/MM/DD')}
+                      ينته يوم {dayjs(item.expiryDate).format('YYYY/MM/DD')}
                     </Typography>
                   </Stack>
                 </Stack>
