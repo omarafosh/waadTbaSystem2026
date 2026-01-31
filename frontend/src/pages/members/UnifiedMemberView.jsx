@@ -69,7 +69,7 @@ import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import { getMember, deleteMember, addDependent, MEMBER_TYPES, GENDERS, RELATIONSHIPS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
-import RBACGuard from 'components/tba/RBACGuard';
+import { RBACGuard, MemberAvatar } from '../../components/tba';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
 /**
@@ -354,16 +354,10 @@ const UnifiedMemberView = () => {
             {tabValue === 0 && (
               <Grid container spacing={3}>
                 {/* Column 1 (Right in RTL): Photo & Status */}
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', height: '100%', bgcolor: 'grey.50' }}>
                     <Stack alignItems="center" spacing={2} justifyContent="center" sx={{ height: '100%' }}>
-                      <Avatar
-                        src={`/api/unified-members/${member.id}/photo`}
-                        alt={member.fullName}
-                        sx={{ width: 140, height: 140, fontSize: '3rem', bgcolor: 'primary.main', border: '3px solid', borderColor: 'primary.light' }}
-                      >
-                        {member.fullName?.charAt(0)}
-                      </Avatar>
+                      <MemberAvatar member={member} size={140} />
                       <Stack direction="row" spacing={1} justifyContent="center" sx={{ width: '100%' }}>
                         <Chip
                           label={isPrincipal ? 'رئيسي' : 'تابع'}
@@ -381,72 +375,72 @@ const UnifiedMemberView = () => {
                 </Grid>
 
                 {/* Column 2 (Center in RTL): Personal Details (Wider) */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={3} sx={{ height: '100%', justifyContent: 'center', py: 1 }}>
-                     <Grid container spacing={3}>
-                        {/* Row 1 */}
-                        <Grid item xs={12} md={8}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>الاسم الكامل</Typography>
-                                <Typography variant="h5" fontWeight="bold">{member.fullName}</Typography>
-                             </Box>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>الرقم الوطني</Typography>
-                                <Typography variant="h6" fontFamily="monospace" sx={{ letterSpacing: 1 }}>{member.nationalNumber || '-'}</Typography>
-                             </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12}><Divider /></Grid>
+                    <Grid container spacing={3}>
+                      {/* Row 1 */}
+                      <Grid size={{ xs: 12, md: 8 }}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>الاسم الكامل</Typography>
+                          <Typography variant="h5" fontWeight="bold">{member.fullName}</Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>الرقم الوطني</Typography>
+                          <Typography variant="h6" fontFamily="monospace" sx={{ letterSpacing: 1 }}>{member.nationalNumber || '-'}</Typography>
+                        </Box>
+                      </Grid>
 
-                        {/* Row 2 */}
-                        <Grid item xs={6} md={3}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">تاريخ الميلاد</Typography>
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                                    <CakeIcon fontSize="small" color="action" />
-                                    <Typography variant="subtitle1" fontWeight="medium">{member.birthDate || '-'}</Typography>
-                                </Stack>
-                             </Box>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">الجنس</Typography>
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                                    <WcIcon fontSize="small" color="action" />
-                                    <Typography variant="subtitle1" fontWeight="medium">
-                                        {member.gender === GENDERS.MALE ? 'ذكر' : member.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
-                                    </Typography>
-                                </Stack>
-                             </Box>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">الحالة الاجتماعية</Typography>
-                                <Box sx={{ mt: 0.5 }}>
-                                    <Chip 
-                                        label={
-                                            member.maritalStatus === 'SINGLE' ? 'أعزب' :
-                                            member.maritalStatus === 'MARRIED' ? 'متزوج' :
-                                            member.maritalStatus === 'DIVORCED' ? 'مطلق' :
-                                            member.maritalStatus === 'WIDOWED' ? 'أرمل' : 
-                                            member.maritalStatus || 'غير محدد'
-                                        } 
-                                        size="small" 
-                                        variant="outlined"
-                                        color="default"
-                                    />
-                                </Box>
-                             </Box>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">الجنسية</Typography>
-                                <Typography variant="subtitle1" fontWeight="medium" sx={{ mt: 0.5 }}>{member.nationality || '-'}</Typography>
-                             </Box>
-                        </Grid>
-                     </Grid>
+                      <Grid size={{ xs: 12 }}><Divider /></Grid>
+
+                      {/* Row 2 */}
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary">تاريخ الميلاد</Typography>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+                            <CakeIcon fontSize="small" color="action" />
+                            <Typography variant="subtitle1" fontWeight="medium">{member.birthDate || '-'}</Typography>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary">الجنس</Typography>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+                            <WcIcon fontSize="small" color="action" />
+                            <Typography variant="subtitle1" fontWeight="medium">
+                              {member.gender === GENDERS.MALE ? 'ذكر' : member.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary">الحالة الاجتماعية</Typography>
+                          <Box sx={{ mt: 0.5 }}>
+                            <Chip
+                              label={
+                                member.maritalStatus === 'SINGLE' ? 'أعزب' :
+                                  member.maritalStatus === 'MARRIED' ? 'متزوج' :
+                                    member.maritalStatus === 'DIVORCED' ? 'مطلق' :
+                                      member.maritalStatus === 'WIDOWED' ? 'أرمل' :
+                                        member.maritalStatus || 'غير محدد'
+                              }
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary">الجنسية</Typography>
+                          <Typography variant="subtitle1" fontWeight="medium" sx={{ mt: 0.5 }}>{member.nationality || '-'}</Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
 
                     {/* Notes (if any) */}
                     {member.notes && (
@@ -461,26 +455,32 @@ const UnifiedMemberView = () => {
                 </Grid>
 
                 {/* Column 3 (Left in RTL): Cards */}
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Stack spacing={2} sx={{ height: '100%' }}>
                     <Paper elevation={0} variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Stack spacing={1} alignItems="center" sx={{ width: '100%', textAlign: 'center' }}>
                         <Stack direction="row" alignItems="center" spacing={1}>
-                            <CreditCardIcon color="secondary" />
-                            <Typography variant="body2" color="text.secondary">رقم البطاقة</Typography>
+                          <CreditCardIcon color="secondary" />
+                          <Typography variant="body2" color="text.secondary">رقم البطاقة</Typography>
                         </Stack>
-                        <Typography variant="h6" fontWeight="medium" fontFamily="monospace">{member.cardNumber || '-'}</Typography>
+                        <Chip
+                          label={member.cardNumber || '-'}
+                          variant="outlined"
+                          color="secondary"
+                          size="medium"
+                          sx={{ fontWeight: 'bold', fontFamily: 'monospace', px: 1 }}
+                        />
                       </Stack>
                     </Paper>
 
                     {isPrincipal && (
                       <Paper elevation={0} variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: member.barcode ? 'primary.lighter' : 'transparent' }}>
                         <Stack spacing={1} alignItems="center" sx={{ width: '100%', textAlign: 'center' }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                                <QrCodeIcon color="primary" />
-                                <Typography variant="body2" color="text.secondary">Barcode</Typography>
-                            </Stack>
-                            <Typography variant="h6" color="primary.main" fontWeight="bold">{member.barcode || '-'}</Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <QrCodeIcon color="primary" />
+                            <Typography variant="body2" color="text.secondary">Barcode</Typography>
+                          </Stack>
+                          <Typography variant="h6" color="primary.main" fontWeight="bold">{member.barcode || '-'}</Typography>
                         </Stack>
                       </Paper>
                     )}
@@ -494,7 +494,7 @@ const UnifiedMemberView = () => {
           <div role="tabpanel" hidden={tabValue !== 1}>
             {tabValue === 1 && isPrincipal && (
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack direction="row" spacing={2} alignItems="center">
                     <BusinessIcon color="action" />
                     <Box>
@@ -504,7 +504,7 @@ const UnifiedMemberView = () => {
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={1}>
                     <Typography variant="body2" color="text.secondary">البوليصة</Typography>
                     <Stack direction="row" spacing={1}>
@@ -514,21 +514,21 @@ const UnifiedMemberView = () => {
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={1}>
                     <Typography variant="body2" color="text.secondary">الرقم الوظيفي</Typography>
                     <Typography variant="subtitle1" fontFamily="monospace">{member.employeeNumber || '-'}</Typography>
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={1}>
                     <Typography variant="body2" color="text.secondary">المهنة</Typography>
                     <Typography variant="subtitle1" fontWeight="medium">{member.occupation || '-'}</Typography>
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={1}>
                     <Typography variant="body2" color="text.secondary">تاريخ الالتحاق</Typography>
                     <Typography variant="subtitle1" fontWeight="medium">{member.joinDate || '-'}</Typography>
@@ -542,7 +542,7 @@ const UnifiedMemberView = () => {
           <div role="tabpanel" hidden={tabValue !== (isPrincipal ? 2 : 1)}>
             {(tabValue === (isPrincipal ? 2 : 1)) && (
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <PhoneIcon color="action" />
                     <Stack spacing={0.5}>
@@ -552,7 +552,7 @@ const UnifiedMemberView = () => {
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <EmailIcon color="action" />
                     <Stack spacing={0.5}>
@@ -562,7 +562,7 @@ const UnifiedMemberView = () => {
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
                     <Typography variant="subtitle2" color="text.secondary">العنوان</Typography>
                     <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{member.address || '-'}</Typography>
@@ -589,7 +589,7 @@ const UnifiedMemberView = () => {
 
                   <Grid container spacing={2} alignItems="flex-start">
                     {/* Full Name */}
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <TextField
                         fullWidth
                         required
@@ -599,12 +599,13 @@ const UnifiedMemberView = () => {
                         error={!!depErrors.fullName}
                         helperText={depErrors.fullName}
                         size="small"
+                        sx={{ minWidth: 220 }}
                       />
                     </Grid>
 
                     {/* Relationship */}
-                    <Grid item xs={12} md={2}>
-                      <FormControl fullWidth required error={!!depErrors.relationship} size="small" sx={{ minWidth: 120 }}>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                      <FormControl fullWidth required error={!!depErrors.relationship} size="small" sx={{ minWidth: 150 }}>
                         <InputLabel>القرابة</InputLabel>
                         <Select
                           value={newDependent.relationship}
@@ -629,8 +630,8 @@ const UnifiedMemberView = () => {
                     </Grid>
 
                     {/* Gender */}
-                    <Grid item xs={12} md={1.5}>
-                      <FormControl fullWidth required error={!!depErrors.gender} size="small" sx={{ minWidth: 100 }}>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                      <FormControl fullWidth required error={!!depErrors.gender} size="small" sx={{ minWidth: 130 }}>
                         <InputLabel>الجنس</InputLabel>
                         <Select
                           value={newDependent.gender}
@@ -648,30 +649,31 @@ const UnifiedMemberView = () => {
                     </Grid>
 
                     {/* Marital Status (Optional) */}
-                    <Grid item xs={12} md={1.5}>
-                        <FormControl fullWidth size="small">
-                            <InputLabel>الحالة الاجتماعية</InputLabel>
-                            <Select
-                                value={newDependent.maritalStatus}
-                                onChange={handleDepFieldChange('maritalStatus')}
-                                label="الحالة الاجتماعية"
-                            >
-                                <MenuItem value=""><em>غير محدد</em></MenuItem>
-                                <MenuItem value="SINGLE">أعزب</MenuItem>
-                                <MenuItem value="MARRIED">متزوج</MenuItem>
-                            </Select>
-                        </FormControl>
+                    <Grid item xs={12} md={2}>
+                      <FormControl fullWidth size="small" sx={{ minWidth: 130 }}>
+                        <InputLabel>الحالة الاجتماعية</InputLabel>
+                        <Select
+                          value={newDependent.maritalStatus}
+                          onChange={handleDepFieldChange('maritalStatus')}
+                          label="الحالة الاجتماعية"
+                        >
+                          <MenuItem value=""><em>غير محدد</em></MenuItem>
+                          <MenuItem value="SINGLE">أعزب</MenuItem>
+                          <MenuItem value="MARRIED">متزوج</MenuItem>
+                        </Select>
+                      </FormControl>
                     </Grid>
 
                     {/* Nationality (Default Libyan) */}
                     <Grid item xs={12} md={2}>
-                        <TextField
-                           fullWidth
-                           label="الجنسية"
-                           value={newDependent.nationality}
-                           onChange={handleDepFieldChange('nationality')}
-                           size="small"
-                        />
+                      <TextField
+                        fullWidth
+                        label="الجنسية"
+                        value={newDependent.nationality}
+                        onChange={handleDepFieldChange('nationality')}
+                        size="small"
+                        sx={{ minWidth: 120 }}
+                      />
                     </Grid>
 
                     {/* Birth Date */}
@@ -686,7 +688,8 @@ const UnifiedMemberView = () => {
                             fullWidth: true,
                             size: 'small',
                             error: !!depErrors.birthDate,
-                            helperText: depErrors.birthDate
+                            helperText: depErrors.birthDate,
+                            sx: { minWidth: 150 }
                           }
                         }}
                       />
@@ -701,21 +704,23 @@ const UnifiedMemberView = () => {
                         onChange={handleDepFieldChange('nationalNumber')}
                         placeholder="اختياري"
                         size="small"
+                        sx={{ minWidth: 150 }}
                       />
                     </Grid>
 
                     {/* Action Button */}
-                    <Grid item xs={12} md={1.5}>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        startIcon={addingDependent ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                        onClick={handleAddDependentSubmit}
-                        disabled={addingDependent}
-                        sx={{ height: 40, whiteSpace: 'nowrap' }}
-                      >
-                        إضافة التابع
-                      </Button>
+                    <Grid item xs={12} md={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          startIcon={addingDependent ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                          onClick={handleAddDependentSubmit}
+                          disabled={addingDependent}
+                          sx={{ height: 40, px: 4 }}
+                        >
+                          إضافة التابع
+                        </Button>
+                      </Box>
                     </Grid>
                   </Grid>
                 </Paper>

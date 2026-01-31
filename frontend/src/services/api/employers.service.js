@@ -319,6 +319,19 @@ export const getEmployers = async (params = {}) => {
   try {
     console.debug('[EmployerService] Fetching all employers...', params);
     const response = await axiosClient.get(BASE_URL, { params });
+
+    const data = response?.data?.data || response?.data;
+
+    // Handle Page response (New)
+    if (data && data.content && Array.isArray(data.content)) {
+      return {
+        content: normalizeEmployerArrayResponse(data.content),
+        totalElements: data.totalElements,
+        totalPages: data.totalPages
+      };
+    }
+
+    // Handle List response (Legacy)
     const rawData = unwrapArray(response);
     return normalizeEmployerArrayResponse(rawData);
   } catch (error) {

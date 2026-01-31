@@ -18,15 +18,19 @@ import Typography from './typography';
 
 export default function ThemeCustomization({ children }) {
   const { state } = useConfig();
+  // Get Company Settings to access primaryColor
   const { settings } = useCompanySettings();
 
   // Prioritize local user preference (state), then company settings, then default
   const fontFamily = state.fontFamily || settings?.fontFamily;
   const fontSize = state.fontSize || settings?.fontSize || 12;
 
+  // Use company primary color if available
+  const primaryColor = settings?.primaryColor;
+
   const themeTypography = useMemo(() => Typography(fontFamily, fontSize), [fontFamily, fontSize]);
 
-  const palette = useMemo(() => buildPalette(state.presetColor), [state.presetColor]);
+  const palette = useMemo(() => buildPalette(state.presetColor, primaryColor), [state.presetColor, primaryColor]);
 
   const themeOptions = useMemo(
     () => ({

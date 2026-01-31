@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,6 +35,8 @@ import com.waad.tba.modules.benefitpolicy.repository.BenefitPolicyRepository;
 import com.waad.tba.modules.member.dto.MemberImportPreviewDto;
 import com.waad.tba.modules.member.dto.MemberImportPreviewDto.ImportValidationErrorDto;
 import com.waad.tba.modules.member.dto.MemberImportPreviewDto.MemberImportRowDto;
+import com.waad.tba.modules.member.dto.MemberCreateDto;
+import com.waad.tba.modules.member.dto.MemberViewDto;
 import com.waad.tba.modules.member.dto.MemberImportResultDto;
 import com.waad.tba.modules.member.dto.MemberImportResultDto.ImportErrorDetailDto;
 import com.waad.tba.modules.member.entity.Member;
@@ -48,9 +51,9 @@ import com.waad.tba.modules.member.repository.MemberAttributeRepository;
 import com.waad.tba.modules.member.repository.MemberImportErrorRepository;
 import com.waad.tba.modules.member.repository.MemberImportLogRepository;
 import com.waad.tba.modules.member.repository.MemberRepository;
-import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.enums.OrganizationType;
 import com.waad.tba.common.repository.OrganizationRepository;
+import com.waad.tba.common.entity.Organization;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.security.AuthorizationService;
 
@@ -58,6 +61,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.waad.tba.modules.member.service.BarcodeGeneratorService;
+import com.waad.tba.modules.member.service.UnifiedMemberService;
 
 /**
  * Service for importing members from Excel files.
@@ -91,7 +95,17 @@ public class MemberExcelImportService {
     private final OrganizationRepository organizationRepository;
     private final AuthorizationService authorizationService;
     private final ObjectMapper objectMapper;
-    private final BarcodeGeneratorService barcodeGeneratorService; // RADICAL FIX: Enforce canonical barcode on import
+    private final BarcodeGeneratorService barcodeGeneratorService;
+    private final com.waad.tba.common.excel.service.ExcelParserService parserService;
+    private final UnifiedMemberService unifiedMemberService;
+
+    // Self-injection for Propagation.REQUIRES_NEW visibility
+    private MemberExcelImportService self;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setSelf(@org.springframework.context.annotation.Lazy MemberExcelImportService self) {
+        this.self = self;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // COLUMN MAPPINGS (Odoo Compatible + Enhanced Arabic Support)
@@ -121,8 +135,8 @@ public class MemberExcelImportService {
      * NOTE: card_number is IGNORED
      */
     private static final Map<String, String[]> OPTIONAL_FIELD_MAPPINGS = Map.ofEntries(
-            // Civil ID - الرقم الوطني
-            Map.entry("civilId", new String[] {
+            // National Number - الرقم الوطني
+            Map.entry("nationalNumber", new String[] {
                     "national_id", "identification_id", "civil_id", "civilid", "national_number",
                     "id_number", "identity_number",
                     "الرقم الوطني", "رقم الهوية", "الرقم المدني", "رقم البطاقة الشخصية",
@@ -244,7 +258,20 @@ public class MemberExcelImportService {
      * mappings).
      */
     public MemberImportPreviewDto parseAndPreview(MultipartFile file) throws Exception {
-        return parseAndPreview(file, null);
+        return parseAndPreview(file, (String) null, 0);
+    }
+
+    /**
+     * Parse Excel file and return preview using Map for custom mappings (Backward
+     * compatibility).
+     */
+    public MemberImportPreviewDto parseAndPreview(MultipartFile file, Map<String, String> customMappings)
+            throws Exception {
+        String json = null;
+        if (customMappings != null) {
+            json = objectMapper.writeValueAsString(customMappings);
+        }
+        return parseAndPreview(file, json, 0);
     }
 
     /**
@@ -260,11 +287,13 @@ public class MemberExcelImportService {
      * @param customMappings Optional map of Excel column names to system field
      *                       names
      */
-    public MemberImportPreviewDto parseAndPreview(MultipartFile file, Map<String, String> customMappings)
+    @Transactional(readOnly = true)
+    public MemberImportPreviewDto parseAndPreview(MultipartFile file, String customMappingsJson, Integer headerRowNumber)
             throws Exception {
-        log.info("📊 Parsing Excel file for preview: {} (custom mappings: {})",
-                file.getOriginalFilename(), customMappings != null ? "yes" : "auto");
+        log.info("📊 Parsing Excel file for preview: {} (headerRow: {}, has custom mappings: {})",
+                file.getOriginalFilename(), headerRowNumber, (customMappingsJson != null && !customMappingsJson.isBlank()));
 
+        int hRow = headerRowNumber != null ? headerRowNumber : 0;
         String batchId = UUID.randomUUID().toString();
         List<MemberImportRowDto> previewRows = new ArrayList<>();
         List<ImportValidationErrorDto> validationErrors = new ArrayList<>();
@@ -272,21 +301,30 @@ public class MemberExcelImportService {
         Map<String, String> columnMappings = new LinkedHashMap<>();
         List<String> detectedColumns = new ArrayList<>();
 
+        // Parse custom mappings if provided
+        Map<String, String> customMappings = null;
+        if (customMappingsJson != null && !customMappingsJson.isBlank()) {
+            try {
+                customMappings = objectMapper.readValue(customMappingsJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+            } catch (Exception e) {
+                log.warn("Failed to parse custom mappings JSON: {}", customMappingsJson);
+            }
+        }
+
         int newCount = 0;
         int updateCount = 0;
         int warningCount = 0;
         int errorCount = 0;
 
-        try (InputStream is = file.getInputStream();
-                Workbook workbook = new XSSFWorkbook(is)) {
+        try (Workbook workbook = parserService.openWorkbook(file)) {
 
-            Sheet sheet = workbook.getSheetAt(0);
-            int totalRows = sheet.getLastRowNum(); // Excluding header
+            Sheet sheet = parserService.getDataSheet(workbook);
+            int totalRows = sheet.getLastRowNum();
 
             // Parse header row
-            Row headerRow = sheet.getRow(0);
+            Row headerRow = sheet.getRow(hRow);
             if (headerRow == null) {
-                throw new BusinessRuleException("Excel file has no header row");
+                throw new BusinessRuleException("Excel file has no header row at row " + hRow);
             }
 
             Map<Integer, String> columnIndexToName = new HashMap<>();
@@ -295,7 +333,7 @@ public class MemberExcelImportService {
             // Build column index map first
             for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                 Cell cell = headerRow.getCell(i);
-                String colName = getCellStringValue(cell);
+                String colName = parserService.getCellValueAsString(cell);
                 if (colName == null)
                     colName = "";
                 columnIndexToName.put(i, colName.trim().toLowerCase());
@@ -310,11 +348,11 @@ public class MemberExcelImportService {
                     String excelColumn = entry.getKey().trim().toLowerCase();
                     String systemField = entry.getValue();
 
-                    // Find column index by name
-                    Integer columnIndex = findColumnIndexByName(excelColumn, columnIndexToName);
+                    // Find column index using parserService logic
+                    Integer columnIndex = parserService.findColumnIndex(headerRow, excelColumn);
                     if (columnIndex != null) {
                         fieldToColumnIndex.put(systemField, columnIndex);
-                        columnMappings.put(systemField, excelColumn);
+                        columnMappings.put(excelColumn, systemField);
                         log.debug("  ✓ Mapped '{}' → {}", excelColumn, systemField);
                     } else {
                         log.warn("  ⚠ Excel column '{}' not found in file", excelColumn);
@@ -338,9 +376,9 @@ public class MemberExcelImportService {
             int previewLimit = Math.min(totalRows, 50);
             Set<String> seenCardNumbers = new HashSet<>();
 
-            for (int rowNum = 1; rowNum <= totalRows; rowNum++) {
+            for (int rowNum = hRow + 1; rowNum <= totalRows; rowNum++) {
                 Row row = sheet.getRow(rowNum);
-                if (row == null || isEmptyRow(row))
+                if (row == null || parserService.isEmptyRow(row))
                     continue;
 
                 MemberImportRowDto rowDto = parseRow(row, rowNum, fieldToColumnIndex,
@@ -385,14 +423,14 @@ public class MemberExcelImportService {
                 warnings.add(String.format("%d صف بها أخطاء - سيتم تخطيها", errorCount));
             }
 
-            // NEW: Load available employers for selection
-            List<Employer> allEmployers = employerRepository.findAll();
+            // NEW: Load available employers for selection (Organization Canonical Model)
+            List<Organization> allEmployers = organizationRepository.findByTypeAndActiveTrueAndArchivedFalse(OrganizationType.EMPLOYER);
             List<MemberImportPreviewDto.EmployerOptionDto> employerOptions = allEmployers.stream()
                     .map(e -> MemberImportPreviewDto.EmployerOptionDto.builder()
                             .id(e.getId())
                             .code(e.getCode())
-                            .nameAr(e.getNameAr())
-                            .active(e.getActive())
+                            .nameAr(e.getName()) // Using unified name field
+                            .active(e.isActive())
                             .build())
                     .toList();
 
@@ -436,6 +474,18 @@ public class MemberExcelImportService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
+     * Execute import without header row number (Backward compatibility).
+     */
+    @Transactional
+    public MemberImportResultDto executeImport(
+            MultipartFile file,
+            String batchId,
+            Long employerId,
+            Long benefitPolicyId) throws Exception {
+        return executeImport(file, batchId, employerId, benefitPolicyId, 0);
+    }
+
+    /**
      * Execute import after user confirmation.
      * 
      * @param file            Excel file
@@ -448,10 +498,24 @@ public class MemberExcelImportService {
             MultipartFile file,
             String batchId,
             Long employerId,
-            Long benefitPolicyId) throws Exception {
+            Long benefitPolicyId,
+            Integer headerRowNumber) throws Exception {
 
-        log.info("📥 Executing member import: batchId={}, file={}, employer={}, policy={}",
-                batchId, file.getOriginalFilename(), employerId, benefitPolicyId);
+        log.info("📥 Executing member import: batchId={}, headerRow={}, file={}, employer={}, policy={}",
+                batchId, headerRowNumber, file.getOriginalFilename(), employerId, benefitPolicyId);
+
+        int hRow = headerRowNumber != null ? headerRowNumber : 0;
+
+        // ENSURE SEQUENCES EXIST (Real-time Fail-safe)
+        try {
+            barcodeGeneratorService.ensureSequencesExist();
+        } catch (Exception e) {
+            log.warn("Non-critical: Self-healing check failed: {}", e.getMessage());
+        }
+
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("الملف المرفق فارغ");
+        }
 
         // Validate employer exists (REQUIRED)
         if (employerId == null) {
@@ -478,17 +542,8 @@ public class MemberExcelImportService {
 
         User currentUser = authorizationService.getCurrentUser();
 
-        // Create import log
-        MemberImportLog importLog = MemberImportLog.builder()
-                .importBatchId(batchId)
-                .fileName(file.getOriginalFilename())
-                .fileSizeBytes(file.getSize())
-                .status(ImportStatus.PROCESSING)
-                .importedByUserId(currentUser != null ? currentUser.getId() : null)
-                .importedByUsername(currentUser != null ? currentUser.getUsername() : "system")
-                .build();
-        importLog.markStarted();
-        importLog = importLogRepository.save(importLog);
+        // RADICAL FIX: Create log in a separate transaction so it's visible to error logging transactions
+        MemberImportLog importLog = self.createImportLog(batchId, file.getOriginalFilename(), file.getSize(), currentUser);
 
         List<ImportErrorDetailDto> errors = new ArrayList<>();
         int totalProcessed = 0;
@@ -497,29 +552,30 @@ public class MemberExcelImportService {
         int skippedCount = 0;
         int errorCount = 0;
 
-        try (InputStream is = file.getInputStream();
-                Workbook workbook = new XSSFWorkbook(is)) {
+        try (Workbook workbook = parserService.openWorkbook(file)) {
 
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = parserService.getDataSheet(workbook);
             int totalRows = sheet.getLastRowNum();
-            importLog.setTotalRows(totalRows);
+            importLog.setTotalRows(totalRows - hRow);
 
             // Parse header
-            Row headerRow = sheet.getRow(0);
+            Row headerRow = sheet.getRow(hRow);
             Map<Integer, String> columnIndexToName = new HashMap<>();
             Map<String, Integer> fieldToColumnIndex = new HashMap<>();
             Map<String, String> columnMappings = new LinkedHashMap<>();
 
             for (int i = 0; i < headerRow.getLastCellNum(); i++) {
-                String colName = getCellStringValue(headerRow.getCell(i)).trim().toLowerCase();
+                String colName = parserService.getCellValueAsString(headerRow.getCell(i));
+                if (colName == null) colName = "";
+                colName = colName.trim().toLowerCase();
                 columnIndexToName.put(i, colName);
                 mapColumnToField(colName, i, fieldToColumnIndex, columnMappings);
             }
 
             // Process rows
-            for (int rowNum = 1; rowNum <= totalRows; rowNum++) {
+            for (int rowNum = hRow + 1; rowNum <= totalRows; rowNum++) {
                 Row row = sheet.getRow(rowNum);
-                if (row == null || isEmptyRow(row)) {
+                if (row == null || parserService.isEmptyRow(row)) {
                     skippedCount++;
                     continue;
                 }
@@ -527,8 +583,10 @@ public class MemberExcelImportService {
                 totalProcessed++;
 
                 try {
-                    ImportRowResult result = processRow(row, rowNum, fieldToColumnIndex,
-                            columnIndexToName, importLog, employerOrg, benefitPolicy);
+                    // RADICAL FIX: Process each row in its own transaction. Pass IDs instead of Entities
+                    // to ensure they are correctly attached to the NEW transaction persistence context.
+                    ImportRowResult result = self.processRow(row, rowNum, fieldToColumnIndex,
+                            columnIndexToName, importLog.getId(), employerId, benefitPolicyId);
 
                     if (result.isCreated()) {
                         createdCount++;
@@ -546,14 +604,18 @@ public class MemberExcelImportService {
                     importLog.incrementError();
 
                     String rowJson = rowToJson(row, columnIndexToName);
-                    MemberImportError error = MemberImportError.systemError(
-                            importLog, rowNum, e.getMessage(), rowJson);
-                    importErrorRepository.save(error);
+                    String errorMsg = e.getMessage() != null ? e.getMessage() : e.toString();
+                    log.error("❌ Row {} failed: {}", rowNum, errorMsg);
+                    
+                    // RADICAL FIX: Use self-invocation with REQUIRES_NEW to save error even if main transaction is aborted
+                    self.saveImportError(importLog.getId(), rowNum, errorMsg, rowJson);
 
-                    errors.add(ImportErrorDetailDto.builder()
+                    errors.add(MemberImportResultDto.ImportErrorDetailDto.builder()
                             .rowNumber(rowNum)
                             .errorType("SYSTEM")
-                            .message(e.getMessage())
+                            .message(errorMsg)
+                            .messageAr(errorMsg) // For Frontend
+                            .messageEn(errorMsg) // For Frontend
                             .build());
                 }
             }
@@ -565,6 +627,14 @@ public class MemberExcelImportService {
             importLog.setErrorCount(errorCount);
             importLog.markCompleted();
             importLogRepository.save(importLog);
+
+            // Populate Summary for Frontend
+            MemberImportResultDto.ImportSummary summary = MemberImportResultDto.ImportSummary.builder()
+                    .total(totalProcessed)
+                    .created(createdCount)
+                    .updated(updatedCount)
+                    .failed(errorCount)
+                    .build();
 
             double successRate = totalProcessed > 0
                     ? (double) (createdCount + updatedCount) / totalProcessed * 100
@@ -579,6 +649,7 @@ public class MemberExcelImportService {
             return MemberImportResultDto.builder()
                     .batchId(batchId)
                     .status(importLog.getStatus().name())
+                    .summary(summary) // NEW
                     .totalProcessed(totalProcessed)
                     .createdCount(createdCount)
                     .updatedCount(updatedCount)
@@ -703,6 +774,7 @@ public class MemberExcelImportService {
         String cardNumber = getFieldValue(row, fieldToColumnIndex, "cardNumber");
         String fullName = getFieldValue(row, fieldToColumnIndex, "fullName");
         String employerName = getFieldValue(row, fieldToColumnIndex, "employer");
+        String nationalNumber = getFieldValue(row, fieldToColumnIndex, "nationalNumber");
 
         // ═══════════════════════════════════════════════════════════════════════════
         // CRITICAL VALIDATIONS (ERROR) - These block import
@@ -735,22 +807,19 @@ public class MemberExcelImportService {
                     .build());
             hasError = true;
         } else {
-            // Check if employer exists
-            Optional<Employer> employerOpt = employerRepository.findByNameIgnoreCase(employerName);
-            if (employerOpt.isEmpty()) {
-                List<Employer> matches = employerRepository.findByNameContainingIgnoreCase(employerName);
-                if (matches.isEmpty()) {
-                    rowWarnings.add(
-                            "جهة العمل غير موجودة: " + employerName + " - يرجى التأكد من الاسم أو الكود");
-                    validationErrors.add(ImportValidationErrorDto.builder()
-                            .rowNumber(rowNum)
-                            .field("employer")
-                            .value(employerName)
-                            .message("جهة العمل غير موجودة - Employer not found: " + employerName)
-                            .severity("WARNING")
-                            .build());
-                    hasWarning = true;
-                }
+            // Check if employer exists (Using Organization Canonical Model)
+            List<Organization> matches = organizationRepository.searchByType(employerName, OrganizationType.EMPLOYER);
+            if (matches.isEmpty()) {
+                rowWarnings.add(
+                        "جهة العمل غير موجودة: " + employerName + " - يرجى التأكد من الاسم أو الكود");
+                validationErrors.add(ImportValidationErrorDto.builder()
+                        .rowNumber(rowNum)
+                        .field("employer")
+                        .value(employerName)
+                        .message("جهة العمل غير موجودة - Employer not found: " + employerName)
+                        .severity("WARNING")
+                        .build());
+                hasWarning = true;
             }
         }
 
@@ -767,7 +836,7 @@ public class MemberExcelImportService {
         for (Map.Entry<String, Integer> entry : fieldToColumnIndex.entrySet()) {
             if (entry.getKey().startsWith("attr:")) {
                 String attrCode = entry.getKey().substring(5);
-                String attrValue = getCellStringValue(row.getCell(entry.getValue()));
+                String attrValue = parserService.getCellValueAsString(row.getCell(entry.getValue()));
                 if (attrValue != null && !attrValue.isBlank()) {
                     attributes.put(attrCode, attrValue);
                 }
@@ -786,6 +855,7 @@ public class MemberExcelImportService {
                 .rowNumber(rowNum)
                 .cardNumber(cardNumber)
                 .fullName(fullName)
+                .nationalNumber(nationalNumber)
                 .employerName(employerName)
                 .attributes(attributes)
                 .status(status)
@@ -794,29 +864,25 @@ public class MemberExcelImportService {
                 .build();
     }
 
-    /**
-     * Process a single row for import.
-     * 
-     * SIMPLIFIED VALIDATION (Phase 2 Enhancement):
-     * - Only fullName is truly mandatory
-     * - employerOrg and benefitPolicy come from user selection (parameters)
-     * - civilId is optional (for matching existing members)
-     * - Card Number is auto-generated if not exists
-     * - Other fields are imported as available
-     * 
-     * @param employerOrg   Pre-selected employer organization (REQUIRED)
-     * @param benefitPolicy Pre-selected benefit policy (OPTIONAL)
-     */
-    private ImportRowResult processRow(Row row, int rowNum,
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ImportRowResult processRow(Row row, int rowNum,
             Map<String, Integer> fieldToColumnIndex,
             Map<Integer, String> columnIndexToName,
-            MemberImportLog importLog,
-            Organization employerOrg,
-            BenefitPolicy benefitPolicy) {
+            Long importLogId,
+            Long employerId,
+            Long benefitPolicyId) {
+
+        MemberImportLog importLog = importLogRepository.findById(importLogId).orElse(null);
+        Organization employerOrg = organizationRepository.findById(employerId).orElse(null);
+        BenefitPolicy benefitPolicy = benefitPolicyId != null ? benefitPolicyRepository.findById(benefitPolicyId).orElse(null) : null;
+
+        if (importLog == null || employerOrg == null) {
+            throw new RuntimeException("Missing required context for row processing (Log or Employer)");
+        }
 
         // Extract fields
         String fullName = getFieldValue(row, fieldToColumnIndex, "fullName");
-        String civilId = getFieldValue(row, fieldToColumnIndex, "civilId"); // Optional
+        String nationalNumber = getFieldValue(row, fieldToColumnIndex, "nationalNumber"); // Fixed: matching preview DTO
 
         // CRITICAL VALIDATION - Only fullName is truly required
         if (fullName == null || fullName.isBlank()) {
@@ -824,11 +890,33 @@ public class MemberExcelImportService {
             return ImportRowResult.skipped();
         }
 
-        // Check if member already exists by civilId (if provided)
+        // Check if member already exists (SMART DETECTION)
         Member existingMember = null;
-        if (civilId != null && !civilId.isBlank()) {
-            List<Member> existingMembers = memberRepository.findByCivilId(civilId);
-            existingMember = existingMembers.isEmpty() ? null : existingMembers.get(0);
+        
+        // 1. Try by nationalNumber (Highest priority)
+        if (nationalNumber != null && !nationalNumber.isBlank()) {
+            List<Member> byNationalNumber = memberRepository.findByNationalNumber(nationalNumber);
+            if (byNationalNumber.isEmpty()) {
+                byNationalNumber = memberRepository.findByCivilId(nationalNumber);
+            }
+            existingMember = byNationalNumber.isEmpty() ? null : byNationalNumber.get(0);
+        }
+
+        // 2. Try by Name + BirthDate + Employer (Fallback for accurate matching without ID)
+        if (existingMember == null && fullName != null && !fullName.isBlank()) {
+            String birthDateStr = getFieldValue(row, fieldToColumnIndex, "birthDate");
+            if (birthDateStr != null && !birthDateStr.isBlank()) {
+                try {
+                    LocalDate birthDate = parseDate(birthDateStr);
+                    if (birthDate != null) {
+                        List<Member> byNameAndBirthDetail = memberRepository.findByFullNameAndBirthDateAndEmployerOrganizationId(
+                                fullName, birthDate, employerOrg.getId());
+                        existingMember = byNameAndBirthDetail.isEmpty() ? null : byNameAndBirthDetail.get(0);
+                    }
+                } catch (Exception e) {
+                    // Ignore parse error here, will be handled during member population
+                }
+            }
         }
 
         Member member;
@@ -840,26 +928,52 @@ public class MemberExcelImportService {
             member.setFullName(fullName);
             isUpdate = true;
 
-            log.debug("🔄 Updating existing member: civilId={}, id={}", civilId, member.getId());
+            log.debug("🔄 Updating existing member: nationalNumber={}, id={}", nationalNumber, member.getId());
 
         } else {
-            // CREATE new member
-            member = Member.builder()
+            // CREATE new member using UNIFIED SERVICE to ensure correct card numbering/barcode
+            MemberCreateDto createDto = MemberCreateDto.builder()
                     .fullName(fullName)
-                    .employerOrganization(employerOrg) // From user selection
-                    .benefitPolicy(benefitPolicy) // From user selection (optional)
+                    .employerId(employerOrg.getId())
+                    .benefitPolicyId(benefitPolicyId)
                     .status(MemberStatus.ACTIVE)
                     .cardStatus(Member.CardStatus.ACTIVE)
                     .active(true)
-                    .barcode(barcodeGeneratorService.generate()) // RADICAL FIX: Generate Canonical Barcode
+                    .employeeNumber(getFieldValue(row, fieldToColumnIndex, "employeeNumber"))
+                    .nationalNumber(nationalNumber)
+                    .phone(getFieldValue(row, fieldToColumnIndex, "phone"))
+                    .email(getFieldValue(row, fieldToColumnIndex, "email"))
                     .build();
 
-            log.debug("✨ Creating new member: fullName={}", fullName);
+            MemberViewDto created = unifiedMemberService.createPrincipalMember(createDto);
+            member = memberRepository.findById(created.getId())
+                    .orElseThrow(() -> new RuntimeException("Failed to reload created member"));
+            
+            log.info("✨ Created NEW member via Unified Service: id={}, cardNumber={}, barcode={}", 
+                     member.getId(), member.getCardNumber(), member.getBarcode());
         }
 
-        // Set optional fields (do NOT fail if missing)
-        if (civilId != null && !civilId.isBlank()) {
-            member.setCivilId(civilId);
+        // Set/Update fields not covered by basic create or for updates
+        if (isUpdate) {
+            // Phone
+            String phone = getFieldValue(row, fieldToColumnIndex, "phone");
+            if (phone != null && !phone.isBlank()) {
+                member.setPhone(phone);
+            }
+            // Email
+            String email = getFieldValue(row, fieldToColumnIndex, "email");
+            if (email != null && !email.isBlank()) {
+                member.setEmail(email);
+            }
+            // National Number
+            if (nationalNumber != null && !nationalNumber.isBlank()) {
+                member.setNationalNumber(nationalNumber);
+            }
+            // Employee Number
+            String employeeNumber = getFieldValue(row, fieldToColumnIndex, "employeeNumber");
+            if (employeeNumber != null && !employeeNumber.isBlank()) {
+                member.setEmployeeNumber(employeeNumber);
+            }
         }
 
         // Birth Date
@@ -928,7 +1042,12 @@ public class MemberExcelImportService {
         }
 
         // Save member (Card Number will be auto-generated via @PrePersist if null)
-        member = memberRepository.save(member);
+        try {
+            member = memberRepository.save(member);
+        } catch (Exception e) {
+            log.error("❌ Error saving member in row {}: {}", rowNum, e.getMessage());
+            throw e;
+        }
 
         log.info("✅ Row {}: {} member: id={}, name={}, cardNumber={}",
                 rowNum,
@@ -960,49 +1079,41 @@ public class MemberExcelImportService {
         attributeRepository.save(attr);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public MemberImportLog createImportLog(String batchId, String fileName, long fileSize, User currentUser) {
+        MemberImportLog importLog = MemberImportLog.builder()
+                .importBatchId(batchId)
+                .fileName(fileName)
+                .fileSizeBytes(fileSize)
+                .status(ImportStatus.PROCESSING)
+                .importedByUserId(currentUser != null ? currentUser.getId() : null)
+                .importedByUsername(currentUser != null ? currentUser.getUsername() : "system")
+                .build();
+        importLog.markStarted();
+        return importLogRepository.save(importLog);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveImportError(Long logId, int rowNum, String message, String rowData) {
+        try {
+            MemberImportLog log = importLogRepository.findById(logId).orElse(null);
+            if (log != null) {
+                MemberImportError error = MemberImportError.systemError(log, rowNum, message, rowData);
+                importErrorRepository.save(error);
+            }
+        } catch (Exception e) {
+            // Last resort: log to console if even this fails
+            log.error("❌ Failed to save import error to database: {}", e.getMessage());
+        }
+    }
+
     private String getFieldValue(Row row, Map<String, Integer> fieldToColumnIndex, String field) {
         Integer colIndex = fieldToColumnIndex.get(field);
         if (colIndex == null)
             return null;
-        return getCellStringValue(row.getCell(colIndex));
+        return parserService.getCellValueAsString(row.getCell(colIndex));
     }
 
-    private String getCellStringValue(Cell cell) {
-        if (cell == null)
-            return null;
-
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue();
-            case NUMERIC -> {
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    yield cell.getLocalDateTimeCellValue().toLocalDate().toString();
-                }
-                yield String.valueOf((long) cell.getNumericCellValue());
-            }
-            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-            case FORMULA -> {
-                try {
-                    yield cell.getStringCellValue();
-                } catch (Exception e) {
-                    yield String.valueOf(cell.getNumericCellValue());
-                }
-            }
-            default -> null;
-        };
-    }
-
-    private boolean isEmptyRow(Row row) {
-        for (int i = 0; i < row.getLastCellNum(); i++) {
-            Cell cell = row.getCell(i);
-            if (cell != null && cell.getCellType() != CellType.BLANK) {
-                String value = getCellStringValue(cell);
-                if (value != null && !value.isBlank()) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
 
     private Gender parseGender(String value) {
         if (value == null || value.isBlank())
@@ -1049,7 +1160,7 @@ public class MemberExcelImportService {
     private String rowToJson(Row row, Map<Integer, String> columnIndexToName) {
         Map<String, String> data = new HashMap<>();
         for (Map.Entry<Integer, String> entry : columnIndexToName.entrySet()) {
-            String value = getCellStringValue(row.getCell(entry.getKey()));
+            String value = parserService.getCellValueAsString(row.getCell(entry.getKey()));
             if (value != null) {
                 data.put(entry.getValue(), value);
             }

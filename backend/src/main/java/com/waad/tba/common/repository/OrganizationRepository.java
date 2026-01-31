@@ -44,6 +44,16 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                      @Param("type") OrganizationType type,
                      Pageable pageable);
 
+       @Query("SELECT o FROM Organization o WHERE o.type = :type AND o.archived = :archived AND " +
+               "(LOWER(o.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+               "LOWER(o.code) LIKE LOWER(CONCAT('%', :search, '%')))")
+       Page<Organization> searchByTypeAndArchived(@Param("search") String search,
+                                            @Param("type") OrganizationType type,
+                                            @Param("archived") boolean archived,
+                                            Pageable pageable);
+
+       Page<Organization> findByTypeAndArchived(OrganizationType type, boolean archived, Pageable pageable);
+
        Page<Organization> findByTypeAndActiveTrue(OrganizationType type, Pageable pageable);
 
        long countByType(OrganizationType type);

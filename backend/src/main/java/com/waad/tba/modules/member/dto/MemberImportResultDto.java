@@ -17,53 +17,37 @@ import java.util.List;
 @AllArgsConstructor
 public class MemberImportResultDto {
     
-    /**
-     * Batch ID for tracking
-     */
     private String batchId;
+    private String status;
     
-    /**
-     * Import status
-     */
-    private String status;  // COMPLETED, PARTIAL, FAILED
+    // Statistics for Frontend compatibility
+    private ImportSummary summary;
     
-    /**
-     * Statistics
-     */
+    // Legacy mapping (kept for safety)
     private int totalProcessed;
     private int createdCount;
     private int updatedCount;
     private int skippedCount;
     private int errorCount;
     
-    /**
-     * Processing time in milliseconds
-     */
     private long processingTimeMs;
-    
-    /**
-     * Completion timestamp
-     */
     private LocalDateTime completedAt;
-    
-    /**
-     * Success rate percentage
-     */
     private double successRate;
     
-    /**
-     * Error details (if any)
-     */
     private List<ImportErrorDetailDto> errors;
-    
-    /**
-     * Summary message
-     */
     private String message;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ImportSummary {
+        private int total;
+        private int created;
+        private int updated;
+        private int failed;
+    }
     
-    /**
-     * Error detail
-     */
     @Data
     @Builder
     @NoArgsConstructor
@@ -73,6 +57,8 @@ public class MemberImportResultDto {
         private String nationalId;
         private String errorType;
         private String field;
-        private String message;
+        private String message;   // Legacy
+        private String messageAr; // Expected by Frontend
+        private String messageEn; // Expected by Frontend
     }
 }

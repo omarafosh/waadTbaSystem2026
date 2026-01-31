@@ -323,6 +323,21 @@ public class UnifiedMemberService {
         log.info("♻️ Member restored: id={}, dependents={}", member.getId(), dependents.size());
     }
 
+    /**
+     * Physically delete a member from the database
+     */
+    @Transactional
+    public void hardDeleteMember(Long id) {
+        Member member = memberRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + id));
+
+        // Note: CascadeType.ALL and orphanRemoval=true in Member entity 
+        // will handle dependent deletion automatically if we delete the parent.
+        memberRepository.delete(member);
+        
+        log.info("💀 Member physically deleted from database: id={}", id);
+    }
+
     @Transactional(readOnly = true)
     public FamilyEligibilityResponseDto checkFamilyEligibility(String query) {
         String cleanQuery = query != null ? query.trim() : "";

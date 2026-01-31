@@ -254,7 +254,7 @@ const AddDependent = () => {
 
           <Grid container spacing={2} alignItems="flex-start">
             {/* Full Name - Wider */}
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 required
@@ -264,12 +264,13 @@ const AddDependent = () => {
                 error={!!errors.fullName}
                 helperText={errors.fullName}
                 size="small"
+                sx={{ minWidth: 220 }}
               />
             </Grid>
 
             {/* Relationship */}
             <Grid item xs={12} md={2}>
-              <FormControl fullWidth required error={!!errors.relationship} size="small" sx={{ minWidth: 120 }}>
+              <FormControl fullWidth required error={!!errors.relationship} size="small" sx={{ minWidth: 150 }}>
                 <InputLabel>القرابة</InputLabel>
                 <Select
                   value={form.relationship}
@@ -294,8 +295,8 @@ const AddDependent = () => {
             </Grid>
 
             {/* Gender */}
-            <Grid item xs={12} md={1.5}>
-              <FormControl fullWidth required error={!!errors.gender} size="small" sx={{ minWidth: 100 }}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth required error={!!errors.gender} size="small" sx={{ minWidth: 130 }}>
                 <InputLabel>الجنس</InputLabel>
                 <Select
                   value={form.gender}
@@ -324,7 +325,8 @@ const AddDependent = () => {
                     fullWidth: true,
                     size: 'small',
                     error: !!errors.birthDate,
-                    helperText: errors.birthDate
+                    helperText: errors.birthDate,
+                    sx: { minWidth: 150 }
                   }
                 }}
               />
@@ -339,21 +341,23 @@ const AddDependent = () => {
                 onChange={handleFieldChange('nationalNumber')}
                 placeholder="اختياري"
                 size="small"
+                sx={{ minWidth: 150 }}
               />
             </Grid>
 
             {/* Action Button */}
-            <Grid item xs={12} md={1.5}>
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                onClick={handleSubmit}
-                disabled={saving}
-                sx={{ height: 40, whiteSpace: 'nowrap' }}
-              >
-                إضافة التابع
-              </Button>
+            <Grid item xs={12} md={12} sx={{ mt: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  sx={{ height: 40, px: 4 }}
+                >
+                  إضافة التابع
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </Paper>

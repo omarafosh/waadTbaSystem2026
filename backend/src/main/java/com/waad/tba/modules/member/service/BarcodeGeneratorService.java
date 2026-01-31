@@ -3,6 +3,7 @@ package com.waad.tba.modules.member.service;
 import java.time.Year;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.waad.tba.modules.member.repository.MemberRepository;
@@ -39,6 +40,24 @@ public class BarcodeGeneratorService {
     
     private final MemberRepository memberRepository;
     private final com.waad.tba.modules.company.repository.CompanyRepository companyRepository;
+
+    /**
+     * SELF-HEALING: Ensure required sequences exist in the database.
+     * This solves the issue of missed migrations when they are merged into 
+     * already-applied Flyway files.
+     */
+    @jakarta.annotation.PostConstruct
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void ensureSequencesExist() {
+        log.info("🛡️ Checking database sequences for self-healing...");
+        try {
+            entityManager.createNativeQuery("CREATE SEQUENCE IF NOT EXISTS member_barcode_seq START WITH 1000 INCREMENT BY 1").executeUpdate();
+            entityManager.createNativeQuery("CREATE SEQUENCE IF NOT EXISTS seq_smart_card_random_id START WITH 100000 INCREMENT BY 1").executeUpdate();
+            log.info("✅ Database sequences are ready.");
+        } catch (Exception e) {
+            log.warn("⚠️ Self-healing sequence creation failed (they might already exist): {}", e.getMessage());
+        }
+    }
 
     /**
      * Generate barcode for PRINCIPAL members only.

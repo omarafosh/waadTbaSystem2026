@@ -54,6 +54,27 @@ public class EmployerService {
     /**
      * Get all active, non-archived employers
      */
+    /**
+     * Get all active, non-archived employers (Paginated & Searchable)
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<EmployerResponseDto> getAll(org.springframework.data.domain.Pageable pageable, String search, Boolean deleted) {
+        boolean isArchived = Boolean.TRUE.equals(deleted);
+        
+        org.springframework.data.domain.Page<Organization> page;
+        
+        if (search != null && !search.trim().isEmpty()) {
+            page = organizationRepository.searchByTypeAndArchived(search.trim(), OrganizationType.EMPLOYER, isArchived, pageable);
+        } else {
+            page = organizationRepository.findByTypeAndArchived(OrganizationType.EMPLOYER, isArchived, pageable);
+        }
+
+        return page.map(this::mapToResponseWithPolicy);
+    }
+
+    /**
+     * Get all active, non-archived employers (Legacy List)
+     */
     @Transactional(readOnly = true)
     public List<EmployerResponseDto> getAll(Boolean deleted) {
         if (Boolean.TRUE.equals(deleted)) {

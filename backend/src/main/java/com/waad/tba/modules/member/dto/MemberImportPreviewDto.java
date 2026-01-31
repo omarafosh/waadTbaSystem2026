@@ -105,6 +105,7 @@ public class MemberImportPreviewDto {
         private int rowNumber;
         private String cardNumber;
         private String fullName;
+        private String nationalNumber;
         private String employerName;
         /**
          * Row status:

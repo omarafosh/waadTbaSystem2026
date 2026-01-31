@@ -18,35 +18,42 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@lombok.RequiredArgsConstructor
 public class ExcelColumnMappingService {
+
+    private final com.waad.tba.common.excel.service.ExcelParserService parserService;
 
     /**
      * Field definitions with Arabic and English labels
      */
     private static final Map<String, FieldDefinition> FIELD_DEFINITIONS = new HashMap<>() {{
-        put("civilId", new FieldDefinition("civilId", "الرقم المدني", "Civil ID", 
-            Arrays.asList("civil id", "civilid", "رقم مدني", "national id", "id number", "رقم", "معرف")));
+        put("nationalNumber", new FieldDefinition("nationalNumber", "الرقم الوطني", "National Number", 
+            Arrays.asList("national number", "national_number", "national id", "civil id", "civilid", "رقم مدني", "رقم", "معرف", "الرقم الوطني", "civil_id")));
         put("fullName", new FieldDefinition("fullName", "الاسم الكامل", "Full Name",
-            Arrays.asList("full name", "fullname", "name", "اسم", "الاسم", "اسم كامل")));
+            Arrays.asList("full name", "fullname", "name", "اسم", "الاسم", "اسم كامل", "الاسم الكامل", "full_name")));
         put("email", new FieldDefinition("email", "البريد الإلكتروني", "Email",
-            Arrays.asList("email", "e-mail", "بريد", "بريد إلكتروني", "ايميل")));
+            Arrays.asList("email", "e-mail", "بريد", "بريد إلكتروني", "ايميل", "البريد الإلكتروني")));
         put("phone", new FieldDefinition("phone", "رقم الهاتف", "Phone",
-            Arrays.asList("phone", "mobile", "tel", "telephone", "هاتف", "جوال", "موبايل")));
+            Arrays.asList("phone", "mobile", "tel", "telephone", "هاتف", "جوال", "موبايل", "رقم الهاتف")));
         put("dateOfBirth", new FieldDefinition("dateOfBirth", "تاريخ الميلاد", "Date of Birth",
-            Arrays.asList("dob", "birth date", "date of birth", "تاريخ ميلاد", "ميلاد")));
+            Arrays.asList("dob", "birth date", "date of birth", "تاريخ ميلاد", "ميلاد", "تاريخ الميلاد", "birth_date")));
         put("gender", new FieldDefinition("gender", "الجنس", "Gender",
-            Arrays.asList("gender", "sex", "جنس")));
+            Arrays.asList("gender", "sex", "جنس", "الجنس")));
         put("policyNumber", new FieldDefinition("policyNumber", "رقم البوليصة", "Policy Number",
-            Arrays.asList("policy", "policy number", "بوليصة", "رقم بوليصة")));
-        put("employerId", new FieldDefinition("employerId", "رقم جهة العمل", "Employer ID",
-            Arrays.asList("employer", "employer id", "company", "جهة عمل", "شركة")));
+            Arrays.asList("policy", "policy number", "بوليصة", "رقم بوليصة", "رقم الوثيقة", "policy_number")));
+        put("employer", new FieldDefinition("employer", "جهة العمل", "Employer",
+            Arrays.asList("employer", "employer id", "company", "جهة عمل", "جهة العمل", "شركة", "اسم جهة العمل")));
+        put("nationality", new FieldDefinition("nationality", "الجنسية", "Nationality",
+            Arrays.asList("nationality", "nation", "جنسية", "الجنسية")));
+        put("employeeNumber", new FieldDefinition("employeeNumber", "الرقم الوظيفي", "Employee Number",
+            Arrays.asList("employee number", "emp number", "badge id", "رقم وظيفي", "الرقم الوظيفي", "employee_number")));
     }};
 
     /**
      * Required fields for Member import
      */
     private static final Set<String> REQUIRED_FIELDS = new HashSet<>(Arrays.asList(
-        "civilId", "fullName"
+        "fullName", "employer"
     ));
 
     /**
@@ -55,23 +62,25 @@ public class ExcelColumnMappingService {
     public ExcelColumnDetectionDto detectColumns(MultipartFile file) throws IOException {
         log.info("[ExcelColumnMapping] Detecting columns from file: {}", file.getOriginalFilename());
 
-        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
+        try (Workbook workbook = parserService.openWorkbook(file)) {
+            Sheet sheet = parserService.getDataSheet(workbook);
             
-            // Read header row (assume first row)
-            Row headerRow = sheet.getRow(0);
+            // Scan for header row (check first 10 rows)
+            int headerRowIndex = findHeaderRow(sheet);
+            Row headerRow = sheet.getRow(headerRowIndex);
+            
             if (headerRow == null) {
-                throw new IllegalArgumentException("Excel file has no header row");
+                throw new IllegalArgumentException("لا يمكن العثور على صف العناوين في ملف Excel");
             }
 
             List<String> columnHeaders = readRow(headerRow);
-            log.info("[ExcelColumnMapping] Found {} columns", columnHeaders.size());
+            log.info("[ExcelColumnMapping] Found {} columns at row {}", columnHeaders.size(), headerRowIndex);
 
             // Generate suggestions for each column
-            List<ExcelMappingSuggestionDto> suggestions = generateSuggestions(columnHeaders, sheet);
+            List<ExcelMappingSuggestionDto> suggestions = generateSuggestions(columnHeaders, sheet, headerRowIndex);
 
             // Read preview rows (next 3 rows after header)
-            List<ExcelPreviewRowDto> previewRows = readPreviewRows(sheet, 1, 3);
+            List<ExcelPreviewRowDto> previewRows = readPreviewRows(sheet, headerRowIndex + 1, 3);
 
             // Find missing required fields
             Set<String> mappedFields = suggestions.stream()
@@ -105,7 +114,7 @@ public class ExcelColumnMappingService {
                 .sheetName(sheet.getSheetName())
                 .totalRows(sheet.getLastRowNum() + 1)
                 .totalColumns(columnHeaders.size())
-                .headerRowNumber(0)
+                .headerRowNumber(headerRowIndex)
                 .columnHeaders(columnHeaders)
                 .suggestions(suggestions)
                 .previewRows(previewRows)
@@ -119,14 +128,64 @@ public class ExcelColumnMappingService {
     }
 
     /**
+     * Find the most likely header row by scanning first 10 rows
+     */
+    private int findHeaderRow(Sheet sheet) {
+        int bestRow = 0;
+        int maxMatches = -1;
+
+        for (int i = 0; i <= Math.min(sheet.getLastRowNum(), 15); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) continue;
+
+            int matches = 0;
+            int totalTextLength = 0;
+            int cellCount = 0;
+
+            for (int c = 0; c < row.getLastCellNum(); c++) {
+                String cellValue = getCellValueAsString(row.getCell(c));
+                if (cellValue == null || cellValue.trim().isEmpty()) continue;
+
+                cellCount++;
+                totalTextLength += cellValue.length();
+                String normalized = normalizeText(cellValue);
+                for (FieldDefinition def : FIELD_DEFINITIONS.values()) {
+                    for (String keyword : def.getKeywords()) {
+                        if (normalized.equals(normalizeText(keyword))) {
+                            matches++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // SMART FILTER: A header row shouldn't have rows with very long descriptions (instructions)
+            // If the average cell length is too high (> 30 chars), it's likely an instruction row, not headers
+            double avgLength = cellCount > 0 ? (double) totalTextLength / cellCount : 0;
+            if (avgLength > 35) {
+                log.debug("[ExcelColumnMapping] Skipping row {} - looks like instructions (avg length: {})", i, avgLength);
+                continue;
+            }
+
+            if (matches > maxMatches) {
+                maxMatches = matches;
+                bestRow = i;
+            }
+        }
+
+        log.info("[ExcelColumnMapping] Best header row found: {} with {} matches", bestRow, maxMatches);
+        return bestRow;
+    }
+
+    /**
      * Generate mapping suggestions for each column
      */
-    private List<ExcelMappingSuggestionDto> generateSuggestions(List<String> columnHeaders, Sheet sheet) {
+    private List<ExcelMappingSuggestionDto> generateSuggestions(List<String> columnHeaders, Sheet sheet, int headerRowIndex) {
         List<ExcelMappingSuggestionDto> suggestions = new ArrayList<>();
 
         for (int i = 0; i < columnHeaders.size(); i++) {
             String header = columnHeaders.get(i);
-            String sampleValue = getSampleValue(sheet, i);
+            String sampleValue = getSampleValue(sheet, i, headerRowIndex);
             
             ExcelMappingSuggestionDto suggestion = suggestMapping(i, header, sampleValue);
             suggestions.add(suggestion);
@@ -350,8 +409,8 @@ public class ExcelColumnMappingService {
     /**
      * Get sample value from column (first non-empty value after header)
      */
-    private String getSampleValue(Sheet sheet, int columnIndex) {
-        for (int rowNum = 1; rowNum <= Math.min(sheet.getLastRowNum(), 10); rowNum++) {
+    private String getSampleValue(Sheet sheet, int columnIndex, int headerRowIndex) {
+        for (int rowNum = headerRowIndex + 1; rowNum <= Math.min(sheet.getLastRowNum(), headerRowIndex + 10); rowNum++) {
             Row row = sheet.getRow(rowNum);
             if (row != null) {
                 Cell cell = row.getCell(columnIndex);

@@ -3,9 +3,11 @@
  * Pattern: Form (Right) + Table (Left)
  */
 
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { debounce } from 'lodash-es';
+import Swal from 'sweetalert2';
 
 // MUI Components
 import {
@@ -20,7 +22,8 @@ import {
   TextField,
   FormControlLabel,
   Switch,
-  Alert
+  Alert,
+  InputAdornment
 } from '@mui/material';
 
 // MUI Icons
@@ -34,6 +37,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PolicyIcon from '@mui/icons-material/Policy';
 import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import SearchIcon from '@mui/icons-material/Search';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -71,12 +75,38 @@ const EmployersList = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Persist pagination size
+  const savedPageSize = localStorage.getItem('employers_pageSize');
 
   const tableState = useTableState({
-    initialPageSize: 15, // Increased to fill the vertical space
+    initialPageSize: savedPageSize ? parseInt(savedPageSize, 10) : 15,
     defaultSort: { field: 'id', direction: 'desc' },
     initialFilters: {}
   });
+
+  // Save page size when it changes
+  useEffect(() => {
+    localStorage.setItem('employers_pageSize', tableState.pageSize);
+  }, [tableState.pageSize]);
+
+  // Debounced Search Handler
+  const handleSearchChange = useMemo(
+    () =>
+      debounce((value) => {
+        setSearchTerm(value);
+        tableState.setPage(0); // Reset to first page on search
+      }, 500),
+    [tableState]
+  );
+
+  // Clean up debounce
+  useEffect(() => {
+    return () => {
+      handleSearchChange.cancel();
+    }
+  }, [handleSearchChange]);
 
   // ========================================
   // FORM HANDLERS
@@ -143,14 +173,35 @@ const EmployersList = () => {
 
   const handleDelete = useCallback(
     async (id, name) => {
-      if (!window.confirm(`هل أنت متأكد من نقل جهة العمل "${name}" إلى المحذوفات؟`)) return;
+      const result = await Swal.fire({
+        title: 'هل أنت متأكد؟',
+        text: `سيتم نقل جهة العمل "${name}" إلى سلة المحذوفات`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'نعم، احذفها',
+        cancelButtonText: 'إلغاء'
+      });
+
+      if (!result.isConfirmed) return;
 
       try {
         await archiveEmployer(id);
-        openSnackbar({ message: 'تم حذف جهة العمل بنجاح', variant: 'success' });
+
+        Swal.fire(
+          'تم الحذف!',
+          'تم نقل جهة العمل إلى سلة المحذوفات بنجاح.',
+          'success'
+        );
+
         queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       } catch (err) {
-        openSnackbar({ message: 'فشل حذف جهة العمل', variant: 'error' });
+        Swal.fire(
+          'خطأ!',
+          err.response?.data?.message || 'فشل حذف جهة العمل',
+          'error'
+        );
       }
     },
     [queryClient]
@@ -158,14 +209,35 @@ const EmployersList = () => {
 
   const handleRestore = useCallback(
     async (id, name) => {
-      if (!window.confirm(`هل تريد استعادة جهة العمل "${name}"؟`)) return;
+      const result = await Swal.fire({
+        title: 'تأكيد الاستعادة',
+        text: `هل تريد استعادة جهة العمل "${name}"؟`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'نعم، استعادة',
+        cancelButtonText: 'إلغاء'
+      });
+
+      if (!result.isConfirmed) return;
 
       try {
         await restoreEmployer(id);
-        openSnackbar({ message: 'تم استعادة جهة العمل بنجاح', variant: 'success' });
+
+        Swal.fire(
+          'تمت الاستعادة!',
+          'تم استعادة جهة العمل بنجاح.',
+          'success'
+        );
+
         queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       } catch (err) {
-        openSnackbar({ message: 'فشل استعادة جهة العمل', variant: 'error' });
+        Swal.fire(
+          'خطأ!',
+          err.response?.data?.message || 'فشل استعادة جهة العمل',
+          'error'
+        );
       }
     },
     [queryClient]
@@ -181,11 +253,12 @@ const EmployersList = () => {
   // ========================================
 
   const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, showArchived],
+    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, showArchived, searchTerm],
     queryFn: async () => {
       const params = {
         page: tableState.page,
-        size: tableState.pageSize
+        size: tableState.pageSize,
+        search: searchTerm // Backend now supports this
       };
 
       // Add Sorting
@@ -201,11 +274,21 @@ const EmployersList = () => {
 
       const result = await getEmployers(params);
 
-      let content = Array.isArray(result) ? result : (result.content || []);
+      // Employers Service now returns { content: [], totalElements: num } or Array
+      let content = [];
+      let totalElements = 0;
+
+      if (Array.isArray(result)) {
+        content = result;
+        totalElements = result.length;
+      } else if (result?.content) {
+        content = result.content;
+        totalElements = result.totalElements;
+      }
 
       return {
         content: content,
-        totalElements: result.totalElements || content.length
+        totalElements: totalElements
       };
     },
     keepPreviousData: true
@@ -229,9 +312,12 @@ const EmployersList = () => {
         accessorKey: 'name',
         header: 'الاسم',
         size: 200,
-        align: 'right',
+        align: 'right', // Align header to right
+        muiTableHeadCellProps: {
+          align: 'center', // Force header center
+        },
         cell: ({ row }) => (
-          <Stack direction="row" justifyContent="flex-start" alignItems="center" sx={{ width: '100%', height: '100%' }}>
+          <Stack direction="row" justifyContent="center" alignItems="center" sx={{ width: '100%', height: '100%' }}>
             <Typography variant="body2" fontWeight={500} textAlign="right">
               {row.original?.name}
             </Typography>
@@ -255,65 +341,69 @@ const EmployersList = () => {
         id: 'linkedPolicy',
         header: 'الوثيقة المرتبطة',
         size: 180,
-        align: 'right',
+        align: 'center', // Changed to center
         cell: ({ row }) => {
           const { activePolicyName, activePolicyId, id } = row.original;
 
           if (activePolicyName) {
             return (
-              <Tooltip title="فتح تفاصيل الوثيقة">
-                <Button
-                  size="small"
-                  variant="text"
-                  color="primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/benefit-policies/${activePolicyId}`);
-                  }}
-                  startIcon={<PolicyIcon sx={{ fontSize: '1rem !important' }} />}
-                  sx={{
-                    fontWeight: 500,
-                    textAlign: 'right',
-                    justifyContent: 'flex-start',
-                    width: '100%',
-                    px: 0
-                  }}
-                >
-                  <Typography variant="body2" sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: 150
-                  }}>
-                    {activePolicyName}
-                  </Typography>
-                </Button>
-              </Tooltip>
+              <Stack direction="row" justifyContent="center" width="100%">
+                <Tooltip title="فتح تفاصيل الوثيقة">
+                  <Button
+                    size="small"
+                    variant="text"
+                    color="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/benefit-policies/${activePolicyId}`);
+                    }}
+                    startIcon={<PolicyIcon sx={{ fontSize: '1rem !important' }} />}
+                    sx={{
+                      fontWeight: 500,
+                      textAlign: 'center',
+                      justifyContent: 'center', // Center content
+                      width: 'auto', // Auto width
+                      px: 1
+                    }}
+                  >
+                    <Typography variant="body2" sx={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: 150
+                    }}>
+                      {activePolicyName}
+                    </Typography>
+                  </Button>
+                </Tooltip>
+              </Stack>
             );
           }
 
           return (
-            <Tooltip title="الانتقال لإنشاء وثيقة لهذه الجهة">
-              <Button
-                size="small"
-                variant="text"
-                color="error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // For now redirect to list, maybe filtered?
-                  navigate('/benefit-policies');
-                }}
-                startIcon={<DescriptionIcon sx={{ fontSize: '1rem !important', opacity: 0.6 }} />}
-                endIcon={<KeyboardArrowLeftIcon sx={{ fontSize: '0.8rem !important' }} />}
-                sx={{
-                  fontSize: '0.75rem',
-                  fontWeight: 'normal',
-                  color: 'text.disabled'
-                }}
-              >
-                لا توجد وثيقة
-              </Button>
-            </Tooltip>
+            <Stack direction="row" justifyContent="center" width="100%">
+              <Tooltip title="الانتقال لإنشاء وثيقة لهذه الجهة">
+                <Button
+                  size="small"
+                  variant="text"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // For now redirect to list, maybe filtered?
+                    navigate('/benefit-policies');
+                  }}
+                  startIcon={<DescriptionIcon sx={{ fontSize: '1rem !important', opacity: 0.6 }} />}
+                  endIcon={<KeyboardArrowLeftIcon sx={{ fontSize: '0.8rem !important' }} />}
+                  sx={{
+                    fontSize: '0.75rem',
+                    fontWeight: 'normal',
+                    color: 'text.disabled'
+                  }}
+                >
+                  لا توجد وثيقة
+                </Button>
+              </Tooltip>
+            </Stack>
           );
         }
       },
@@ -362,14 +452,30 @@ const EmployersList = () => {
         breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'جهات العمل' }]}
         showAddButton={false}
         additionalActions={
-          <Button
-            variant={showArchived ? "contained" : "outlined"}
-            color={showArchived ? "error" : "inherit"}
-            startIcon={showArchived ? <RestoreFromTrashIcon /> : <DeleteIcon />}
-            onClick={toggleShowArchived}
-          >
-            {showArchived ? 'عرض النشطة' : 'المحذوفات'}
-          </Button>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              size="small"
+              placeholder="بحث عن جهة عمل..."
+              onChange={(e) => handleSearchChange(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" fontSize="small" />
+                  </InputAdornment>
+                ),
+                sx: { backgroundColor: 'background.paper', borderRadius: 1 }
+              }}
+              sx={{ width: 250 }}
+            />
+            <Button
+              variant={showArchived ? "contained" : "outlined"}
+              color={showArchived ? "error" : "inherit"}
+              startIcon={showArchived ? <RestoreFromTrashIcon /> : <DeleteIcon />}
+              onClick={toggleShowArchived}
+            >
+              {showArchived ? 'عرض النشطة' : 'المحذوفات'}
+            </Button>
+          </Stack>
         }
       />
 
@@ -480,6 +586,7 @@ const EmployersList = () => {
                 cellPadding="dense"
                 maxHeight="100%"
                 emptyMessage={showArchived ? "سلة المحذوفات فارغة" : "لا يوجد شركاء مسجلين"}
+                rowsPerPageOptions={[5, 8, 10, 15, 20, 25, 50]}
               />
             </Box>
           </MainCard>

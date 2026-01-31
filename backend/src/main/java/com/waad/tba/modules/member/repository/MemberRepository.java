@@ -250,6 +250,15 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     List<Member> findByCivilIdAndEmployerOrganizationId(@Param("civilId") String civilId, @Param("employerOrgId") Long employerOrgId);
 
     /**
+     * Find member by full name and birth date and employer organization ID (Duplicate detection fallback)
+     */
+    @Query("SELECT m FROM Member m WHERE LOWER(m.fullName) = LOWER(:fullName) AND m.birthDate = :birthDate AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByFullNameAndBirthDateAndEmployerOrganizationId(
+            @Param("fullName") String fullName, 
+            @Param("birthDate") java.time.LocalDate birthDate, 
+            @Param("employerOrgId") Long employerOrgId);
+
+    /**
      * Find member by card number and employer organization ID
      */
     @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")

@@ -75,6 +75,12 @@ public class DependentViewDto {
     @Schema(description = "Updated at", example = "2024-01-01T10:00:00")
     private LocalDateTime updatedAt;
 
+    @Schema(description = "Photo URL", example = "/api/unified-members/456/photo")
+    private String photoUrl;
+
+    @Schema(description = "Profile photo storage path", example = "members/123/photo.jpg")
+    private String profilePhotoPath;
+
     // ==================== DISPLAY FIELDS ====================
     
     /**

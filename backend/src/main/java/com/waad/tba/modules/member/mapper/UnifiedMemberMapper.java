@@ -198,7 +198,9 @@ public class UnifiedMemberMapper {
             .cardStatus(entity.getCardStatus())
             .blockedReason(entity.getBlockedReason())
             .eligibilityStatus(entity.getEligibilityStatus())
-            .photoUrl(entity.getPhotoUrl())
+            .photoUrl(entity.getProfilePhotoPath() != null && !entity.getProfilePhotoPath().isEmpty() 
+                ? "/api/unified-members/" + entity.getId() + "/photo" 
+                : entity.getPhotoUrl())
             .profilePhotoPath(entity.getProfilePhotoPath())
             .relationshipCode(entity.getRelationshipCode())
             .providerCode(entity.getProviderCode())
@@ -264,6 +266,10 @@ public class UnifiedMemberMapper {
             .notes(entity.getNotes())
             .createdAt(entity.getCreatedAt())
             .updatedAt(entity.getUpdatedAt())
+            .photoUrl(entity.getProfilePhotoPath() != null && !entity.getProfilePhotoPath().isEmpty() 
+                ? "/api/unified-members/" + entity.getId() + "/photo" 
+                : entity.getPhotoUrl())
+            .profilePhotoPath(entity.getProfilePhotoPath())
             .parentId(entity.getParent().getId())
             .parentFullName(entity.getParent().getFullName())
             .familyBarcode(entity.getFamilyBarcode()) // Inherited from principal

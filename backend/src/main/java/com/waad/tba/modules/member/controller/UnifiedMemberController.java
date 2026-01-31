@@ -33,6 +33,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.waad.tba.common.file.FileResourceUtils;
+import com.waad.tba.common.file.FileStorageService;
+import com.waad.tba.modules.member.entity.MemberDocument;
+import com.waad.tba.modules.member.entity.MemberDocument.DocumentType;
+import com.waad.tba.modules.member.service.MemberDocumentService;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -89,7 +94,8 @@ public class UnifiedMemberController {
 
     private final UnifiedMemberService unifiedMemberService;
     private final MemberFinancialSummaryService financialSummaryService;
-    private final com.waad.tba.modules.member.service.MemberDocumentService memberDocumentService;
+    private final MemberDocumentService memberDocumentService;
+    private final FileStorageService fileStorageService;
     private final PdfTemplateService pdfTemplateService;
     private final HtmlToPdfService htmlToPdfService;
 
@@ -465,11 +471,11 @@ public class UnifiedMemberController {
             description = "Members retrieved successfully",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = PaginationResponse.class)
+                schema = @Schema(implementation = ApiResponse.class)
             )
         )
     })
-    public ResponseEntity<Page<MemberViewDto>> getAllMembers(
+    public ResponseEntity<ApiResponse<Page<MemberViewDto>>> getAllMembers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "id") String sort,
@@ -491,7 +497,7 @@ public class UnifiedMemberController {
         log.info("Members retrieved: totalElements={}, totalPages={}", 
                  members.getTotalElements(), members.getTotalPages());
         
-        return ResponseEntity.ok(members);
+        return ResponseEntity.ok(ApiResponse.success(members));
     }
 
     /**
@@ -550,11 +556,11 @@ public class UnifiedMemberController {
             description = "Search completed successfully",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = PaginationResponse.class)
+                schema = @Schema(implementation = ApiResponse.class)
             )
         )
     })
-    public ResponseEntity<Page<MemberViewDto>> searchMembers(
+    public ResponseEntity<ApiResponse<Page<MemberViewDto>>> searchMembers(
             @RequestParam(required = false) String fullName,
             @RequestParam(required = false) String nameAr,
             @RequestParam(required = false) String nameEn,
@@ -587,7 +593,7 @@ public class UnifiedMemberController {
         
         log.info("Search completed: found {} results", results.getTotalElements());
         
-        return ResponseEntity.ok(results);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
     /**
@@ -827,9 +833,21 @@ public class UnifiedMemberController {
         log.info("Uploading photo for member: id={}", id);
         
         var doc = memberDocumentService.uploadDocument(
-            id, file, com.waad.tba.modules.member.entity.MemberDocument.DocumentType.PHOTO, "System");
+            id, file, DocumentType.PHOTO, "System");
             
         return ResponseEntity.ok(ApiResponse.success("تم رفع الصورة بنجاح", doc.getFilePath()));
+    }
+
+    /**
+     * Delete Member Profile Photo
+     */
+    @DeleteMapping("/{id}/photo")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER')")
+    @Operation(summary = "Delete Member Photo", description = "Deletes the profile photo of a member.")
+    public ResponseEntity<ApiResponse<Void>> deleteMemberPhoto(@PathVariable Long id) {
+        log.info("Deleting photo for member: id={}", id);
+        memberDocumentService.deleteMemberPhoto(id);
+        return ResponseEntity.ok(ApiResponse.success("تم حذف الصورة بنجاح", null));
     }
 
     /**
@@ -975,6 +993,18 @@ public class UnifiedMemberController {
         
         log.info("Member deleted successfully: id={}", id);
         
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Physically delete Member
+     */
+    @DeleteMapping("/{id}/hard")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Physically delete Member (SUPER_ADMIN ONLY)")
+    public ResponseEntity<Void> hardDeleteMember(@PathVariable Long id) {
+        log.info("💀 Physically Deleting Member: id={}", id);
+        unifiedMemberService.hardDeleteMember(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -1212,32 +1242,26 @@ public class UnifiedMemberController {
     /**
      * Get Member Profile Photo
      */
-    @GetMapping(value = "/{id}/photo", produces = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})
+    @GetMapping(value = "/{id}/photo")
     @Operation(summary = "Get Member Profile Photo")
-    public ResponseEntity<byte[]> getMemberPhoto(@PathVariable Long id) {
-        // Retrieve member documents
-        List<com.waad.tba.modules.member.entity.MemberDocument> docs = memberDocumentService.getMemberDocuments(id);
+    public ResponseEntity<byte[]> getMemberPhoto(@PathVariable Long id, org.springframework.web.context.request.WebRequest request) {
+        // 1. Get member profile photo path
+        MemberViewDto member = unifiedMemberService.getMember(id);
+        String photoPath = member.getProfilePhotoPath();
         
-        // Find the photo
-        var photoDoc = docs.stream()
-                .filter(d -> d.getDocumentType() == com.waad.tba.modules.member.entity.MemberDocument.DocumentType.PHOTO)
-                .findFirst();
-        
-        if (photoDoc.isPresent()) {
-            try {
-                // In a real implementation with FileStorageService, we would read the bytes here.
-                // For this MVP, we will assume local storage or similar.
-                // Since we don't have the 'read' method exposed in FileStorageService in the context yet,
-                // we will return 404 to allow the frontend to show the fallback avatar.
-                // To make it work fully, we would need: fileStorageService.read(photoDoc.get().getFilePath())
-                
-                // TODO: Implement file reading logic
-                return ResponseEntity.notFound().build();
-            } catch (Exception e) {
-                return ResponseEntity.notFound().build();
-            }
+        if (photoPath == null || photoPath.isEmpty()) {
+            return ResponseEntity.notFound().build();
         }
-        
-        return ResponseEntity.notFound().build();
+
+        try {
+            // 2. Download from storage
+            byte[] imageBytes = fileStorageService.download(photoPath);
+            
+            // 3. Serve using professional utility for caching and metadata
+            return FileResourceUtils.serveFile(imageBytes, photoPath, request);
+        } catch (Exception e) {
+            log.error("Error retrieving photo for member {}: {}", id, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
     }
 }

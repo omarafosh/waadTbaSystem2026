@@ -83,6 +83,17 @@ public class MemberDocumentService {
         memberDocumentRepository.delete(document);
     }
 
+    /**
+     * Delete only the PHOTO document for a member
+     */
+    @Transactional
+    public void deleteMemberPhoto(Long memberId) {
+        List<MemberDocument> docs = memberDocumentRepository.findByMemberId(memberId);
+        docs.stream()
+            .filter(d -> d.getDocumentType() == MemberDocument.DocumentType.PHOTO)
+            .forEach(d -> deleteDocument(d.getId()));
+    }
+
     @Transactional
     public void verifyDocument(Long documentId, String verifier) {
         MemberDocument document = memberDocumentRepository.findById(documentId)

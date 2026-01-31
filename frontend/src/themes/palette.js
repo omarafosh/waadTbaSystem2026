@@ -36,14 +36,14 @@ function buildGrey(mode) {
 
 // ==============================|| DEFAULT THEME - PALETTE ||============================== //
 
-export function buildPalette(presetColor = 'default') {
+export function buildPalette(presetColor = 'default', primaryColor = null) {
   // light colors
   const lightColors = { ...presetPalettes, grey: buildGrey(ThemeMode.LIGHT) };
-  const lightPaletteColor = ThemeOption(lightColors, presetColor, ThemeMode.LIGHT);
+  const lightPaletteColor = ThemeOption(lightColors, presetColor, ThemeMode.LIGHT, primaryColor);
 
   // dark colors
   const darkColors = { ...presetDarkPalettes, grey: buildGrey(ThemeMode.DARK) };
-  const darkPaletteColor = ThemeOption(darkColors, presetColor, ThemeMode.DARK);
+  const darkPaletteColor = ThemeOption(darkColors, presetColor, ThemeMode.DARK, primaryColor);
 
   const commonColor = { common: { black: '#000', white: '#fff' } };
 

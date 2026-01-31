@@ -11,6 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Avatar,
   Box,
   Button,
   Chip,
@@ -30,7 +31,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert
+  Alert,
+  Stepper,
+  Step,
+  StepLabel,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,20 +51,25 @@ import {
   FilterList as FilterListIcon,
   UploadFile as UploadFileIcon,
   Download as DownloadIcon,
-  RestoreFromTrash as RestoreFromTrashIcon
+  Undo as UndoIcon
 } from '@mui/icons-material';
 
+import Swal from 'sweetalert2';
+
 import MainCard from 'components/MainCard';
-import ModernPageHeader from 'components/tba/ModernPageHeader';
-import GenericDataTable from 'components/GenericDataTable/GenericDataTable';
+import { GenericDataTable, ModernPageHeader, MemberAvatar } from 'components/tba';
 import { useTableState } from 'hooks/useTableState';
 import {
   getAllMembers,
   searchMembers,
   importMembers,
+  detectColumns,
+  previewImport,
+  executeImport,
   downloadTemplate,
   deleteMember,
   restoreMember,
+  hardDeleteMember,
   MEMBER_TYPES,
   MEMBER_STATUSES
 } from 'services/api/unified-members.service';
@@ -71,14 +85,14 @@ const DEFAULT_SORT = { field: 'fullName', direction: 'asc' };
  */
 const UnifiedMembersList = () => {
   const navigate = useNavigate();
-  
+
   // Table State Management
   const tableState = useTableState({
-    initialPageSize: 10,
+    initialPageSize: 15,
     defaultSort: DEFAULT_SORT
   });
 
-  const { 
+  const {
     page,
     pageSize,
     sorting,
@@ -98,17 +112,23 @@ const UnifiedMembersList = () => {
     type: '',
     searchTerm: ''
   });
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
 
   // Import Dialog State
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importErrors, setImportErrors] = useState(null);
+  const [detectionResults, setDetectionResults] = useState(null);
+  const [previewData, setPreviewData] = useState(null);
+  const [executionResult, setExecutionResult] = useState(null);
+  const [customMappings, setCustomMappings] = useState({});
 
-  // Delete Dialog State
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [memberToDelete, setMemberToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  // Delete Dialog State - REMOVED (Replaced by SweetAlert2)
+  // const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // const [memberToDelete, setMemberToDelete] = useState(null);
+  // const [deleting, setDeleting] = useState(false);
 
   // Lookup Data
   const [employers, setEmployers] = useState([]);
@@ -117,6 +137,26 @@ const UnifiedMembersList = () => {
   // COLUMNS DEFINITION
   // ========================================
   const columns = React.useMemo(() => [
+    {
+      id: 'avatar',
+      header: 'الصورة',
+      size: 60,
+      cell: ({ row }) => <MemberAvatar member={row.original} size={36} />
+    },
+    {
+      accessorKey: 'cardNumber',
+      header: 'رقم البطاقة',
+      size: 130,
+      cell: ({ getValue }) => (
+        <Chip
+          label={getValue() || '-'}
+          variant="outlined"
+          size="small"
+          color="secondary"
+          sx={{ fontWeight: 'medium', fontFamily: 'monospace' }}
+        />
+      )
+    },
     {
       accessorKey: 'fullName',
       header: 'الاسم',
@@ -134,11 +174,6 @@ const UnifiedMembersList = () => {
       header: 'الحالة',
       size: 90,
       cell: ({ getValue }) => getStatusChip(getValue())
-    },
-    {
-      accessorKey: 'cardNumber',
-      header: 'رقم البطاقة',
-      size: 130
     },
     {
       accessorKey: 'barcode',
@@ -163,33 +198,42 @@ const UnifiedMembersList = () => {
       size: 110,
       cell: ({ row }) => (
         <Stack direction="row" spacing={0.5} justifyContent="center">
-          <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" color="info" onClick={() => navigate(`/members/${row.original.id}`)}>
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" color="primary" onClick={() => navigate(`/members/${row.original.id}/edit`)}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="رمز QR">
-            <IconButton size="small" color="secondary">
-              <QrCodeScannerIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <IconButton size="small" color="error" onClick={() => {
-              setMemberToDelete(row.original);
-              setDeleteDialogOpen(true);
-            }}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {showDeleted ? (
+            <>
+              <Tooltip title="استعادة">
+                <IconButton size="small" color="success" onClick={() => handleRestoreClick(row.original)}>
+                  <UndoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="حذف نهائي">
+                <IconButton size="small" color="error" onClick={() => handleHardDeleteClick(row.original)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Tooltip title="عرض التفاصيل">
+                <IconButton size="small" color="info" onClick={() => navigate(`/members/${row.original.id}`)}>
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="تعديل">
+                <IconButton size="small" color="primary" onClick={() => navigate(`/members/${row.original.id}/edit`)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="حذف">
+                <IconButton size="small" color="error" onClick={() => handleDeleteClick(row.original)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
         </Stack>
       )
     }
-  ], [navigate]);
+  ], [navigate, showDeleted]);
 
   // Fetch data on mount and filter change
   useEffect(() => {
@@ -199,6 +243,16 @@ const UnifiedMembersList = () => {
   useEffect(() => {
     fetchEmployers();
   }, []);
+
+  // Debounce search term to avoid excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, searchTerm: localSearchTerm }));
+      tableState.setPage(0);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [localSearchTerm]);
 
   const fetchEmployers = async () => {
     try {
@@ -252,10 +306,10 @@ const UnifiedMembersList = () => {
 
       console.log('Members response:', response);
 
-      // Service returns response.data directly (Spring Page object)
-      // So response = {content, totalElements, ...}
-      const data = response?.content || [];
-      const total = response?.totalElements || 0;
+      // Unified handling for both Page object and ApiResponse wrapper
+      const pageData = response?.data || response;
+      const data = pageData?.content || [];
+      const total = pageData?.totalElements || 0;
 
       setMembers(data);
       setTotalElements(total);
@@ -273,48 +327,138 @@ const UnifiedMembersList = () => {
   };
 
   const handleFilterChange = (field) => (event) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-    tableState.setPage(0); // Reset to first page
+    const value = event.target.value;
+    if (field === 'searchTerm') {
+      setLocalSearchTerm(value);
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        [field]: value
+      }));
+      tableState.setPage(0); // Reset to first page
+    }
   };
 
 
 
   const handleDeleteClick = (member) => {
-    setMemberToDelete(member);
-    setDeleteDialogOpen(true);
+    Swal.fire({
+      title: 'هل أنت متأكد؟',
+      html: `سيتم حذف المنتفع <strong>${member.fullName}</strong>.<br/>${member.type === 'PRINCIPAL' ? '<span style="color:red">⚠️ سيتم حذف جميع التابعين المرتبطين به أيضاً!</span>' : ''}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'نعم، احذفه',
+      cancelButtonText: 'إلغاء'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteMember(member.id);
+          openSnackbar({
+            open: true,
+            message: 'تم حذف المنتفع بنجاح',
+            variant: 'alert',
+            alert: { color: 'success' }
+          });
+          fetchMembers();
+        } catch (error) {
+          console.error('Error deleting member:', error);
+          openSnackbar({
+            open: true,
+            message: 'خطأ في حذف المنتفع',
+            variant: 'alert',
+            alert: { color: 'error' }
+          });
+        }
+      }
+    });
   };
 
-  const handleConfirmDelete = async () => {
-    if (!memberToDelete) return;
-    setDeleting(true);
-    try {
-      await deleteMember(memberToDelete.id);
-      openSnackbar({
-        open: true,
-        message: 'تم حذف المنتفع بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-      fetchMembers();
-      setDeleteDialogOpen(false);
-    } catch (error) {
-      console.error('Error deleting member:', error);
-      openSnackbar({
-        open: true,
-        message: 'خطأ في حذف المنتفع',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setDeleting(false);
-      setMemberToDelete(null);
-    }
+  const handleRestoreClick = (member) => {
+    Swal.fire({
+      title: 'استعادة المنتفع؟',
+      html: `سيتم استعادة المنتفع <strong>${member.fullName}</strong> وإعادته للقائمة النشطة.`,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#28a745',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'نعم، استعده',
+      cancelButtonText: 'إلغاء'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await restoreMember(member.id);
+          openSnackbar({
+            open: true,
+            message: 'تم استعادة المنتفع بنجاح',
+            variant: 'alert',
+            alert: { color: 'success' }
+          });
+          fetchMembers();
+        } catch (error) {
+          console.error('Error restoring member:', error);
+          openSnackbar({
+            open: true,
+            message: 'خطأ في استعادة المنتفع',
+            variant: 'alert',
+            alert: { color: 'error' }
+          });
+        }
+      }
+    });
   };
+
+  const handleHardDeleteClick = (member) => {
+    Swal.fire({
+      title: 'حذف نهائي؟',
+      html: `سيتم حذف المنتفع <strong>${member.fullName}</strong> نهائياً من قاعدة البيانات.<br/><span style="color:red; font-weight:bold">⚠️ هذا الإجراء لا يمكن التراجع عنه!</span>`,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'نعم، احذفه نهائياً',
+      cancelButtonText: 'إلغاء'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await hardDeleteMember(member.id);
+          openSnackbar({
+            open: true,
+            message: 'تم حذف المنتفع نهائياً',
+            variant: 'alert',
+            alert: { color: 'success' }
+          });
+          fetchMembers();
+        } catch (error) {
+          console.error('Error hard deleting member:', error);
+          openSnackbar({
+            open: true,
+            message: 'خطأ في الحذف النهائي للمنتفع',
+            variant: 'alert',
+            alert: { color: 'error' }
+          });
+        }
+      }
+    });
+  };
+
+  // handleConfirmDelete is no longer needed
 
   const handleRestore = async (member) => {
+    const result = await Swal.fire({
+      title: 'تأكيد الاستعادة',
+      text: `هل تريد استعادة المنتفع "${member.fullName}"؟`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'نعم، استعادة',
+      cancelButtonText: 'إلغاء'
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       await restoreMember(member.id);
       openSnackbar({
@@ -402,7 +546,11 @@ const UnifiedMembersList = () => {
   const handleCloseImportDialog = () => {
     setImportDialogOpen(false);
     setImportFile(null);
-    setImportErrors(null); // Clear errors when closing
+    setImportErrors(null);
+    setActiveStep(0);
+    setDetectionResults(null);
+    setPreviewData(null);
+    setExecutionResult(null);
   };
 
   const handleFileChange = (event) => {
@@ -412,57 +560,103 @@ const UnifiedMembersList = () => {
     }
   };
 
+  const handleNextStep = async () => {
+    setImportErrors(null);
+    if (activeStep === 0) {
+      if (!importFile) return;
+      setImporting(true);
+      try {
+        const result = await detectColumns(importFile);
+        setDetectionResults(result.data);
+        // Automatically move to preview with the detected header row
+        const previewResult = await previewImport(importFile, customMappings, result.data.headerRowNumber);
+        setPreviewData(previewResult.data);
+        setActiveStep(2); // Skip step 1 (detection review) if it looks good, or just keep flow?
+        // Actually, let's keep the steps but ensure preview is correct
+      } catch (error) {
+        console.error('Detection failed:', error);
+        openSnackbar({
+          open: true,
+          message: 'فشل تحليل الملف. تأكد أنه ملف Excel صالح.',
+          variant: 'alert',
+          alert: { color: 'error' }
+        });
+      } finally {
+        setImporting(false);
+      }
+    } else if (activeStep === 1) {
+      setImporting(true);
+      try {
+        // Use the detection results' headerRowNumber
+        const result = await previewImport(importFile, customMappings, detectionResults?.headerRowNumber);
+        setPreviewData(result.data);
+        setActiveStep(2);
+      } catch (error) {
+        console.error('Preview failed:', error);
+        openSnackbar({
+          open: true,
+          message: 'فشل معاينة البيانات.',
+          variant: 'alert',
+          alert: { color: 'error' }
+        });
+      } finally {
+        setImporting(false);
+      }
+    } else if (activeStep === 2) {
+      handleImportSubmit();
+    }
+  };
+
+  const handlePrevStep = () => {
+    setImportErrors(null);
+    setActiveStep((prev) => prev - 1);
+  };
+
   const handleImportSubmit = async () => {
     if (!importFile) return;
 
     setImporting(true);
-    setImportErrors(null);
-
     try {
-      const result = await importMembers(importFile);
-      setImportDialogOpen(false);
+      // Execute the actual import
+      // Note: In a real scenario, we might let the user select employerOrg from a list if it wasn't matched
+      // For now, we assume the employer is pre-selected or matched in the file.
+      // If the file doesn't have employer, we might need an extra step.
 
-      // Reset to first page to ensure new records are visible (sorted by ID DESC)
-      if (page === 0) {
-        fetchMembers();
-      } else {
-        tableState.setPage(0); // This will trigger useEffect which calls fetchMembers
+      setImportErrors(null);
+
+      const params = {
+        employerId: filters.organizationId || previewData?.availableEmployers?.[0]?.id,
+        batchId: previewData?.batchId,
+        headerRowNumber: detectionResults?.headerRowNumber
+      };
+
+      if (!params.employerId) {
+        throw new Error('يرجى اختيار جهة العمل من القائمة الجانبية أو التأكد من وجود جهات عمل فعالة قبل البدء.');
       }
 
-      const summary = result?.data?.summary;
-      const successMsg = summary
-        ? `تم استيراد ${summary.created || 0} عضو بنجاح`
-        : 'تم استيراد الملف بنجاح';
+      const result = await executeImport(importFile, params);
+      setExecutionResult(result.data);
+      setActiveStep(3);
+
+      // Refresh table
+      fetchMembers();
 
       openSnackbar({
         open: true,
-        message: successMsg,
+        message: 'تمت عملية الاستيراد بنجاح',
         variant: 'alert',
         alert: { color: 'success' }
       });
     } catch (error) {
-      console.error('Error importing members:', error);
-
-      // Extract import result from error
-      const importResult = error.importResult || error.response?.data?.data;
-      const serverMessage = error.serverMessage || error.response?.data?.message;
-
-      if (importResult?.errors?.length > 0) {
-        // Show detailed errors in dialog
-        setImportErrors({
-          message: serverMessage || 'فشل الاستيراد',
-          summary: importResult.summary,
-          errors: importResult.errors.slice(0, 20) // Show first 20 errors
-        });
-      } else {
-        // Show simple error message
-        openSnackbar({
-          open: true,
-          message: serverMessage || 'فشل استيراد الملف، يرجى التأكد من صحة البيانات',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
-      }
+      console.error('Import execution failed:', error);
+      const errorMessage = error.response?.data?.message || 'فشل تنفيذ الاستيراد.';
+      setImportErrors(errorMessage);
+      openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
     } finally {
       setImporting(false);
     }
@@ -546,267 +740,297 @@ const UnifiedMembersList = () => {
         }
       />
 
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'stretch' }}>
-        {/* Filters - Right Column */}
-        <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-          <MainCard sx={{ p: 2, height: 'calc(100vh - 250px)', overflowY: 'auto' }}>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                size="small"
-                label="بحث"
-                placeholder="الاسم، باركود، رقم البطاقة..."
-                value={filters.searchTerm}
-                onChange={handleFilterChange('searchTerm')}
-                InputLabelProps={{ sx: { fontSize: '0.8125rem' } }}
-                InputProps={{ sx: { fontSize: '0.8125rem', height: 36 } }}
-              />
-
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.8125rem' }}>جهة العمل</InputLabel>
-                <Select
-                  value={filters.organizationId}
-                  onChange={handleFilterChange('organizationId')}
-                  label="جهة العمل"
-                  sx={{ fontSize: '0.8125rem', height: 36 }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
-                    <em>الكل</em>
-                  </MenuItem>
-                  {employers.map((emp) => (
-                    <MenuItem key={emp.id} value={emp.id} sx={{ fontSize: '0.8125rem' }}>
-                      {emp.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.8125rem' }}>النوع</InputLabel>
-                <Select
-                  value={filters.type}
-                  onChange={handleFilterChange('type')}
-                  label="النوع"
-                  sx={{ fontSize: '0.8125rem', height: 36 }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
-                    <em>الكل</em>
-                  </MenuItem>
-                  <MenuItem value={MEMBER_TYPES.PRINCIPAL} sx={{ fontSize: '0.8125rem' }}>رئيسي</MenuItem>
-                  <MenuItem value={MEMBER_TYPES.DEPENDENT} sx={{ fontSize: '0.8125rem' }}>تابع</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.8125rem' }}>الحالة</InputLabel>
-                <Select
-                  value={filters.status}
-                  onChange={handleFilterChange('status')}
-                  label="الحالة"
-                  sx={{ fontSize: '0.8125rem', height: 36 }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.8125rem' }}>
-                    <em>الكل</em>
-                  </MenuItem>
-                  <MenuItem value={MEMBER_STATUSES.ACTIVE} sx={{ fontSize: '0.8125rem' }}>نشط</MenuItem>
-                  <MenuItem value={MEMBER_STATUSES.SUSPENDED} sx={{ fontSize: '0.8125rem' }}>معلق</MenuItem>
-                  <MenuItem value={MEMBER_STATUSES.TERMINATED} sx={{ fontSize: '0.8125rem' }}>منتهي</MenuItem>
-                </Select>
-              </FormControl>
-
-              <Button
-                fullWidth
-                variant="outlined"
-                size="small"
-                onClick={handleResetFilters}
-                sx={{ height: 36, fontSize: '0.8125rem' }}
-              >
-                إعادة تعيين
-              </Button>
-            </Stack>
-          </MainCard>
-        </Box>
-
-        {/* Members Table */}
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <MainCard
-            content={false}
-            sx={{ height: 'calc(100vh - 250px)', display: 'flex', flexDirection: 'column' }}
-          >
-            <GenericDataTable
-              columns={columns}
-              data={members}
-              totalCount={totalElements}
-              isLoading={loading}
-              tableState={tableState}
-              emptyMessage="لا يوجد منتفعين"
-              headerVariant="primary"
-              enableFiltering={false}
+      <Stack spacing={2}>
+        {/* Filters - Top Bar */}
+        <MainCard sx={{ p: 1.5 }}>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+            <TextField
+              size="small"
+              label="بحث السريع"
+              placeholder="الاسم، باركود، رقم البطاقة..."
+              value={localSearchTerm}
+              onChange={handleFilterChange('searchTerm')}
+              sx={{ minWidth: 200, flexGrow: 1 }}
+              InputLabelProps={{ sx: { fontSize: '0.8125rem' } }}
+              InputProps={{ sx: { fontSize: '0.8125rem', height: 36 } }}
             />
-          </MainCard>
-        </Box>
-      </Box>
+
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel sx={{ fontSize: '0.8125rem' }}>جهة العمل</InputLabel>
+              <Select
+                value={filters.organizationId}
+                onChange={handleFilterChange('organizationId')}
+                label="جهة العمل"
+                sx={{ fontSize: '0.8125rem', height: 36 }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
+                {employers.map((emp) => (
+                  <MenuItem key={emp.id} value={emp.id} sx={{ fontSize: '0.8125rem' }}>{emp.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel sx={{ fontSize: '0.8125rem' }}>النوع</InputLabel>
+              <Select
+                value={filters.type}
+                onChange={handleFilterChange('type')}
+                label="النوع"
+                sx={{ fontSize: '0.8125rem', height: 36 }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
+                <MenuItem value={MEMBER_TYPES.PRINCIPAL} sx={{ fontSize: '0.8125rem' }}>رئيسي</MenuItem>
+                <MenuItem value={MEMBER_TYPES.DEPENDENT} sx={{ fontSize: '0.8125rem' }}>تابع</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel sx={{ fontSize: '0.8125rem' }}>الحالة</InputLabel>
+              <Select
+                value={filters.status}
+                onChange={handleFilterChange('status')}
+                label="الحالة"
+                sx={{ fontSize: '0.8125rem', height: 36 }}
+              >
+                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
+                <MenuItem value={MEMBER_STATUSES.ACTIVE} sx={{ fontSize: '0.8125rem' }}>نشط</MenuItem>
+                <MenuItem value={MEMBER_STATUSES.SUSPENDED} sx={{ fontSize: '0.8125rem' }}>معلق</MenuItem>
+                <MenuItem value={MEMBER_STATUSES.TERMINATED} sx={{ fontSize: '0.8125rem' }}>منتهي</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleResetFilters}
+              sx={{ height: 36, fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+            >
+              إعادة تعيين
+            </Button>
+
+            <IconButton color="primary" onClick={handleRefresh} size="small">
+              <RefreshIcon />
+            </IconButton>
+          </Stack>
+        </MainCard>
+
+        {/* Members Table - Full Width */}
+        <MainCard
+          content={false}
+          sx={{ height: 'calc(100vh - 380px)', display: 'flex', flexDirection: 'column' }}
+        >
+          <GenericDataTable
+            columns={columns}
+            data={members}
+            totalCount={totalElements}
+            isLoading={loading}
+            tableState={tableState}
+            emptyMessage="لا يوجد منتفعين"
+            headerVariant="primary"
+            enableFiltering={false}
+          />
+        </MainCard>
+      </Stack>
 
       {/* Import Dialog */}
       <Dialog open={importDialogOpen} onClose={handleCloseImportDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontSize: '14px', fontWeight: 700 }}>استيراد قائمة المنتفعين</DialogTitle>
-        <DialogContent>
-          <Box sx={{ p: 2 }}>
-            {!importErrors ? (
-              // File selection view
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 0 }}>
+          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>استيراد قائمة المنتفعين</Typography>
+          <IconButton onClick={handleCloseImportDialog} size="small"><RefreshIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ minHeight: 400 }}>
+          <Box sx={{ p: 1 }}>
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+              <Step><StepLabel>اختيار الملف</StepLabel></Step>
+              <Step><StepLabel>تحليل الأعمدة</StepLabel></Step>
+              <Step><StepLabel>معاينة البيانات</StepLabel></Step>
+              <Step><StepLabel>النتائج</StepLabel></Step>
+            </Stepper>
+
+            {importErrors && (
+              <Alert severity="error" sx={{ mb: 3, fontWeight: 700 }}>
+                {importErrors}
+              </Alert>
+            )}
+
+            {activeStep === 0 && (
               <Box sx={{ textAlign: 'center' }}>
-                <Alert severity="warning" sx={{ mb: 2, textAlign: 'right' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    ⚠️ متطلبات مهمة قبل الرفع:
-                  </Typography>
-                  <Typography variant="body2" component="div">
-                    • الاسم الكامل (fullName) <strong>إلزامي</strong><br />
-                    • جهة العمل (employerName) <strong>إلزامي</strong> - يجب أن يطابق اسم شريك موجود<br />
-                    • استخدم القالب الرسمي فقط (اضغط "تحميل القالب" من الأعلى)<br />
-                    • تأكد من صحة التواريخ والبيانات
+                <Alert severity="info" sx={{ mb: 3, textAlign: 'right' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>تعليمات:</Typography>
+                  <Typography variant="body2">
+                    • استخدم القالب القياسي لضمان أفضل النتائج.<br />
+                    • الاسم الكامل حقل إلزامي.<br />
+                    • سيتم التعرف على التكرارات آلياً وتحديث بياناتهم.
                   </Typography>
                 </Alert>
-
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  يمكنك استيراد قائمة بالمنتفعين باستخدام ملف Excel.
-                  يرجى التأكد من استخدام القالب القياسي لتجنب الأخطاء.
-                </Typography>
-
                 <Button
                   variant="outlined"
                   component="label"
                   startIcon={<UploadFileIcon />}
                   fullWidth
-                  sx={{ height: 100, borderStyle: 'dashed', borderWidth: 2 }}
+                  sx={{ height: 120, borderStyle: 'dashed', borderWidth: 2 }}
                 >
-                  {importFile ? importFile.name : 'اختر ملف Excel (.xlsx)'}
-                  <input
-                    type="file"
-                    hidden
-                    accept=".xlsx, .xls"
-                    onChange={handleFileChange}
-                  />
+                  {importFile ? importFile.name : 'اسحب ملف الإكسل هنا أو اضغط للاختيار'}
+                  <input type="file" hidden accept=".xlsx, .xls" onChange={handleFileChange} />
                 </Button>
-
                 {importFile && (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    تم اختيار الملف: {importFile.name} ({(importFile.size / 1024).toFixed(2)} KB)
-                  </Alert>
-                )}
-
-                {importing && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                    <CircularProgress />
-                  </Box>
+                  <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                    تم اختيار: {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                  </Typography>
                 )}
               </Box>
-            ) : (
-              // Error details view
+            )}
+
+            {activeStep === 1 && detectionResults && (
               <Box>
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  <strong>{importErrors.message}</strong>
-                  {importErrors.summary && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      الإجمالي: {importErrors.summary.totalRows || 0} صف |
-                      نجح: {importErrors.summary.created || 0} |
-                      فشل: {(importErrors.summary.rejected || 0) + (importErrors.summary.failed || 0)}
-                    </Typography>
-                  )}
+                <Alert severity={detectionResults.missingRequiredFields?.length > 0 ? "error" : "success"} sx={{ mb: 2 }}>
+                  {detectionResults.missingRequiredFields?.length > 0
+                    ? `تنبيه: حقول إلزامية مفقودة: ${detectionResults.missingRequiredFields.join(', ')}`
+                    : "تم تحليل بنية الملف بنجاح."}
                 </Alert>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 700 }}>مطابقة الأعمدة المكتشفة:</Typography>
+                <Table size="small" sx={{ border: '1px solid #eee' }}>
+                  <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>اسم العمود في الملف</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>الحقل المقابل في النظام</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>الدقة</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detectionResults.suggestions?.map((s, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{s.columnName || '---'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={s.suggestedFieldLabelAr || 'غير معروف'}
+                            color={s.suggestedField ? "primary" : "default"}
+                            variant={s.suggestedField ? "filled" : "outlined"}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" color={s.confidence > 0.8 ? "success.main" : "warning.main"}>
+                            {Math.round(s.confidence * 100)}%
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            )}
 
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                  تفاصيل الأخطاء (أول {importErrors.errors?.length || 0} خطأ):
-                </Typography>
-
-                <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid #ddd', borderRadius: 1 }}>
+            {activeStep === 2 && previewData && (
+              <Box>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  مراجعة عينة من البيانات قبل البدء الفعلي للاستيراد.
+                </Alert>
+                <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small">
-                    <TableHead>
+                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>الصف</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>العمود</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>الخطأ</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>القيمة</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>الاسم</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>الرقم الوطني</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>جهة العمل</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>الحالة المتوقعة</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {importErrors.errors?.map((err, idx) => (
-                        <TableRow key={idx} sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                            {err.rowNumber || '-'}
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {translateColumnName(err.columnName) || '-'}
-                          </TableCell>
-                          <TableCell>{err.messageAr || err.messageEn || 'خطأ غير محدد'}</TableCell>
-                          <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {err.value || '-'}
+                      {previewData.previewRows?.slice(0, 5).map((row, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{row.fullName || '---'}</TableCell>
+                          <TableCell>{row.nationalNumber || '---'}</TableCell>
+                          <TableCell>{row.employerName || 'محدد مسبقاً'}</TableCell>
+                          <TableCell>
+                            {row.errors?.length > 0 ? (
+                              <Chip label="يحتوي أخطاء" color="error" size="small" variant="outlined" />
+                            ) : (
+                              <Chip label="جاهز" color="success" size="small" variant="outlined" />
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </Box>
+                {previewData.rows?.length > 5 && (
+                  <Typography variant="caption" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+                    يتم عرض أول 5 سجلات فقط من إجمالي {previewData.summary?.totalRows} سجل
+                  </Typography>
+                )}
+              </Box>
+            )}
 
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  <strong>نصيحة:</strong> تأكد من استخدام القالب الرسمي للنظام وأن أسماء جهات العمل تطابق القيم في ورقة "Employers"
-                </Alert>
+            {activeStep === 3 && executionResult && (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" color="success.main" gutterBottom sx={{ fontWeight: 700 }}>
+                    اكتملت العملية بنجاح!
+                  </Typography>
+                  <Typography variant="body1">{executionResult.message}</Typography>
+                </Box>
+
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid size={{ xs: 4 }}>
+                    <Paper sx={{ p: 2, bgcolor: 'primary.light', color: 'white' }}>
+                      <Typography variant="h4">{executionResult.summary?.created || 0}</Typography>
+                      <Typography variant="body2">سجلات جديدة</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid size={{ xs: 4 }}>
+                    <Paper sx={{ p: 2, bgcolor: 'success.light', color: 'white' }}>
+                      <Typography variant="h4">{executionResult.summary?.updated || 0}</Typography>
+                      <Typography variant="body2">تم تحديثها</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid size={{ xs: 4 }}>
+                    <Paper sx={{ p: 2, bgcolor: 'error.light', color: 'white' }}>
+                      <Typography variant="h4">{executionResult.summary?.failed || 0}</Typography>
+                      <Typography variant="body2">فشلت</Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {executionResult.errors?.length > 0 && (
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="subtitle2" color="error" gutterBottom sx={{ fontWeight: 700 }}>الأخطاء المكتشفة:</Typography>
+                    <Box sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #eee', p: 1 }}>
+                      {executionResult.errors.map((err, idx) => (
+                        <Typography key={idx} variant="caption" component="div" sx={{ borderBottom: '1px solid #fafafa', py: 0.5 }}>
+                          الصف {err.rowNumber}: {err.messageAr || err.messageEn}
+                        </Typography>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {importing && (
+              <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(255,255,255,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+                <CircularProgress />
               </Box>
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          {importErrors ? (
-            // Error view actions
+        <DialogActions sx={{ p: 3 }}>
+          {activeStep === 0 ? (
             <>
-              <Button onClick={() => setImportErrors(null)} color="primary">
-                اختيار ملف آخر
-              </Button>
-              <Button onClick={handleCloseImportDialog} variant="outlined">
-                إغلاق
-              </Button>
+              <Button onClick={handleCloseImportDialog}>إلغاء</Button>
+              <Button variant="contained" onClick={handleNextStep} disabled={!importFile || importing}>الخطوة التالية</Button>
             </>
+          ) : activeStep === 3 ? (
+            <Button variant="contained" onClick={handleCloseImportDialog}>إغلاق</Button>
           ) : (
-            // Normal view actions
             <>
-              <Button onClick={handleCloseImportDialog} disabled={importing}>
-                إلغاء
-              </Button>
-              <Button
-                onClick={handleImportSubmit}
-                variant="contained"
-                disabled={!importFile || importing}
-              >
-                {importing ? 'جاري الاستيراد...' : 'استيراد'}
+              <Button onClick={handlePrevStep} disabled={importing}>السابق</Button>
+              <Box sx={{ flex: '1 1 auto' }} />
+              <Button variant="contained" onClick={handleNextStep} disabled={importing}>
+                {activeStep === 2 ? 'بدء الاستيراد الفعلي' : 'الخطوة التالية'}
               </Button>
             </>
           )}
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle sx={{ fontWeight: 600 }}>تأكيد الحذف</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            هل أنت متأكد من رغبتك في حذف المنتفع <strong>{memberToDelete?.fullName}</strong>؟
-            {memberToDelete?.type === 'PRINCIPAL' && (
-              <Box component="span" sx={{ display: 'block', mt: 1, color: 'error.main', fontWeight: 600 }}>
-                ⚠️ ملاحظة: حذف المنتفع الرئيسي سيؤدي إلى حذف جميع التابعين المرتبطين به.
-              </Box>
-            )}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>إلغاء</Button>
-          <Button
-            onClick={handleConfirmDelete}
-            color="error"
-            variant="contained"
-            disabled={deleting}
-            startIcon={deleting && <CircularProgress size={16} />}
-          >
-            {deleting ? 'جاري الحذف...' : 'حذف'}
-          </Button>
         </DialogActions>
       </Dialog>
     </RBACGuard>

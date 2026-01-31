@@ -95,7 +95,6 @@ const UnifiedMemberCreate = () => {
     email: '',
     address: '',
     employerOrganizationId: '',
-    benefitPolicyId: '',
     employeeNumber: '',
     joinDate: null,
     occupation: '',
@@ -109,6 +108,22 @@ const UnifiedMemberCreate = () => {
   // Lookup Data
   const [employers, setEmployers] = useState([]);
   const [benefitPolicies, setBenefitPolicies] = useState([]);
+
+  /**
+   * Helper to identify tabs with validation errors
+   */
+  const getTabErrorCount = (index) => {
+    if (index === 0) {
+      return (errors.fullName ? 1 : 0) + (errors.birthDate ? 1 : 0) + (errors.gender ? 1 : 0) + (errors.nationalNumber ? 1 : 0);
+    }
+    if (index === 1) {
+      return (errors.employerOrganizationId ? 1 : 0);
+    }
+    if (index === 2) {
+      return (errors.phone ? 1 : 0) + (errors.email ? 1 : 0);
+    }
+    return 0;
+  };
 
   // Fetch lookup data
   useEffect(() => {
@@ -133,14 +148,7 @@ const UnifiedMemberCreate = () => {
   };
 
   const fetchBenefitPolicies = async () => {
-    try {
-      const response = await axiosClient.get('/benefit-policies', {
-        params: { page: 0, size: 1000 }
-      });
-      setBenefitPolicies(response.data?.data?.content || []);
-    } catch (error) {
-      console.error('Error fetching benefit policies:', error);
-    }
+    // Deleted as per user request: Policy linking moved to Contacts section
   };
 
   /**
@@ -160,11 +168,11 @@ const UnifiedMemberCreate = () => {
     // 🛡️ SECURITY & UX: Input Restriction
     // Allow ONLY numbers for National ID and Phone
     if ((field === 'nationalNumber' || field === 'phone' || field === 'employeeNumber') && typeof value === 'string') {
-        value = value.replace(/\D/g, ''); // Remove non-digits
-        
-        // Limit Length
-        if (field === 'nationalNumber' && value.length > 12) return; // Max 12
-        if (field === 'phone' && value.length > 10) return; // Max 10
+      value = value.replace(/\D/g, ''); // Remove non-digits
+
+      // Limit Length
+      if (field === 'nationalNumber' && value.length > 12) return; // Max 12
+      if (field === 'phone' && value.length > 10) return; // Max 10
     }
 
     setPrincipalForm((prev) => ({
@@ -192,14 +200,14 @@ const UnifiedMemberCreate = () => {
     // 🛡️ SECURITY & DATA INTEGRITY VALIDATION
     // 1. National ID: Must be exactly 12 digits
     if (principalForm.nationalNumber && principalForm.nationalNumber.length !== 12) {
-        newErrors.nationalNumber = 'الرقم الوطني يجب أن يتكون من 12 خانة';
+      newErrors.nationalNumber = 'الرقم الوطني يجب أن يتكون من 12 خانة';
     }
 
     // 2. Phone Number: Libyan Format (091, 092, 093, 094, 095, 096)
     if (principalForm.phone) {
-        if (!/^(091|092|094|093|095|096)\d{7}$/.test(principalForm.phone)) {
-             newErrors.phone = 'رقم الهاتف غير صحيح (يجب أن يبدأ بـ 09x ويتكون من 10 أرقام)';
-        }
+      if (!/^(091|092|094|093|095|096)\d{7}$/.test(principalForm.phone)) {
+        newErrors.phone = 'رقم الهاتف غير صحيح (يجب أن يبدأ بـ 09x ويتكون من 10 أرقام)';
+      }
     }
 
     // Optional validations
@@ -208,14 +216,14 @@ const UnifiedMemberCreate = () => {
     }
 
     setErrors(newErrors);
-    
+
     // Auto-switch tabs based on error location
     if (newErrors.fullName || newErrors.birthDate || newErrors.gender || newErrors.nationalNumber) {
-        setTabValue(0);
+      setTabValue(0);
     } else if (newErrors.employerOrganizationId) {
-        setTabValue(1);
+      setTabValue(1);
     } else if (newErrors.phone || newErrors.email) {
-        setTabValue(2);
+      setTabValue(2);
     }
 
     return Object.keys(newErrors).length === 0;
@@ -252,7 +260,6 @@ const UnifiedMemberCreate = () => {
         email: principalForm.email || null,
         address: principalForm.address || null,
         employerId: principalForm.employerOrganizationId,  // ✅ FIXED: Send as employerId
-        benefitPolicyId: principalForm.benefitPolicyId || null,
         employeeNumber: principalForm.employeeNumber || null,
         joinDate: principalForm.joinDate ? dayjs(principalForm.joinDate).format('YYYY-MM-DD') : null,
         occupation: principalForm.occupation || null,
@@ -382,11 +389,57 @@ const UnifiedMemberCreate = () => {
               }
             }}
           >
-            <Tab label="البيانات الشخصية" icon={<PersonIcon />} iconPosition="start" />
-            <Tab label="بيانات العمل" icon={<BadgeIcon />} iconPosition="start" />
-            <Tab label="معلومات الاتصال" icon={<ContactPhoneIcon />} iconPosition="start" />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>البيانات الشخصية</span>
+                  {getTabErrorCount(0) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={<PersonIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(0) > 0 ? 'error.main' : 'inherit' }}
+            />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>بيانات العمل</span>
+                  {getTabErrorCount(1) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={<BadgeIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(1) > 0 ? 'error.main' : 'inherit' }}
+            />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>معلومات الاتصال</span>
+                  {getTabErrorCount(2) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={<ContactPhoneIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(2) > 0 ? 'error.main' : 'inherit' }}
+            />
           </Tabs>
         </Box>
+
+        {Object.keys(errors).length > 0 && (
+          <Box sx={{ px: 3, pt: 2 }}>
+            <Alert
+              severity="error"
+              variant="outlined"
+              sx={{
+                bgcolor: 'error.lighter',
+                borderColor: 'error.light',
+                '& .MuiAlert-message': { fontWeight: 600, fontSize: '13px' }
+              }}
+            >
+              توجد أخطاء في المدخلات؛ يرجى مراجعة التبويبات المميزة باللون الأحمر (عدد الحقول المعيبة: {Object.keys(errors).length})
+            </Alert>
+          </Box>
+        )}
 
         {/* Scrollable Content Area */}
         <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
@@ -532,7 +585,7 @@ const UnifiedMemberCreate = () => {
           <div role="tabpanel" hidden={tabValue !== 1}>
             {tabValue === 1 && (
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12 }}>
                   <FormControl fullWidth required error={!!errors.employerOrganizationId} size="small">
                     <InputLabel id="employer-label">جهة العمل</InputLabel>
                     <Select
@@ -548,23 +601,6 @@ const UnifiedMemberCreate = () => {
                       ))}
                     </Select>
                     {errors.employerOrganizationId && <FormHelperText>{errors.employerOrganizationId}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="policy-label">البوليصة</InputLabel>
-                    <Select
-                      labelId="policy-label"
-                      value={principalForm.benefitPolicyId}
-                      onChange={handlePrincipalChange('benefitPolicyId')}
-                      label="البوليصة"
-                      MenuProps={menuProps}
-                    >
-                      <MenuItem value=""><em>بدون بوليصة</em></MenuItem>
-                      {benefitPolicies.map((policy) => (
-                        <MenuItem key={policy.id} value={policy.id}>{policy.name} ({policy.policyCode})</MenuItem>
-                      ))}
-                    </Select>
                   </FormControl>
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -612,11 +648,11 @@ const UnifiedMemberCreate = () => {
             {tabValue === 2 && (
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth 
-                    label="رقم الهاتف" 
-                    value={principalForm.phone} 
-                    onChange={handlePrincipalChange('phone')} 
+                  <TextField
+                    fullWidth
+                    label="رقم الهاتف"
+                    value={principalForm.phone}
+                    onChange={handlePrincipalChange('phone')}
                     error={!!errors.phone}
                     helperText={errors.phone || "يجب أن يكون ليبي (09x) و10 أرقام"}
                     size="small"

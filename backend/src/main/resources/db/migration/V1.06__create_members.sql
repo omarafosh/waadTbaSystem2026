@@ -2,6 +2,10 @@
 -- V1.06: Members and Documents
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- 0. SEQUENCES
+CREATE SEQUENCE IF NOT EXISTS member_barcode_seq START WITH 1000 INCREMENT BY 1;
+CREATE SEQUENCE IF NOT EXISTS seq_smart_card_random_id START WITH 100000 INCREMENT BY 1;
+
 -- 1. MEMBERS
 CREATE TABLE members (
     id BIGSERIAL PRIMARY KEY,

@@ -73,9 +73,9 @@ export default function DashboardLayout() {
           {/* ✅ Breadcrumbs disabled - Pages use ModernPageHeader with integrated breadcrumbs */}
           {/* {pathname !== '/apps/profiles/account/my-account' && <Breadcrumbs />} */}
           <Outlet />
-          <Footer />
         </Container>
       </Box>
+      <Footer />
     </Box>
   );
 }

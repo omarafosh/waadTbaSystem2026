@@ -198,6 +198,21 @@ export const restoreMember = async (id) => {
 };
 
 /**
+ * Physically delete a member from the database
+ * 
+ * @param {number} id - Member ID
+ * @returns {Promise<void>}
+ */
+export const hardDeleteMember = async (id) => {
+  try {
+    await api.delete(`${UNIFIED_MEMBERS_BASE_URL}/${id}/hard`);
+  } catch (error) {
+    console.error('Error physically deleting member:', error);
+    throw error;
+  }
+};
+
+/**
  * Get dependents of a Principal member
  * 
  * @param {number} principalId - Principal member ID
@@ -255,6 +270,82 @@ export const importMembers = async (file) => {
       error.serverMessage = error.response.data.message;
     }
 
+    throw error;
+  }
+};
+
+/**
+ * Detect Excel columns and suggest mappings
+ * 
+ * @param {File} file - Excel file
+ * @returns {Promise<any>} Detection result
+ */
+export const detectColumns = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${UNIFIED_MEMBERS_BASE_URL}/import/detect-columns`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error detecting columns:', error);
+    throw error;
+  }
+};
+
+/**
+ * Preview Excel import
+ * 
+ * @param {File} file - Excel file
+ * @param {Object} customMappings - Optional mappings
+ * @returns {Promise<any>} Preview result
+ */
+export const previewImport = async (file, customMappings = null, headerRowNumber = null) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (customMappings) {
+      formData.append('customMappings', JSON.stringify(customMappings));
+    }
+    if (headerRowNumber !== null && headerRowNumber !== undefined) {
+      formData.append('headerRowNumber', headerRowNumber);
+    }
+    const response = await api.post(`${UNIFIED_MEMBERS_BASE_URL}/import/preview`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error previewing import:', error);
+    throw error;
+  }
+};
+
+/**
+ * Execute Excel import
+ * 
+ * @param {File} file - Excel file
+ * @param {Object} params - Import params (employerId, benefitPolicyId, batchId)
+ * @returns {Promise<any>} Import result
+ */
+export const executeImport = async (file, params) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('employerId', params.employerId);
+    if (params.benefitPolicyId) formData.append('benefitPolicyId', params.benefitPolicyId);
+    if (params.batchId) formData.append('batchId', params.batchId);
+    if (params.headerRowNumber !== null && params.headerRowNumber !== undefined) {
+      formData.append('headerRowNumber', params.headerRowNumber);
+    }
+
+    const response = await api.post(`${UNIFIED_MEMBERS_BASE_URL}/import/execute`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error executing import:', error);
     throw error;
   }
 };
@@ -338,6 +429,22 @@ export const uploadPhoto = async (id, file) => {
   }
 };
 
+/**
+ * Delete Member Photo
+ * 
+ * @param {number} id - Member ID
+ * @returns {Promise<Object>} Response
+ */
+export const deletePhoto = async (id) => {
+  try {
+    const response = await api.delete(`${UNIFIED_MEMBERS_BASE_URL}/${id}/photo`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting photo:', error);
+    throw error;
+  }
+};
+
 export default {
   createPrincipalMember,
   addDependent,
@@ -347,11 +454,17 @@ export default {
   checkEligibility,
   updateMember,
   deleteMember,
+  restoreMember,
+  hardDeleteMember,
   getDependents,
   countDependents,
   importMembers,
+  detectColumns,
+  previewImport,
+  executeImport,
   downloadTemplate,
   uploadPhoto,
+  deletePhoto,
   RELATIONSHIPS,
   GENDERS,
   MEMBER_STATUSES,

@@ -2,10 +2,10 @@
  * Unified Member Edit Page
  * 
  * Edits a Principal or Dependent member.
- * Uses new Unified Architecture (single Member entity with parent_id).
+ * Matches UnifiedMemberCreate layout (Tabs + Photo inside Tab 0).
  * 
  * @module UnifiedMemberEdit
- * @since 2026-01-12
+ * @since 2026-01-31
  */
 
 import { useState, useEffect } from 'react';
@@ -24,26 +24,34 @@ import {
   Alert,
   Box,
   Tabs,
-  Tab
+  Tab,
+  Paper,
+  Avatar,
+  Typography,
+  Divider,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
   Person as PersonIcon,
   Badge as BadgeIcon,
   FamilyRestroom as FamilyRestroomIcon,
   ContactPhone as ContactPhoneIcon,
-  History as HistoryIcon
+  Delete as DeleteIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { getMember, updateMember, RELATIONSHIPS, GENDERS } from 'services/api/unified-members.service';
+import { getMember, updateMember, uploadPhoto, deletePhoto, RELATIONSHIPS, GENDERS } from 'services/api/unified-members.service';
 import axiosClient from 'utils/axios';
 import { openSnackbar } from 'api/snackbar';
+import { MemberAvatar } from '../../components/tba';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
@@ -54,14 +62,27 @@ const UnifiedMemberEdit = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // Loading & Error States
+  // Tab State
+  const [tabValue, setTabValue] = useState(0);
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const menuProps = {
+    PaperProps: {
+      sx: {
+        '& .MuiMenuItem-root': { fontSize: '12px' },
+        maxHeight: 300,
+        minWidth: 200
+      }
+    }
+  };
+
+  // Loading & States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [fetchError, setFetchError] = useState(null);
-
-  // Member Type (PRINCIPAL or DEPENDENT)
-  const [memberType, setMemberType] = useState(null);
 
   // Form State
   const [form, setForm] = useState({
@@ -70,31 +91,48 @@ const UnifiedMemberEdit = () => {
     birthDate: null,
     gender: '',
     maritalStatus: '',
-    nationality: '',
+    nationality: 'ليبي',
     phone: '',
     email: '',
     address: '',
     relationship: '',
+    employerId: '',
     employeeNumber: '',
     joinDate: null,
     occupation: '',
-    policyNumber: '',
     status: 'ACTIVE',
     startDate: null,
     endDate: null,
-    notes: ''
+    notes: '',
+    photoPreview: null,
+    photoFile: null,
+    hasExistingPhoto: false
   });
 
-  // Organizations & Benefit Policies
-  const [organizations, setOrganizations] = useState([]);
+  // Lookup Data
+  const [employers, setEmployers] = useState([]);
   const [benefitPolicies, setBenefitPolicies] = useState([]);
-  const [selectedOrganization, setSelectedOrganization] = useState('');
-  const [selectedBenefitPolicy, setSelectedBenefitPolicy] = useState('');
+  const [isPrincipal, setIsPrincipal] = useState(false);
 
-  // Fetch member data
+  /**
+   * Helper to check if a tab has validation errors
+   */
+  const getTabErrorCount = (index) => {
+    if (index === 0) {
+      return (errors.fullName ? 1 : 0) + (errors.birthDate ? 1 : 0) + (errors.gender ? 1 : 0) + (errors.nationalNumber ? 1 : 0) + (errors.relationship ? 1 : 0);
+    }
+    if (index === 1) {
+      return (errors.employerId ? 1 : 0);
+    }
+    if (index === 2) {
+      return (errors.phone ? 1 : 0) + (errors.email ? 1 : 0);
+    }
+    return 0;
+  };
+
   useEffect(() => {
     fetchMemberData();
-    fetchDropdownData();
+    fetchLookupData();
   }, [id]);
 
   const fetchMemberData = async () => {
@@ -102,165 +140,198 @@ const UnifiedMemberEdit = () => {
       setLoading(true);
       const data = await getMember(id);
 
-      setMemberType(data.type);
+      const isPrinc = data.type === 'PRINCIPAL';
+      setIsPrincipal(isPrinc);
+
       setForm({
         fullName: data.fullName || '',
         nationalNumber: data.nationalNumber || '',
         birthDate: data.birthDate ? dayjs(data.birthDate) : null,
         gender: data.gender || '',
         maritalStatus: data.maritalStatus || '',
-        nationality: data.nationality || '',
+        nationality: data.nationality || 'ليبي',
         phone: data.phone || '',
         email: data.email || '',
         address: data.address || '',
         relationship: data.relationship || '',
+        employerId: data.employerId || '',
         employeeNumber: data.employeeNumber || '',
         joinDate: data.joinDate ? dayjs(data.joinDate) : null,
         occupation: data.occupation || '',
-        policyNumber: data.policyNumber || '',
         status: data.status || 'ACTIVE',
         startDate: data.startDate ? dayjs(data.startDate) : null,
         endDate: data.endDate ? dayjs(data.endDate) : null,
-        notes: data.notes || ''
+        notes: data.notes || '',
+        photoPreview: data.photoUrl ? `${data.photoUrl}?t=${new Date().getTime()}` : (data.profilePhotoPath ? `/api/unified-members/${id}/photo?t=${new Date().getTime()}` : null),
+        hasExistingPhoto: !!data.profilePhotoPath
       });
-
-      setSelectedOrganization(data.employerId || data.employer?.id || '');
-      setSelectedBenefitPolicy(data.benefitPolicyId || data.benefitPolicy?.id || '');
-
     } catch (error) {
       console.error('Error fetching member:', error);
-      setFetchError(error.response?.data?.message || 'فشل في تحميل بيانات المنتفع');
+      setFetchError('فشل في تحميل بيانات المنتفع');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchDropdownData = async () => {
+  const fetchLookupData = async () => {
     try {
       const [orgsRes, policiesRes] = await Promise.all([
-        axiosClient.get('/organizations', { params: { size: 1000 } }),
+        axiosClient.get('/employers/selectors'),
         axiosClient.get('/benefit-policies', { params: { size: 1000 } })
       ]);
-
-      setOrganizations(orgsRes.data?.content || orgsRes.data || []);
-      setBenefitPolicies(policiesRes.data?.content || policiesRes.data || []);
+      setEmployers(orgsRes.data?.data || []);
+      setBenefitPolicies(policiesRes.data?.data?.content || []);
     } catch (error) {
-      console.error('Error fetching dropdown data:', error);
+      console.error('Error fetching lookup data:', error);
     }
   };
 
-  // Handle form field changes
-  const handleFieldChange = (field) => (event) => {
-    const value = event.target.value;
+  /**
+   * Handle form field changes
+   */
+  const handleChange = (field) => (eventOrValue) => {
+    let value;
+    if (eventOrValue === null || eventOrValue === undefined) {
+      value = null;
+    } else if (eventOrValue?.target !== undefined) {
+      value = eventOrValue.target.value;
+    } else {
+      value = eventOrValue;
+    }
+
+    if ((field === 'nationalNumber' || field === 'phone' || field === 'employeeNumber') && typeof value === 'string') {
+      value = value.replace(/\D/g, '');
+      if (field === 'nationalNumber' && value.length > 12) return;
+      if (field === 'phone' && value.length > 10) return;
+    }
+
     setForm((prev) => ({ ...prev, [field]: value }));
-
-    // Clear error for this field
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
 
-  // Handle date changes
-  const handleDateChange = (field) => (date) => {
-    setForm((prev) => ({ ...prev, [field]: date }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: null }));
+  /**
+   * Photo Management
+   */
+  const handlePhotoSelect = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setForm(prev => ({
+        ...prev,
+        photoFile: file,
+        photoPreview: URL.createObjectURL(file)
+      }));
     }
   };
 
-  // Validate form
+  const handleDeletePhoto = async () => {
+    try {
+      await deletePhoto(id);
+      setForm(prev => ({
+        ...prev,
+        photoFile: null,
+        photoPreview: null,
+        hasExistingPhoto: false
+      }));
+      openSnackbar({ message: 'تم حذف الصورة بنجاح', variant: 'alert', alert: { color: 'success' } });
+    } catch (error) {
+      console.error('Photo delete failed', error);
+      openSnackbar({ message: 'فشل حذف الصورة', variant: 'alert', alert: { color: 'error' } });
+    }
+  };
+
+  /**
+   * Validation
+   */
   const validateForm = () => {
     const newErrors = {};
+    if (!form.fullName?.trim()) newErrors.fullName = 'الاسم الكامل مطلوب';
+    if (!form.birthDate) newErrors.birthDate = 'تاريخ الميلاد مطلوب';
+    if (!form.gender) newErrors.gender = 'الجنس مطلوب';
 
-    if (!form.fullName.trim()) {
-      newErrors.fullName = 'الاسم الكامل مطلوب';
+    if (isPrincipal && !form.employerId) newErrors.employerId = 'جهة العمل مطلوبة';
+    if (!isPrincipal && !form.relationship) newErrors.relationship = 'صلة القرابة مطلوبة';
+
+    if (form.nationalNumber && form.nationalNumber.length !== 12) {
+      newErrors.nationalNumber = 'الرقم الوطني يجب أن يتكون من 12 خانة';
     }
 
-    if (!form.birthDate) {
-      newErrors.birthDate = 'تاريخ الميلاد مطلوب';
-    }
-
-    if (!form.gender) {
-      newErrors.gender = 'الجنس مطلوب';
-    }
-
-    // Dependent requires relationship
-    if (memberType === 'DEPENDENT' && !form.relationship) {
-      newErrors.relationship = 'صلة القرابة مطلوبة للتابع';
-    }
-
-    // Principal requires organization
-    if (memberType === 'PRINCIPAL' && !selectedOrganization) {
-      newErrors.organization = 'جهة العمل مطلوبة';
+    if (form.phone && !/^(091|092|094|093|095|096)\d{7}$/.test(form.phone)) {
+      newErrors.phone = 'رقم الهاتف غير صحيح';
     }
 
     setErrors(newErrors);
+
+    if (newErrors.fullName || newErrors.birthDate || newErrors.gender || newErrors.nationalNumber || newErrors.relationship) {
+      setTabValue(0);
+    } else if (newErrors.employerId) {
+      setTabValue(1);
+    } else if (newErrors.phone || newErrors.email) {
+      setTabValue(2);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
+  /**
+   * Submit
+   */
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      openSnackbar({
-        open: true,
-        message: 'يرجى تصحيح الأخطاء في النموذج',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setSaving(true);
-
       const payload = {
         fullName: form.fullName.trim(),
         nationalNumber: form.nationalNumber?.trim() || null,
         birthDate: form.birthDate ? dayjs(form.birthDate).format('YYYY-MM-DD') : null,
         gender: form.gender || 'UNDEFINED',
         maritalStatus: form.maritalStatus || null,
-        nationality: form.nationality || null,
+        nationality: form.nationality || 'ليبي',
         phone: form.phone || null,
         email: form.email || null,
         address: form.address || null,
         employeeNumber: form.employeeNumber || null,
         joinDate: form.joinDate ? dayjs(form.joinDate).format('YYYY-MM-DD') : null,
         occupation: form.occupation || null,
-        policyNumber: form.policyNumber || null,
         status: form.status || 'ACTIVE',
         startDate: form.startDate ? dayjs(form.startDate).format('YYYY-MM-DD') : null,
         endDate: form.endDate ? dayjs(form.endDate).format('YYYY-MM-DD') : null,
-        notes: form.notes || null
+        notes: form.notes || null,
       };
 
-      // Add type-specific fields
-      if (memberType === 'PRINCIPAL') {
-        payload.employerId = selectedOrganization || null;
-        payload.benefitPolicyId = selectedBenefitPolicy || null;
+      if (isPrincipal) {
+        payload.employerId = form.employerId;
       } else {
-        payload.relationship = form.relationship || null;
+        payload.relationship = form.relationship;
       }
-
-      console.log('Updating member with payload:', payload);
 
       await updateMember(id, payload);
 
-      openSnackbar({
-        open: true,
-        message: 'تم تحديث بيانات المنتفع بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
+      if (form.photoFile) {
+        try {
+          await uploadPhoto(id, form.photoFile);
+        } catch (photoError) {
+          console.error('Photo upload failed but member data was saved:', photoError);
+          openSnackbar({
+            message: 'تم حفظ البيانات بنجاح، ولكن فشل تحميل الصورة',
+            variant: 'alert',
+            alert: { color: 'warning' }
+          });
+          navigate(`/members/${id}`);
+          return;
+        }
+      }
 
-      navigate(`/members/${id}`);
+      openSnackbar({ message: 'تم تحديث بيانات المنتفع بنجاح', variant: 'alert', alert: { color: 'success' } });
+      setTimeout(() => {
+        navigate(`/members/${id}`);
+      }, 500);
     } catch (error) {
       console.error('Error updating member:', error);
-
-      const errorMessage = error.response?.data?.message || error.message || 'خطأ في تحديث بيانات المنتفع';
-
       openSnackbar({
-        open: true,
-        message: errorMessage,
+        message: error.response?.data?.message || 'خطأ في تحديث البيانات',
         variant: 'alert',
         alert: { color: 'error' }
       });
@@ -269,37 +340,8 @@ const UnifiedMemberEdit = () => {
     }
   };
 
-  // Tab State
-  const [tabValue, setTabValue] = useState(0);
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // Error state
-  if (fetchError) {
-    return (
-      <MainCard>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {fetchError}
-        </Alert>
-        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/members')}>
-          العودة للقائمة
-        </Button>
-      </MainCard>
-    );
-  }
-
-  const isPrincipal = memberType === 'PRINCIPAL';
+  if (loading) return <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px"><CircularProgress /></Box>;
+  if (fetchError) return <MainCard><Alert severity="error">{fetchError}</Alert><Button variant="outlined" sx={{ mt: 2 }} onClick={() => navigate('/members')}>رجوع</Button></MainCard>;
 
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_MEMBERS]}>
@@ -307,217 +349,295 @@ const UnifiedMemberEdit = () => {
         title={`تعديل بيانات ${isPrincipal ? 'المنتفع الرئيسي' : 'المنتفع التابع'}`}
         subtitle={form.fullName}
         icon={<EditIcon />}
-        breadcrumbs={[
-          { label: 'الرئيسية', href: '/' },
-          { label: 'المنتفعين', href: '/members' },
-          { label: 'تعديل' }
-        ]}
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/members')}
-            >
-              إلغاء
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-              onClick={handleSubmit}
-              disabled={saving}
-            >
-              حفظ التعديلات
-            </Button>
-          </Stack>
+          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(`/members/${id}`)}>
+            رجوع
+          </Button>
         }
       />
 
-      <MainCard content={false} sx={{ display: 'flex', flexDirection: 'column' }}>
+      <MainCard
+        content={false}
+        sx={{
+          height: 'calc(100vh - 180px)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
         <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ px: 2, minHeight: 56 }}
+            sx={{
+              minHeight: 48,
+              '& .MuiTab-root': {
+                minHeight: 48,
+                fontSize: '13px',
+                px: 3,
+                '&.Mui-selected': { color: 'primary.main', bgcolor: 'primary.lighter', fontWeight: 600 }
+              }
+            }}
           >
-            <Tab icon={<PersonIcon />} iconPosition="start" label="البيانات الشخصية" />
-            <Tab icon={isPrincipal ? <BadgeIcon /> : <FamilyRestroomIcon />} iconPosition="start" label={isPrincipal ? "بيانات العمل" : "صلة القرابة"} />
-            <Tab icon={<ContactPhoneIcon />} iconPosition="start" label="معلومات الاتصال" />
-            <Tab icon={<HistoryIcon />} iconPosition="start" label="الحالة والتواريخ" />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>البيانات الشخصية</span>
+                  {getTabErrorCount(0) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={<PersonIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(0) > 0 ? 'error.main' : 'inherit' }}
+            />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>{isPrincipal ? "بيانات العمل" : "صلة القرابة"}</span>
+                  {getTabErrorCount(1) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={isPrincipal ? <BadgeIcon /> : <FamilyRestroomIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(1) > 0 ? 'error.main' : 'inherit' }}
+            />
+            <Tab
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <span>معلومات الاتصال</span>
+                  {getTabErrorCount(2) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                </Stack>
+              }
+              icon={<ContactPhoneIcon />}
+              iconPosition="start"
+              sx={{ color: getTabErrorCount(2) > 0 ? 'error.main' : 'inherit' }}
+            />
           </Tabs>
         </Box>
 
-        <Box sx={{ p: 3 }}>
+        {Object.keys(errors).length > 0 && (
+          <Box sx={{ px: 3, pt: 2 }}>
+            <Alert
+              severity="error"
+              variant="outlined"
+              sx={{
+                bgcolor: 'error.lighter',
+                borderColor: 'error.light',
+                '& .MuiAlert-message': { fontWeight: 600, fontSize: '13px' }
+              }}
+            >
+              توجد أخطاء في المدخلات؛ يرجى مراجعة التبويبات المميزة باللون الأحمر (عدد الحقول المعيبة: {Object.keys(errors).length})
+            </Alert>
+          </Box>
+        )}
+
+        <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
           {/* Tab 0: Personal Info */}
           <div role="tabpanel" hidden={tabValue !== 0}>
             {tabValue === 0 && (
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="الاسم الكامل"
-                    value={form.fullName}
-                    onChange={handleFieldChange('fullName')}
-                    error={!!errors.fullName}
-                    helperText={errors.fullName}
-                    size="small"
-                  />
+                {/* Right Column: Fields (Occupies more space, comes first in RTL) */}
+                <Grid size={{ xs: 12, md: 9 }}>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12 }}>
+                      <Alert severity="info" sx={{ mb: 2, '& .MuiAlert-message': { fontSize: '12px' } }}>
+                        يتم تحديث رقم البطاقة والباركود آلياً عند الحفظ إذا لزم الأمر.
+                      </Alert>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        fullWidth required label="الاسم الكامل"
+                        value={form.fullName}
+                        onChange={handleChange('fullName')}
+                        error={!!errors.fullName}
+                        helperText={errors.fullName}
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        fullWidth label="الرقم الوطني"
+                        value={form.nationalNumber}
+                        onChange={handleChange('nationalNumber')}
+                        error={!!errors.nationalNumber}
+                        helperText={errors.nationalNumber || "اختياري (12 خانة)"}
+                        size="small"
+                        inputProps={{ maxLength: 12 }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <DatePicker
+                        label="تاريخ الميلاد *"
+                        value={form.birthDate}
+                        onChange={handleChange('birthDate')}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            required: true,
+                            error: !!errors.birthDate,
+                            helperText: errors.birthDate,
+                            size: "small"
+                          }
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <FormControl fullWidth required error={!!errors.gender} size="small">
+                        <InputLabel>الجنس</InputLabel>
+                        <Select
+                          value={form.gender}
+                          onChange={handleChange('gender')}
+                          label="الجنس"
+                          MenuProps={menuProps}
+                        >
+                          <MenuItem value=""><em>اختر...</em></MenuItem>
+                          <MenuItem value={GENDERS.MALE}>ذكر</MenuItem>
+                          <MenuItem value={GENDERS.FEMALE}>أنثى</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>الحالة الاجتماعية</InputLabel>
+                        <Select
+                          value={form.maritalStatus}
+                          onChange={handleChange('maritalStatus')}
+                          label="الحالة الاجتماعية"
+                          MenuProps={menuProps}
+                        >
+                          <MenuItem value=""><em>غير محدد</em></MenuItem>
+                          <MenuItem value="SINGLE">أعزب</MenuItem>
+                          <MenuItem value="MARRIED">متزوج</MenuItem>
+                          <MenuItem value="DIVORCED">مطلق</MenuItem>
+                          <MenuItem value="WIDOWED">أرمل</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {!isPrincipal && (
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <FormControl fullWidth required error={!!errors.relationship} size="small">
+                          <InputLabel>صلة القرابة</InputLabel>
+                          <Select value={form.relationship} onChange={handleChange('relationship')} label="صلة القرابة" MenuProps={menuProps}>
+                            {Object.entries(RELATIONSHIPS).map(([key, value]) => (
+                              <MenuItem key={key} value={value}>
+                                {value === 'WIFE' ? 'زوجة' : value === 'HUSBAND' ? 'زوج' : value === 'SON' ? 'ابن' : value === 'DAUGHTER' ? 'ابنة' : value === 'FATHER' ? 'أب' : value === 'MOTHER' ? 'أم' : value === 'BROTHER' ? 'أخ' : value === 'SISTER' ? 'أخت' : value}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField fullWidth label="الجنسية" value={form.nationality} onChange={handleChange('nationality')} size="small" />
+                    </Grid>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="الرقم الوطني"
-                    value={form.nationalNumber}
-                    onChange={handleFieldChange('nationalNumber')}
-                    placeholder="اختياري"
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DatePicker
-                    label="تاريخ الميلاد *"
-                    value={form.birthDate}
-                    onChange={handleDateChange('birthDate')}
-                    maxDate={dayjs()}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        size: 'small',
-                        error: !!errors.birthDate,
-                        helperText: errors.birthDate
-                      }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth required error={!!errors.gender} size="small">
-                    <InputLabel>الجنس</InputLabel>
-                    <Select
-                      value={form.gender}
-                      onChange={handleFieldChange('gender')}
-                      label="الجنس"
-                    >
-                      {Object.entries(GENDERS).map(([key, value]) => (
-                        <MenuItem key={key} value={value}>
-                          {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="الجنسية"
-                    value={form.nationality}
-                    onChange={handleFieldChange('nationality')}
-                    size="small"
-                  />
+
+                {/* Left Column: Photo Upload (Sticky behavior) */}
+                <Grid size={{ xs: 12, md: 3 }}>
+                  <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', height: '100%', bgcolor: 'grey.50', borderStyle: 'dashed' }}>
+                    <Box position="relative" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <MemberAvatar
+                        member={{ id: id, photoUrl: form.photoPreview, fullName: form.fullName }}
+                        size={120}
+                        refreshTrigger={form.photoPreview}
+                        sx={{ cursor: 'pointer', mb: 2 }}
+                        onClick={() => document.getElementById('photo-upload').click()}
+                      />
+                      <input
+                        accept="image/*"
+                        id="photo-upload"
+                        type="file"
+                        hidden
+                        onChange={handlePhotoSelect}
+                      />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        الصورة الشخصية
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 2 }}>
+                        اضغط على الدائرة للرفع
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => document.getElementById('photo-upload').click()}
+                      >
+                        اختيار صورة
+                      </Button>
+
+                      {(form.photoPreview || form.hasExistingPhoto) && (
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="text"
+                          startIcon={<DeleteIcon />}
+                          onClick={handleDeletePhoto}
+                          sx={{ mt: 1, fontSize: '11px' }}
+                        >
+                          حذف الصورة
+                        </Button>
+                      )}
+                    </Box>
+                  </Paper>
                 </Grid>
               </Grid>
             )}
           </div>
 
-          {/* Tab 1: Employment OR Relationship */}
+          {/* Tab 1: Employment Info */}
           <div role="tabpanel" hidden={tabValue !== 1}>
             {tabValue === 1 && (
-              <Grid container spacing={3}>
+              <Grid container spacing={2}>
                 {isPrincipal ? (
                   <>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth required error={!!errors.organization} size="small">
+                    <Grid size={{ xs: 12 }}>
+                      <FormControl fullWidth required error={!!errors.employerId} size="small">
                         <InputLabel>جهة العمل</InputLabel>
-                        <Select
-                          value={selectedOrganization}
-                          onChange={(e) => setSelectedOrganization(e.target.value)}
-                          label="جهة العمل"
-                        >
-                          {organizations.map((org) => (
-                            <MenuItem key={org.id} value={org.id}>
-                              {org.nameAr || org.nameEn || org.name}
-                            </MenuItem>
-                          ))}
+                        <Select value={form.employerId} onChange={handleChange('employerId')} label="جهة العمل" MenuProps={menuProps}>
+                          {employers.map(emp => <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>)}
                         </Select>
-                        {errors.organization && <FormHelperText>{errors.organization}</FormHelperText>}
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField fullWidth label="الرقم الوظيفي" value={form.employeeNumber} onChange={handleChange('employeeNumber')} size="small" />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <DatePicker label="تاريخ الالتحاق" value={form.joinDate} onChange={handleChange('joinDate')} slotProps={{ textField: { fullWidth: true, size: "small" } }} />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField fullWidth label="المهنة" value={form.occupation} onChange={handleChange('occupation')} size="small" />
+                    </Grid>
+
+                    <Grid size={{ xs: 12 }}><Divider sx={{ my: 1 }} /></Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>سياسة المنافع</InputLabel>
-                        <Select
-                          value={selectedBenefitPolicy}
-                          onChange={(e) => setSelectedBenefitPolicy(e.target.value)}
-                          label="سياسة المنافع"
-                        >
-                          <MenuItem value="">
-                            <em>-- اختياري --</em>
-                          </MenuItem>
-                          {benefitPolicies.map((policy) => (
-                            <MenuItem key={policy.id} value={policy.id}>
-                              {policy.nameAr || policy.nameEn || policy.name}
-                            </MenuItem>
-                          ))}
+                        <InputLabel>الحالة</InputLabel>
+                        <Select value={form.status} onChange={handleChange('status')} label="الحالة">
+                          <MenuItem value="ACTIVE">نشط</MenuItem>
+                          <MenuItem value="SUSPENDED">معلق</MenuItem>
+                          <MenuItem value="TERMINATED">منتهي</MenuItem>
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="الرقم الوظيفي"
-                        value={form.employeeNumber}
-                        onChange={handleFieldChange('employeeNumber')}
-                        size="small"
-                      />
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <DatePicker label="تاريخ البدء" value={form.startDate} onChange={handleChange('startDate')} slotProps={{ textField: { fullWidth: true, size: "small" } }} />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <DatePicker
-                        label="تاريخ الالتحاق"
-                        value={form.joinDate}
-                        onChange={handleDateChange('joinDate')}
-                        slotProps={{
-                          textField: { fullWidth: true, size: "small" }
-                        }}
-                      />
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <DatePicker label="تاريخ الانتهاء" value={form.endDate} onChange={handleChange('endDate')} slotProps={{ textField: { fullWidth: true, size: "small" } }} />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="المهنة"
-                        value={form.occupation}
-                        onChange={handleFieldChange('occupation')}
-                        size="small"
-                      />
+                    <Grid size={{ xs: 12 }}>
+                      <TextField fullWidth label="ملاحظات" value={form.notes} onChange={handleChange('notes')} multiline rows={3} size="small" />
                     </Grid>
                   </>
                 ) : (
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth required error={!!errors.relationship} size="small">
-                      <InputLabel>صلة القرابة</InputLabel>
-                      <Select
-                        value={form.relationship}
-                        onChange={handleFieldChange('relationship')}
-                        label="صلة القرابة"
-                      >
-                        {Object.entries(RELATIONSHIPS).map(([key, value]) => (
-                          <MenuItem key={key} value={value}>
-                            {value === 'WIFE' ? 'زوجة' :
-                              value === 'HUSBAND' ? 'زوج' :
-                                value === 'SON' ? 'ابن' :
-                                  value === 'DAUGHTER' ? 'ابنة' :
-                                    value === 'FATHER' ? 'أب' :
-                                      value === 'MOTHER' ? 'أم' :
-                                        value === 'BROTHER' ? 'أخ' :
-                                          value === 'SISTER' ? 'أخت' : value}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {errors.relationship && <FormHelperText>{errors.relationship}</FormHelperText>}
-                    </FormControl>
-                  </Grid>
+                  <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, width: '100%' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      لا توجد بيانات عمل للمنتفع التابع. صلة القرابة موجودة في "البيانات الشخصية".
+                    </Typography>
+                  </Box>
                 )}
               </Grid>
             )}
@@ -526,90 +646,32 @@ const UnifiedMemberEdit = () => {
           {/* Tab 2: Contact Info */}
           <div role="tabpanel" hidden={tabValue !== 2}>
             {tabValue === 2 && (
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="رقم الهاتف"
-                    value={form.phone}
-                    onChange={handleFieldChange('phone')}
-                    size="small"
-                  />
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="رقم الهاتف" value={form.phone} onChange={handleChange('phone')} error={!!errors.phone} helperText={errors.phone || "يجب أن يكون ليبي (09x) و10 أرقام"} size="small" inputProps={{ maxLength: 10 }} />
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="البريد الإلكتروني"
-                    type="email"
-                    value={form.email}
-                    onChange={handleFieldChange('email')}
-                    size="small"
-                  />
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="البريد الإلكتروني" type="email" value={form.email} onChange={handleChange('email')} error={!!errors.email} helperText={errors.email} size="small" />
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="العنوان"
-                    value={form.address}
-                    onChange={handleFieldChange('address')}
-                    size="small"
-                  />
+                <Grid size={{ xs: 12 }}>
+                  <TextField fullWidth label="العنوان" value={form.address} onChange={handleChange('address')} multiline rows={2} size="small" />
                 </Grid>
               </Grid>
             )}
           </div>
+        </Box>
 
-          {/* Tab 3: Status & Dates */}
-          <div role="tabpanel" hidden={tabValue !== 3}>
-            {tabValue === 3 && (
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>الحالة</InputLabel>
-                    <Select
-                      value={form.status}
-                      onChange={handleFieldChange('status')}
-                      label="الحالة"
-                    >
-                      <MenuItem value="ACTIVE">نشط</MenuItem>
-                      <MenuItem value="SUSPENDED">معلق</MenuItem>
-                      <MenuItem value="TERMINATED">منتهي</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DatePicker
-                    label="تاريخ البدء"
-                    value={form.startDate}
-                    onChange={handleDateChange('startDate')}
-                    slotProps={{
-                      textField: { fullWidth: true, size: "small" }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DatePicker
-                    label="تاريخ الانتهاء"
-                    value={form.endDate}
-                    onChange={handleDateChange('endDate')}
-                    slotProps={{
-                      textField: { fullWidth: true, size: "small" }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label="ملاحظات"
-                    value={form.notes}
-                    onChange={handleFieldChange('notes')}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </div>
+        <Divider />
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 2, bgcolor: 'background.default' }}>
+          <Button variant="outlined" onClick={() => navigate(`/members/${id}`)}>إلغاء</Button>
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+            onClick={handleSubmit}
+            disabled={saving}
+          >
+            {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+          </Button>
         </Box>
       </MainCard>
     </RBACGuard>

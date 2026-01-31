@@ -298,9 +298,6 @@ const BenefitPolicyView = () => {
       case 'delete':
         deleteMutation.mutate();
         break;
-      case 'delete':
-        deleteMutation.mutate();
-        break;
       case 'restore':
         restoreMutation.mutate();
         break;

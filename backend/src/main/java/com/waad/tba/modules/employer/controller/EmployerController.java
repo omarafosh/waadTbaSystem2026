@@ -24,9 +24,11 @@ public class EmployerController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
-    public ResponseEntity<ApiResponse<List<EmployerResponseDto>>> getAll(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<EmployerResponseDto>>> getAll(
+            @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean deleted) {
-        List<EmployerResponseDto> employers = service.getAll(deleted);
+        org.springframework.data.domain.Page<EmployerResponseDto> employers = service.getAll(pageable, search, deleted);
         return ResponseEntity.ok(ApiResponse.success(employers));
     }
 

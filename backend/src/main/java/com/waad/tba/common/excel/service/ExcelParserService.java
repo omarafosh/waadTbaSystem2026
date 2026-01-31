@@ -50,16 +50,47 @@ public class ExcelParserService {
     }
     
     /**
-     * Get first data sheet (skip metadata sheet)
+     * Get first data sheet (skip metadata sheet, lookup sheets, etc.)
+     * Searches for: "Data", "Members", "الأعضاء", "المنتفعين", "Sheet1" (case-insensitive)
      */
     public Sheet getDataSheet(Workbook workbook) {
-        // Look for "Data" sheet first
-        Sheet dataSheet = workbook.getSheet("Data");
-        if (dataSheet != null) {
-            return dataSheet;
+        // 1. Explicitly look for "Data" sheet first as requested by user
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            String sheetName = workbook.getSheetName(i);
+            if (sheetName.equalsIgnoreCase("Data")) {
+                log.info("[ExcelParser] Found requested data sheet: {}", sheetName);
+                return workbook.getSheetAt(i);
+            }
+        }
+
+        String[] possibleNames = {"Members", "الأعضاء", "المنتفعين", "الاعضاء", "Sheet1", "البيانات"};
+        
+        // 2. Try other common names
+        for (String name : possibleNames) {
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                String sheetName = workbook.getSheetName(i);
+                if (sheetName.equalsIgnoreCase(name) || sheetName.toLowerCase().contains(name.toLowerCase())) {
+                    if (!workbook.isSheetHidden(i)) {
+                        log.info("[ExcelParser] Found data sheet by name: {}", sheetName);
+                        return workbook.getSheetAt(i);
+                    }
+                }
+            }
         }
         
-        // Otherwise, get first visible sheet
+        // 2. Otherwise, get first visible sheet that isn't a lookup sheet
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            String sheetName = workbook.getSheetName(i).toLowerCase();
+            if (!workbook.isSheetHidden(i) && 
+                !sheetName.contains("lookup") && 
+                !sheetName.contains("جهات") && 
+                !sheetName.contains("قوالب")) {
+                log.info("[ExcelParser] Falling back to first visible data-like sheet: {}", workbook.getSheetName(i));
+                return workbook.getSheetAt(i);
+            }
+        }
+        
+        // 3. Absolute fallback: first visible sheet
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
             if (!workbook.isSheetHidden(i)) {
                 return workbook.getSheetAt(i);
