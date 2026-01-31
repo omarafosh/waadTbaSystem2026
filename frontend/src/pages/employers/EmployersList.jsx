@@ -7,7 +7,7 @@ import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { debounce } from 'lodash-es';
-import Swal from 'sweetalert2';
+import { useSnackbar } from 'notistack';
 
 // MUI Components
 import {
@@ -23,7 +23,12 @@ import {
   FormControlLabel,
   Switch,
   Alert,
-  InputAdornment
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 
 // MUI Icons
@@ -48,7 +53,6 @@ import useTableState from 'hooks/useTableState';
 
 // Services
 import { getEmployers, createEmployer, updateEmployer, archiveEmployer, restoreEmployer } from 'services/api/employers.service';
-import { openSnackbar } from 'api/snackbar';
 
 // ============================================================================
 // CONSTANTS
@@ -69,6 +73,7 @@ const emptyForm = {
 const EmployersList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
 
   // Local State
   const [formMode, setFormMode] = useState('create');
@@ -76,6 +81,17 @@ const EmployersList = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    onConfirm: null,
+    confirmText: 'نعم',
+    cancelText: 'إلغاء',
+    severity: 'warning'
+  });
 
   // Persist pagination size
   const savedPageSize = localStorage.getItem('employers_pageSize');
@@ -108,6 +124,10 @@ const EmployersList = () => {
     }
   }, [handleSearchChange]);
 
+  const closeDialog = () => {
+    setConfirmDialog(prev => ({ ...prev, open: false }));
+  };
+
   // ========================================
   // FORM HANDLERS
   // ========================================
@@ -129,7 +149,7 @@ const EmployersList = () => {
     e.preventDefault();
 
     if (!formData.name?.trim()) {
-      openSnackbar({ message: 'اسم جهة العمل مطلوب', variant: 'warning' });
+      enqueueSnackbar('اسم جهة العمل مطلوب', { variant: 'warning' });
       return;
     }
 
@@ -137,10 +157,10 @@ const EmployersList = () => {
     try {
       if (formMode === 'create') {
         await createEmployer(formData);
-        openSnackbar({ message: 'تم إضافة جهة العمل بنجاح', variant: 'success' });
+        enqueueSnackbar('تم إضافة جهة العمل بنجاح', { variant: 'success' });
       } else {
         await updateEmployer(formData.id, formData);
-        openSnackbar({ message: 'تم تحديث بيانات جهة العمل بنجاح', variant: 'success' });
+        enqueueSnackbar('تم تحديث بيانات جهة العمل بنجاح', { variant: 'success' });
       }
 
       // Refresh Data
@@ -148,10 +168,10 @@ const EmployersList = () => {
       resetForm();
     } catch (err) {
       console.error('Employer save error:', err);
-      openSnackbar({
-        message: err.response?.data?.message || 'فشل حفظ البيانات',
-        variant: 'error'
-      });
+      enqueueSnackbar(
+        err.response?.data?.message || 'فشل حفظ البيانات',
+        { variant: 'error' }
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -172,75 +192,49 @@ const EmployersList = () => {
   // ========================================
 
   const handleDelete = useCallback(
-    async (id, name) => {
-      const result = await Swal.fire({
+    (id, name) => {
+      setConfirmDialog({
+        open: true,
         title: 'هل أنت متأكد؟',
-        text: `سيتم نقل جهة العمل "${name}" إلى سلة المحذوفات`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'نعم، احذفها',
-        cancelButtonText: 'إلغاء'
+        content: `سيتم نقل جهة العمل "${name}" إلى سلة المحذوفات`,
+        confirmText: 'نعم، احذفها',
+        severity: 'error',
+        onConfirm: async () => {
+          try {
+            await archiveEmployer(id);
+            enqueueSnackbar('تم نقل جهة العمل إلى سلة المحذوفات بنجاح.', { variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+            closeDialog();
+          } catch (err) {
+            enqueueSnackbar(err.response?.data?.message || 'فشل حذف جهة العمل', { variant: 'error' });
+          }
+        }
       });
-
-      if (!result.isConfirmed) return;
-
-      try {
-        await archiveEmployer(id);
-
-        Swal.fire(
-          'تم الحذف!',
-          'تم نقل جهة العمل إلى سلة المحذوفات بنجاح.',
-          'success'
-        );
-
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      } catch (err) {
-        Swal.fire(
-          'خطأ!',
-          err.response?.data?.message || 'فشل حذف جهة العمل',
-          'error'
-        );
-      }
     },
-    [queryClient]
+    [queryClient, enqueueSnackbar]
   );
 
   const handleRestore = useCallback(
-    async (id, name) => {
-      const result = await Swal.fire({
+    (id, name) => {
+      setConfirmDialog({
+        open: true,
         title: 'تأكيد الاستعادة',
-        text: `هل تريد استعادة جهة العمل "${name}"؟`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'نعم، استعادة',
-        cancelButtonText: 'إلغاء'
+        content: `هل تريد استعادة جهة العمل "${name}"؟`,
+        confirmText: 'نعم، استعادة',
+        severity: 'success',
+        onConfirm: async () => {
+          try {
+            await restoreEmployer(id);
+            enqueueSnackbar('تم استعادة جهة العمل بنجاح.', { variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+            closeDialog();
+          } catch (err) {
+            enqueueSnackbar(err.response?.data?.message || 'فشل استعادة جهة العمل', { variant: 'error' });
+          }
+        }
       });
-
-      if (!result.isConfirmed) return;
-
-      try {
-        await restoreEmployer(id);
-
-        Swal.fire(
-          'تمت الاستعادة!',
-          'تم استعادة جهة العمل بنجاح.',
-          'success'
-        );
-
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      } catch (err) {
-        Swal.fire(
-          'خطأ!',
-          err.response?.data?.message || 'فشل استعادة جهة العمل',
-          'error'
-        );
-      }
     },
-    [queryClient]
+    [queryClient, enqueueSnackbar]
   );
 
   const toggleShowArchived = () => {
@@ -252,347 +246,298 @@ const EmployersList = () => {
   // DATA FETCHING
   // ========================================
 
-  const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, showArchived, searchTerm],
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showArchived, searchTerm],
     queryFn: async () => {
       const params = {
         page: tableState.page,
         size: tableState.pageSize,
-        search: searchTerm // Backend now supports this
+        deleted: showArchived
       };
 
-      // Add Sorting
-      if (tableState.sorting && tableState.sorting.length > 0) {
-        const { id, desc } = tableState.sorting[0];
-        params.sort = `${id},${desc ? 'desc' : 'asc'}`;
+      if (searchTerm) {
+        params.search = searchTerm;
       }
 
-      // Ensure backend receives 'deleted' param which maps to archived check
-      if (showArchived) {
-        params.deleted = true;
+      if (tableState.sorting.length > 0) {
+        const sort = tableState.sorting[0];
+        params.sort = `${sort.id},${sort.desc ? 'desc' : 'asc'}`;
+      } else {
+        // Default sort
+        params.sort = 'id,desc';
       }
 
-      const result = await getEmployers(params);
+      Object.entries(tableState.columnFilters).forEach(([key, value]) => {
+        if (value) params[key] = value;
+      });
 
-      // Employers Service now returns { content: [], totalElements: num } or Array
-      let content = [];
-      let totalElements = 0;
-
-      if (Array.isArray(result)) {
-        content = result;
-        totalElements = result.length;
-      } else if (result?.content) {
-        content = result.content;
-        totalElements = result.totalElements;
-      }
-
-      return {
-        content: content,
-        totalElements: totalElements
-      };
+      return await getEmployers(params);
     },
     keepPreviousData: true
   });
+
+  // Flatten data for table
+  const tableData = useMemo(() => {
+    if (!data?.content) return [];
+    return data.content;
+  }, [data]);
+
+  const totalCount = data?.totalElements || 0;
 
   // ========================================
   // COLUMNS
   // ========================================
 
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: 'code',
-        header: 'الرمز',
-        size: 100,
-        cell: ({ row }) => (
-          <Chip label={row.original?.code || '-'} size="small" variant="outlined" color="primary" />
-        )
-      },
-      {
-        accessorKey: 'name',
-        header: 'الاسم',
-        size: 200,
-        align: 'right', // Align header to right
-        muiTableHeadCellProps: {
-          align: 'center', // Force header center
-        },
-        cell: ({ row }) => (
-          <Stack direction="row" justifyContent="center" alignItems="center" sx={{ width: '100%', height: '100%' }}>
-            <Typography variant="body2" fontWeight={500} textAlign="right">
-              {row.original?.name}
-            </Typography>
-          </Stack>
-        )
-      },
-      {
-        accessorKey: 'active',
-        header: 'الحالة',
-        size: 90,
-        cell: ({ row }) => (
-          <Chip
-            label={row.original?.active ? 'نشط' : 'غير نشط'}
-            color={row.original?.active ? 'success' : 'default'}
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'code',
+      header: 'الكود',
+      enableSorting: true,
+      size: 100,
+      cell: ({ getValue }) => <Chip label={getValue() || '-'} size="small" variant="outlined" />
+    },
+    {
+      accessorKey: 'name', // Using unified 'name'
+      header: 'الاسم',
+      enableSorting: true,
+      size: 200,
+      cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue()}</Typography>
+    },
+    {
+      accessorKey: 'active',
+      header: 'الحالة',
+      enableSorting: true,
+      size: 100,
+      cell: ({ getValue }) => (
+        <Chip
+          label={getValue() ? 'نشط' : 'غير نشط'}
+          color={getValue() ? 'success' : 'default'}
+          size="small"
+        />
+      )
+    },
+    {
+      id: 'contracts',
+      header: 'العقود',
+      size: 80,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Tooltip title="العقود">
+          <IconButton
             size="small"
-            variant="light"
-          />
-        )
-      },
-      {
-        id: 'linkedPolicy',
-        header: 'الوثيقة المرتبطة',
-        size: 180,
-        align: 'center', // Changed to center
-        cell: ({ row }) => {
-          const { activePolicyName, activePolicyId, id } = row.original;
+            color="primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/employers/${row.original.id}/contracts`);
+            }}
+          >
+            <PolicyIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'الإجراءات',
+      enableSorting: false,
+      size: 120,
+      cell: ({ row }) => {
+        const isArchived = !row.original.active && showArchived; // Simplified logic, relies on backend 'deleted' flag mostly
 
-          if (activePolicyName) {
-            return (
-              <Stack direction="row" justifyContent="center" width="100%">
-                <Tooltip title="فتح تفاصيل الوثيقة">
-                  <Button
+        return (
+          <Stack direction="row" spacing={0.5} justifyContent="center" onClick={(e) => e.stopPropagation()}>
+            {showArchived ? (
+              <PermissionGuard permission="employers.delete">
+                <Tooltip title="استعادة">
+                  <IconButton
+                    color="success"
                     size="small"
-                    variant="text"
-                    color="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/benefit-policies/${activePolicyId}`);
-                    }}
-                    startIcon={<PolicyIcon sx={{ fontSize: '1rem !important' }} />}
-                    sx={{
-                      fontWeight: 500,
-                      textAlign: 'center',
-                      justifyContent: 'center', // Center content
-                      width: 'auto', // Auto width
-                      px: 1
-                    }}
+                    onClick={() => handleRestore(row.original.id, row.original.name)}
                   >
-                    <Typography variant="body2" sx={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: 150
-                    }}>
-                      {activePolicyName}
-                    </Typography>
-                  </Button>
+                    <RestoreFromTrashIcon fontSize="small" />
+                  </IconButton>
                 </Tooltip>
-              </Stack>
-            );
-          }
-
-          return (
-            <Stack direction="row" justifyContent="center" width="100%">
-              <Tooltip title="الانتقال لإنشاء وثيقة لهذه الجهة">
-                <Button
-                  size="small"
-                  variant="text"
-                  color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // For now redirect to list, maybe filtered?
-                    navigate('/benefit-policies');
-                  }}
-                  startIcon={<DescriptionIcon sx={{ fontSize: '1rem !important', opacity: 0.6 }} />}
-                  endIcon={<KeyboardArrowLeftIcon sx={{ fontSize: '0.8rem !important' }} />}
-                  sx={{
-                    fontSize: '0.75rem',
-                    fontWeight: 'normal',
-                    color: 'text.disabled'
-                  }}
-                >
-                  لا توجد وثيقة
-                </Button>
-              </Tooltip>
-            </Stack>
-          );
-        }
-      },
-      {
-        id: 'actions',
-        header: 'الإجراءات',
-        size: 120,
-        cell: ({ row }) => (
-          <Stack direction="row" spacing={0.5} justifyContent="center">
-            {!showArchived && (
+              </PermissionGuard>
+            ) : (
               <>
-                <Tooltip title="تعديل سريع">
-                  <IconButton size="small" color="primary" onClick={() => handleEditClick(row.original)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <PermissionGuard permission="employers.update">
+                  <Tooltip title="تعديل">
+                    <IconButton
+                      color="primary"
+                      size="small"
+                      onClick={() => handleEditClick(row.original)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </PermissionGuard>
 
-                <Tooltip title="حذف">
-                  <IconButton size="small" color="error" onClick={() => handleDelete(row.original.id, row.original.name)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <PermissionGuard permission="employers.delete">
+                  <Tooltip title="حذف">
+                    <IconButton
+                      color="error"
+                      size="small"
+                      onClick={() => handleDelete(row.original.id, row.original.name)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </PermissionGuard>
               </>
             )}
-
-            {showArchived && (
-              <Tooltip title="استعادة">
-                <IconButton size="small" color="success" onClick={() => handleRestore(row.original.id, row.original.name)}>
-                  <RestoreFromTrashIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
           </Stack>
-        )
+        );
       }
-    ],
-    [handleEditClick, handleDelete, handleRestore, showArchived]
-  );
+    }
+  ], [handleEditClick, handleDelete, handleRestore, showArchived, navigate]);
 
   return (
     <Box>
       <UnifiedPageHeader
         title="إدارة جهات العمل"
-        subtitle="إدخال وتعديل بيانات جهات العمل (الجهات المتعاقدة)"
-        icon={BusinessCenterIcon}
-        breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'جهات العمل' }]}
-        showAddButton={false}
-        additionalActions={
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              size="small"
-              placeholder="بحث عن جهة عمل..."
-              onChange={(e) => handleSearchChange(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" fontSize="small" />
-                  </InputAdornment>
-                ),
-                sx: { backgroundColor: 'background.paper', borderRadius: 1 }
-              }}
-              sx={{ width: 250 }}
-            />
-            <Button
-              variant={showArchived ? "contained" : "outlined"}
-              color={showArchived ? "error" : "inherit"}
-              startIcon={showArchived ? <RestoreFromTrashIcon /> : <DeleteIcon />}
-              onClick={toggleShowArchived}
-            >
-              {showArchived ? 'عرض النشطة' : 'المحذوفات'}
-            </Button>
-          </Stack>
+        subtitle="عرض وإدارة جهات العمل في النظام"
+        icon={<BusinessCenterIcon />}
+        actions={
+          <Button
+            variant={showArchived ? "contained" : "outlined"}
+            color={showArchived ? "warning" : "inherit"}
+            startIcon={showArchived ? <KeyboardArrowLeftIcon /> : <RestoreFromTrashIcon />}
+            onClick={toggleShowArchived}
+          >
+            {showArchived ? 'العودة للقائمة' : 'المحذوفات'}
+          </Button>
         }
       />
 
-      {/* Layout Container: Form (Right) - Table (Left) */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        sx={{
-          height: 'calc(100vh - 240px)',
-          mt: 2,
-          width: '100%'
-        }}
-      >
-
-        {/* Right Column: Form (Fixed Width ~25%) */}
-        <Box sx={{ width: { xs: '100%', md: '280px', lg: '320px' }, height: '100%', flexShrink: 0 }}>
-          <MainCard
-            title={formMode === 'create' ? 'إضافة جهة عمل جديدة' : 'تعديل بيانات جهة العمل'}
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-            contentSX={{ flex: 1, overflowY: 'auto' }}
-          >
-            <form onSubmit={handleSubmit} style={{ height: '100%' }}>
-              <Stack spacing={2} sx={{ height: '100%' }}>
-                {formMode === 'create' && (
-                  <Alert severity="info" icon={<AutoFixHighIcon />}>
-                    يمكن ترك الرمز فارغاً للتوليد التلقائي
-                  </Alert>
-                )}
-
-                <TextField
-                  label="رمز جهة العمل (اختياري)"
-                  name="code"
-                  value={formData.code}
-                  onChange={handleInputChange}
-                  fullWidth
-                  dir="ltr"
-                  placeholder="EMP-001"
-                />
-
-                <TextField
-                  label="اسم جهة العمل"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  fullWidth
-                />
-
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.active}
-                      onChange={handleInputChange}
-                      name="active"
-                      color="success"
-                    />
-                  }
-                  label={formData.active ? 'الحساب نشط' : 'الحساب معطل'}
-                />
-
-                {/* Button placed naturally below inputs */}
-                <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    fullWidth
-                    startIcon={<SaveIcon />}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ البيانات'}
-                  </Button>
-
-                  {formMode === 'edit' && (
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      fullWidth
-                      startIcon={<CancelIcon />}
-                      onClick={resetForm}
-                      disabled={isSubmitting}
-                    >
-                      إلغاء
-                    </Button>
-                  )}
-                </Stack>
-              </Stack>
-            </form>
-          </MainCard>
-        </Box>
-
-        {/* Left Column: Table (Takes remaining space) */}
-        <Box sx={{ flex: 1, height: '100%', minWidth: 0 }}>
-          <MainCard
-            content={false}
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-          >
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <GenericDataTable
-                columns={columns}
-                data={data?.content || []}
-                totalCount={data?.totalElements || 0}
-                isLoading={isLoading}
-                tableState={tableState}
-                enableFiltering={false}
-                enableSorting={true}
-                enablePagination={true}
-                headerVariant="primary"
-                cellPadding="dense"
-                maxHeight="100%"
-                emptyMessage={showArchived ? "سلة المحذوفات فارغة" : "لا يوجد شركاء مسجلين"}
-                rowsPerPageOptions={[5, 8, 10, 15, 20, 25, 50]}
+      <Grid container spacing={3}>
+        {/* Left Side: Table */}
+        <Grid item xs={12} md={8}>
+          <MainCard>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+              <TextField
+                placeholder="بحث..."
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  )
+                }}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                sx={{ width: 250 }}
               />
             </Box>
-          </MainCard>
-        </Box>
-      </Stack>
 
+            {isError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error?.response?.data?.message || 'فشل تحميل البيانات'}
+              </Alert>
+            )}
+
+            <GenericDataTable
+              columns={columns}
+              data={tableData}
+              totalCount={totalCount}
+              isLoading={isLoading}
+              tableState={tableState}
+              onRowClick={(row) => handleEditClick(row)}
+            />
+          </MainCard>
+        </Grid>
+
+        {/* Right Side: Form */}
+        <Grid item xs={12} md={4}>
+          <MainCard title={formMode === 'create' ? 'إضافة جهة عمل' : 'تعديل جهة عمل'}>
+            <PermissionGuard permission={formMode === 'create' ? "employers.create" : "employers.update"}>
+              <form onSubmit={handleSubmit}>
+                <Stack spacing={3}>
+                  <TextField
+                    name="code"
+                    label="الكود"
+                    value={formData.code}
+                    onChange={handleInputChange}
+                    size="small"
+                    fullWidth
+                  />
+
+                  <TextField
+                    name="name"
+                    label="الاسم"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    size="small"
+                    fullWidth
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        name="active"
+                        checked={formData.active}
+                        onChange={handleInputChange}
+                        color="primary"
+                      />
+                    }
+                    label="نشط"
+                  />
+
+                  <Stack direction="row" spacing={2} justifyContent="flex-end">
+                    {formMode === 'edit' && (
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<CancelIcon />}
+                        onClick={resetForm}
+                      >
+                        إلغاء
+                      </Button>
+                    )}
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      startIcon={formMode === 'create' ? <AutoFixHighIcon /> : <SaveIcon />}
+                      disabled={isSubmitting}
+                    >
+                      {formMode === 'create' ? 'إضافة' : 'حفظ'}
+                    </Button>
+                  </Stack>
+                </Stack>
+              </form>
+            </PermissionGuard>
+            <PermissionGuard permission={formMode === 'create' ? "employers.create" : "employers.update"} inverse>
+              <Alert severity="info">ليس لديك صلاحية {formMode === 'create' ? 'إضافة' : 'تعديل'} جهات العمل</Alert>
+            </PermissionGuard>
+          </MainCard>
+        </Grid>
+      </Grid>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={closeDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {confirmDialog.title}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            {confirmDialog.content}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog} color="inherit">
+            {confirmDialog.cancelText}
+          </Button>
+          <Button onClick={confirmDialog.onConfirm} color={confirmDialog.severity === 'error' ? 'error' : 'primary'} autoFocus>
+            {confirmDialog.confirmText}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

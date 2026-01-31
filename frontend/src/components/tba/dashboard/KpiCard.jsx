@@ -5,11 +5,7 @@ import PropTypes from 'prop-types';
 import { Box, Card, CardContent, Stack, Typography, useTheme } from '@mui/material';
 
 // third-party
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js';
-
-// Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
+import Chart from 'react-apexcharts';
 
 /**
  * KpiCard Component
@@ -43,36 +39,44 @@ const KpiCard = memo(({ title, value, icon: Icon, color = 'primary', sparklineDa
   const defaultSparklineData = [12, 19, 15, 25, 22, 30, 28, 35, 32, 40, 38, 45];
   const chartData = sparklineData.length > 0 ? sparklineData : defaultSparklineData;
 
-  // Sparkline chart configuration
-  const sparklineConfig = {
-    labels: chartData.map((_, i) => i),
-    datasets: [
-      {
-        data: chartData,
-        borderColor: mainColor,
-        backgroundColor: `${mainColor}20`,
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 0
-      }
-    ]
-  };
+  const chartSeries = [{ data: chartData }];
 
-  const sparklineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: { enabled: false }
+  const chartOptions = {
+    chart: {
+      type: 'area',
+      sparkline: {
+        enabled: true
+      }
     },
-    scales: {
-      x: { display: false },
-      y: { display: false }
+    stroke: {
+      curve: 'smooth',
+      width: 2
     },
-    elements: {
-      line: { borderWidth: 2 }
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.45,
+        opacityTo: 0.05,
+        stops: [50, 100]
+      }
+    },
+    colors: [mainColor],
+    tooltip: {
+      fixed: {
+        enabled: false
+      },
+      x: {
+        show: false
+      },
+      y: {
+        title: {
+          formatter: () => ''
+        }
+      },
+      marker: {
+        show: false
+      }
     }
   };
 
@@ -123,7 +127,7 @@ const KpiCard = memo(({ title, value, icon: Icon, color = 'primary', sparklineDa
 
           {/* Mini Sparkline Chart */}
           <Box sx={{ height: 50, mt: 1 }}>
-            <Line data={sparklineConfig} options={sparklineOptions} />
+            <Chart options={chartOptions} series={chartSeries} type="area" height={50} />
           </Box>
         </Stack>
       </CardContent>

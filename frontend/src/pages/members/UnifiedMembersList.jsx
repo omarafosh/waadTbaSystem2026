@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  DialogContentText,
   Alert,
   Stepper,
   Step,
@@ -53,8 +54,7 @@ import {
   Download as DownloadIcon,
   Undo as UndoIcon
 } from '@mui/icons-material';
-
-import Swal from 'sweetalert2';
+import { useSnackbar } from 'notistack';
 
 import MainCard from 'components/MainCard';
 import { GenericDataTable, ModernPageHeader, MemberAvatar } from 'components/tba';
@@ -74,7 +74,6 @@ import {
   MEMBER_STATUSES
 } from 'services/api/unified-members.service';
 import axiosClient from 'utils/axios';
-import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
@@ -85,6 +84,7 @@ const DEFAULT_SORT = { field: 'fullName', direction: 'asc' };
  */
 const UnifiedMembersList = () => {
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   // Table State Management
   const tableState = useTableState({
@@ -125,13 +125,87 @@ const UnifiedMembersList = () => {
   const [executionResult, setExecutionResult] = useState(null);
   const [customMappings, setCustomMappings] = useState({});
 
-  // Delete Dialog State - REMOVED (Replaced by SweetAlert2)
-  // const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  // const [memberToDelete, setMemberToDelete] = useState(null);
-  // const [deleting, setDeleting] = useState(false);
+  // Confirmation Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    html: false, // flag to render HTML content
+    onConfirm: null,
+    confirmText: 'نعم',
+    cancelText: 'إلغاء',
+    severity: 'warning'
+  });
 
   // Lookup Data
   const [employers, setEmployers] = useState([]);
+
+  // ========================================
+  // CONFIRMATION HANDLERS
+  // ========================================
+  const closeDialog = () => {
+    setConfirmDialog(prev => ({ ...prev, open: false }));
+  };
+
+  const handleConfirmAction = async (actionFn, successMessage, errorMessage) => {
+    try {
+      await actionFn();
+      enqueueSnackbar(successMessage, { variant: 'success' });
+      fetchMembers();
+      closeDialog();
+    } catch (error) {
+      console.error(errorMessage, error);
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const handleDeleteClick = (member) => {
+    setConfirmDialog({
+      open: true,
+      title: 'هل أنت متأكد؟',
+      content: member.type === 'PRINCIPAL'
+        ? `سيتم حذف المنتفع ${member.fullName}. سيتم حذف جميع التابعين المرتبطين به أيضاً!`
+        : `سيتم حذف المنتفع ${member.fullName}.`,
+      html: false, // Simplified to text for standard dialog
+      severity: 'error',
+      confirmText: 'نعم، احذفه',
+      onConfirm: () => handleConfirmAction(
+        () => deleteMember(member.id),
+        'تم حذف المنتفع بنجاح',
+        'خطأ في حذف المنتفع'
+      )
+    });
+  };
+
+  const handleRestoreClick = (member) => {
+    setConfirmDialog({
+      open: true,
+      title: 'استعادة المنتفع؟',
+      content: `سيتم استعادة المنتفع ${member.fullName} وإعادته للقائمة النشطة.`,
+      severity: 'success',
+      confirmText: 'نعم، استعده',
+      onConfirm: () => handleConfirmAction(
+        () => restoreMember(member.id),
+        'تم استعادة المنتفع بنجاح',
+        'خطأ في استعادة المنتفع'
+      )
+    });
+  };
+
+  const handleHardDeleteClick = (member) => {
+    setConfirmDialog({
+      open: true,
+      title: 'حذف نهائي؟',
+      content: `سيتم حذف المنتفع ${member.fullName} نهائياً من قاعدة البيانات. هذا الإجراء لا يمكن التراجع عنه!`,
+      severity: 'error',
+      confirmText: 'نعم، احذفه نهائياً',
+      onConfirm: () => handleConfirmAction(
+        () => hardDeleteMember(member.id),
+        'تم حذف المنتفع نهائياً',
+        'خطأ في الحذف النهائي للمنتفع'
+      )
+    });
+  };
 
   // ========================================
   // COLUMNS DEFINITION
@@ -315,12 +389,7 @@ const UnifiedMembersList = () => {
       setTotalElements(total);
     } catch (error) {
       console.error('Error fetching members:', error);
-      openSnackbar({
-        open: true,
-        message: 'خطأ في جلب المنتفعين',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
+      enqueueSnackbar('خطأ في جلب المنتفعين', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -339,166 +408,8 @@ const UnifiedMembersList = () => {
     }
   };
 
-
-
-  const handleDeleteClick = (member) => {
-    Swal.fire({
-      title: 'هل أنت متأكد؟',
-      html: `سيتم حذف المنتفع <strong>${member.fullName}</strong>.<br/>${member.type === 'PRINCIPAL' ? '<span style="color:red">⚠️ سيتم حذف جميع التابعين المرتبطين به أيضاً!</span>' : ''}`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'نعم، احذفه',
-      cancelButtonText: 'إلغاء'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await deleteMember(member.id);
-          openSnackbar({
-            open: true,
-            message: 'تم حذف المنتفع بنجاح',
-            variant: 'alert',
-            alert: { color: 'success' }
-          });
-          fetchMembers();
-        } catch (error) {
-          console.error('Error deleting member:', error);
-          openSnackbar({
-            open: true,
-            message: 'خطأ في حذف المنتفع',
-            variant: 'alert',
-            alert: { color: 'error' }
-          });
-        }
-      }
-    });
-  };
-
-  const handleRestoreClick = (member) => {
-    Swal.fire({
-      title: 'استعادة المنتفع؟',
-      html: `سيتم استعادة المنتفع <strong>${member.fullName}</strong> وإعادته للقائمة النشطة.`,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonColor: '#28a745',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'نعم، استعده',
-      cancelButtonText: 'إلغاء'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await restoreMember(member.id);
-          openSnackbar({
-            open: true,
-            message: 'تم استعادة المنتفع بنجاح',
-            variant: 'alert',
-            alert: { color: 'success' }
-          });
-          fetchMembers();
-        } catch (error) {
-          console.error('Error restoring member:', error);
-          openSnackbar({
-            open: true,
-            message: 'خطأ في استعادة المنتفع',
-            variant: 'alert',
-            alert: { color: 'error' }
-          });
-        }
-      }
-    });
-  };
-
-  const handleHardDeleteClick = (member) => {
-    Swal.fire({
-      title: 'حذف نهائي؟',
-      html: `سيتم حذف المنتفع <strong>${member.fullName}</strong> نهائياً من قاعدة البيانات.<br/><span style="color:red; font-weight:bold">⚠️ هذا الإجراء لا يمكن التراجع عنه!</span>`,
-      icon: 'error',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'نعم، احذفه نهائياً',
-      cancelButtonText: 'إلغاء'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await hardDeleteMember(member.id);
-          openSnackbar({
-            open: true,
-            message: 'تم حذف المنتفع نهائياً',
-            variant: 'alert',
-            alert: { color: 'success' }
-          });
-          fetchMembers();
-        } catch (error) {
-          console.error('Error hard deleting member:', error);
-          openSnackbar({
-            open: true,
-            message: 'خطأ في الحذف النهائي للمنتفع',
-            variant: 'alert',
-            alert: { color: 'error' }
-          });
-        }
-      }
-    });
-  };
-
-  // handleConfirmDelete is no longer needed
-
-  const handleRestore = async (member) => {
-    const result = await Swal.fire({
-      title: 'تأكيد الاستعادة',
-      text: `هل تريد استعادة المنتفع "${member.fullName}"؟`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'نعم، استعادة',
-      cancelButtonText: 'إلغاء'
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      await restoreMember(member.id);
-      openSnackbar({
-        open: true,
-        message: 'تم استعادة المنتفع بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-      fetchMembers();
-    } catch (error) {
-      console.error('Error restoring member:', error);
-      openSnackbar({
-        open: true,
-        message: 'خطأ في استعادة المنتفع',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    }
-  };
-
   const handleRefresh = () => {
     fetchMembers();
-  };
-
-  // Helper function to translate column names to Arabic
-  const translateColumnName = (columnName) => {
-    const translations = {
-      'full_name': 'الاسم الكامل',
-      'employer': 'جهة العمل',
-      'birth_date': 'تاريخ الميلاد',
-      'gender': 'الجنس',
-      'civil_id': 'الرقم الوطني',
-      'phone': 'رقم الهاتف',
-      'email': 'البريد الإلكتروني',
-      'policy_number': 'رقم الوثيقة',
-      'nationality': 'الجنسية',
-      'employee_number': 'الرقم الوظيفي',
-      'TEMPLATE_HEADER': 'رأس القالب'
-    };
-    return translations[columnName] || columnName;
   };
 
   const handleResetFilters = () => {
@@ -521,20 +432,10 @@ const UnifiedMembersList = () => {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      openSnackbar({
-        open: true,
-        message: 'تم تحميل القالب بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
+      enqueueSnackbar('تم تحميل القالب بنجاح', { variant: 'success' });
     } catch (error) {
       console.error('Error downloading template:', error);
-      openSnackbar({
-        open: true,
-        message: 'فشل تحميل القالب',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
+      enqueueSnackbar('فشل تحميل القالب', { variant: 'error' });
     }
   };
 
@@ -575,12 +476,7 @@ const UnifiedMembersList = () => {
         // Actually, let's keep the steps but ensure preview is correct
       } catch (error) {
         console.error('Detection failed:', error);
-        openSnackbar({
-          open: true,
-          message: 'فشل تحليل الملف. تأكد أنه ملف Excel صالح.',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
+        enqueueSnackbar('فشل تحليل الملف. تأكد أنه ملف Excel صالح.', { variant: 'error' });
       } finally {
         setImporting(false);
       }
@@ -593,12 +489,7 @@ const UnifiedMembersList = () => {
         setActiveStep(2);
       } catch (error) {
         console.error('Preview failed:', error);
-        openSnackbar({
-          open: true,
-          message: 'فشل معاينة البيانات.',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
+        enqueueSnackbar('فشل معاينة البيانات.', { variant: 'error' });
       } finally {
         setImporting(false);
       }
@@ -641,22 +532,12 @@ const UnifiedMembersList = () => {
       // Refresh table
       fetchMembers();
 
-      openSnackbar({
-        open: true,
-        message: 'تمت عملية الاستيراد بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
+      enqueueSnackbar('تمت عملية الاستيراد بنجاح', { variant: 'success' });
     } catch (error) {
       console.error('Import execution failed:', error);
       const errorMessage = error.response?.data?.message || 'فشل تنفيذ الاستيراد.';
       setImportErrors(errorMessage);
-      openSnackbar({
-        open: true,
-        message: errorMessage,
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setImporting(false);
     }
@@ -799,240 +680,148 @@ const UnifiedMembersList = () => {
               </Select>
             </FormControl>
 
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleResetFilters}
-              sx={{ height: 36, fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
-            >
-              إعادة تعيين
-            </Button>
+            <Tooltip title="تحديث">
+              <IconButton onClick={handleRefresh} size="small" color="primary">
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
 
-            <IconButton color="primary" onClick={handleRefresh} size="small">
-              <RefreshIcon />
-            </IconButton>
+            <Tooltip title="إعادة تعيين">
+              <IconButton onClick={handleResetFilters} size="small">
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </MainCard>
 
-        {/* Members Table - Full Width */}
-        <MainCard
-          content={false}
-          sx={{ height: 'calc(100vh - 380px)', display: 'flex', flexDirection: 'column' }}
-        >
+        {/* Data Table */}
+        <MainCard content={false}>
           <GenericDataTable
             columns={columns}
             data={members}
             totalCount={totalElements}
             isLoading={loading}
             tableState={tableState}
-            emptyMessage="لا يوجد منتفعين"
-            headerVariant="primary"
-            enableFiltering={false}
+            onRowClick={(row) => navigate(`/members/${row.id}`)}
           />
         </MainCard>
       </Stack>
 
       {/* Import Dialog */}
-      <Dialog open={importDialogOpen} onClose={handleCloseImportDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 0 }}>
-          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>استيراد قائمة المنتفعين</Typography>
-          <IconButton onClick={handleCloseImportDialog} size="small"><RefreshIcon /></IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ minHeight: 400 }}>
-          <Box sx={{ p: 1 }}>
-            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-              <Step><StepLabel>اختيار الملف</StepLabel></Step>
-              <Step><StepLabel>تحليل الأعمدة</StepLabel></Step>
-              <Step><StepLabel>معاينة البيانات</StepLabel></Step>
-              <Step><StepLabel>النتائج</StepLabel></Step>
-            </Stepper>
+      <Dialog
+        open={importDialogOpen}
+        onClose={handleCloseImportDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>استيراد المنتفعين</DialogTitle>
+        <DialogContent>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3, mt: 1 }}>
+            <Step><StepLabel>اختيار الملف</StepLabel></Step>
+            <Step><StepLabel>تحليل الأعمدة</StepLabel></Step>
+            <Step><StepLabel>معاينة البيانات</StepLabel></Step>
+            <Step><StepLabel>النتيجة</StepLabel></Step>
+          </Stepper>
 
-            {importErrors && (
-              <Alert severity="error" sx={{ mb: 3, fontWeight: 700 }}>
-                {importErrors}
-              </Alert>
-            )}
-
-            {activeStep === 0 && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Alert severity="info" sx={{ mb: 3, textAlign: 'right' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>تعليمات:</Typography>
-                  <Typography variant="body2">
-                    • استخدم القالب القياسي لضمان أفضل النتائج.<br />
-                    • الاسم الكامل حقل إلزامي.<br />
-                    • سيتم التعرف على التكرارات آلياً وتحديث بياناتهم.
-                  </Typography>
-                </Alert>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  startIcon={<UploadFileIcon />}
-                  fullWidth
-                  sx={{ height: 120, borderStyle: 'dashed', borderWidth: 2 }}
-                >
-                  {importFile ? importFile.name : 'اسحب ملف الإكسل هنا أو اضغط للاختيار'}
-                  <input type="file" hidden accept=".xlsx, .xls" onChange={handleFileChange} />
-                </Button>
-                {importFile && (
-                  <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                    تم اختيار: {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
-                  </Typography>
-                )}
-              </Box>
-            )}
-
-            {activeStep === 1 && detectionResults && (
-              <Box>
-                <Alert severity={detectionResults.missingRequiredFields?.length > 0 ? "error" : "success"} sx={{ mb: 2 }}>
-                  {detectionResults.missingRequiredFields?.length > 0
-                    ? `تنبيه: حقول إلزامية مفقودة: ${detectionResults.missingRequiredFields.join(', ')}`
-                    : "تم تحليل بنية الملف بنجاح."}
-                </Alert>
-                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 700 }}>مطابقة الأعمدة المكتشفة:</Typography>
-                <Table size="small" sx={{ border: '1px solid #eee' }}>
-                  <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>اسم العمود في الملف</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>الحقل المقابل في النظام</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>الدقة</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {detectionResults.suggestions?.map((s, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{s.columnName || '---'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={s.suggestedFieldLabelAr || 'غير معروف'}
-                            color={s.suggestedField ? "primary" : "default"}
-                            variant={s.suggestedField ? "filled" : "outlined"}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" color={s.confidence > 0.8 ? "success.main" : "warning.main"}>
-                            {Math.round(s.confidence * 100)}%
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-
-            {activeStep === 2 && previewData && (
-              <Box>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  مراجعة عينة من البيانات قبل البدء الفعلي للاستيراد.
-                </Alert>
-                <Box sx={{ overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>الاسم</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>الرقم الوطني</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>جهة العمل</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>الحالة المتوقعة</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {previewData.previewRows?.slice(0, 5).map((row, i) => (
-                        <TableRow key={i}>
-                          <TableCell>{row.fullName || '---'}</TableCell>
-                          <TableCell>{row.nationalNumber || '---'}</TableCell>
-                          <TableCell>{row.employerName || 'محدد مسبقاً'}</TableCell>
-                          <TableCell>
-                            {row.errors?.length > 0 ? (
-                              <Chip label="يحتوي أخطاء" color="error" size="small" variant="outlined" />
-                            ) : (
-                              <Chip label="جاهز" color="success" size="small" variant="outlined" />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-                {previewData.rows?.length > 5 && (
-                  <Typography variant="caption" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
-                    يتم عرض أول 5 سجلات فقط من إجمالي {previewData.summary?.totalRows} سجل
-                  </Typography>
-                )}
-              </Box>
-            )}
-
-            {activeStep === 3 && executionResult && (
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h5" color="success.main" gutterBottom sx={{ fontWeight: 700 }}>
-                    اكتملت العملية بنجاح!
-                  </Typography>
-                  <Typography variant="body1">{executionResult.message}</Typography>
-                </Box>
-
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid size={{ xs: 4 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'primary.light', color: 'white' }}>
-                      <Typography variant="h4">{executionResult.summary?.created || 0}</Typography>
-                      <Typography variant="body2">سجلات جديدة</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid size={{ xs: 4 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'success.light', color: 'white' }}>
-                      <Typography variant="h4">{executionResult.summary?.updated || 0}</Typography>
-                      <Typography variant="body2">تم تحديثها</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid size={{ xs: 4 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'error.light', color: 'white' }}>
-                      <Typography variant="h4">{executionResult.summary?.failed || 0}</Typography>
-                      <Typography variant="body2">فشلت</Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-
-                {executionResult.errors?.length > 0 && (
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="subtitle2" color="error" gutterBottom sx={{ fontWeight: 700 }}>الأخطاء المكتشفة:</Typography>
-                    <Box sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #eee', p: 1 }}>
-                      {executionResult.errors.map((err, idx) => (
-                        <Typography key={idx} variant="caption" component="div" sx={{ borderBottom: '1px solid #fafafa', py: 0.5 }}>
-                          الصف {err.rowNumber}: {err.messageAr || err.messageEn}
-                        </Typography>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            )}
-
-            {importing && (
-              <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(255,255,255,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
-                <CircularProgress />
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          {activeStep === 0 ? (
-            <>
-              <Button onClick={handleCloseImportDialog}>إلغاء</Button>
-              <Button variant="contained" onClick={handleNextStep} disabled={!importFile || importing}>الخطوة التالية</Button>
-            </>
-          ) : activeStep === 3 ? (
-            <Button variant="contained" onClick={handleCloseImportDialog}>إغلاق</Button>
-          ) : (
-            <>
-              <Button onClick={handlePrevStep} disabled={importing}>السابق</Button>
-              <Box sx={{ flex: '1 1 auto' }} />
-              <Button variant="contained" onClick={handleNextStep} disabled={importing}>
-                {activeStep === 2 ? 'بدء الاستيراد الفعلي' : 'الخطوة التالية'}
+          {activeStep === 0 && (
+            <Box textAlign="center" py={3}>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadFileIcon />}
+                size="large"
+              >
+                اختيار ملف Excel
+                <input
+                  type="file"
+                  hidden
+                  accept=".xlsx, .xls"
+                  onChange={handleFileChange}
+                />
               </Button>
-            </>
+              {importFile && (
+                <Typography sx={{ mt: 2 }} variant="subtitle1">
+                  تم اختيار: {importFile.name}
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {activeStep === 1 && importFile && (
+            <Box>
+              <Typography>جاري تحليل الملف {importFile.name}...</Typography>
+              <CircularProgress size={24} sx={{ mt: 2 }} />
+            </Box>
+          )}
+
+          {activeStep === 2 && previewData && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                تم العثور على {previewData.totalRows} صفوف. سيتم الاستيراد إلى جهة العمل المختارة.
+              </Alert>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {previewData.headers?.slice(0, 5).map((h, i) => <TableCell key={i}>{h}</TableCell>)}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {previewData.sampleRows?.slice(0, 3).map((row, i) => (
+                    <TableRow key={i}>
+                      {row.values?.slice(0, 5).map((val, j) => <TableCell key={j}>{val}</TableCell>)}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+
+          {activeStep === 3 && executionResult && (
+            <Box textAlign="center">
+              <Typography variant="h6" color="success.main" gutterBottom>
+                تم الاستيراد بنجاح!
+              </Typography>
+              <Typography>
+                تم استيراد {executionResult.importedCount} منتفع.
+              </Typography>
+            </Box>
+          )}
+
+          {importErrors && (
+            <Alert severity="error" sx={{ mt: 2 }}>{importErrors}</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseImportDialog}>إغلاق</Button>
+          {(activeStep === 0 || activeStep === 1 || activeStep === 2) && (
+            <Button
+              onClick={handleNextStep}
+              variant="contained"
+              disabled={activeStep === 0 && !importFile || importing}
+            >
+              {activeStep === 2 ? 'بدء الاستيراد' : 'التالي'}
+            </Button>
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={closeDialog}
+      >
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmDialog.content}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog} color="inherit">{confirmDialog.cancelText}</Button>
+          <Button onClick={confirmDialog.onConfirm} color={confirmDialog.severity === 'error' ? 'error' : 'primary'} autoFocus>
+            {confirmDialog.confirmText}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </RBACGuard>
   );
 };

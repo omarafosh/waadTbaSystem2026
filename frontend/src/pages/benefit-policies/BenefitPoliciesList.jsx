@@ -1,7 +1,22 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { Box, Chip, IconButton, Stack, Tooltip, Typography, Alert, Button } from '@mui/material';
+import {
+  Box,
+  Chip,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+  Alert,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
+import { useSnackbar } from 'notistack';
 import dayjs from 'dayjs';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -12,7 +27,6 @@ import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import ToggleButton from '@mui/material/ToggleButton';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
-import Swal from 'sweetalert2';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
@@ -23,7 +37,6 @@ import useTableState from 'hooks/useTableState';
 import { getBenefitPolicies, deleteBenefitPolicy, restoreBenefitPolicy } from 'services/api/benefit-policies.service';
 
 const QUERY_KEY = 'benefit-policies';
-const MODULE_NAME = 'benefit-policies';
 
 const STATUS_CONFIG = {
   DRAFT: { label: 'مسودة', color: 'default' },
@@ -37,7 +50,19 @@ const STATUS_CONFIG = {
 const BenefitPoliciesList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
   const [showDeleted, setShowDeleted] = useState(false);
+
+  // Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    onConfirm: null,
+    confirmText: 'نعم',
+    cancelText: 'إلغاء',
+    severity: 'warning'
+  });
 
   // Persist pagination size
   const savedPageSize = localStorage.getItem('benefitPolicies_pageSize');
@@ -57,15 +82,21 @@ const BenefitPoliciesList = () => {
   const handleNavigateView = useCallback((id) => navigate(`/benefit-policies/${id}`), [navigate]);
   const handleNavigateEdit = useCallback((id) => navigate(`/benefit-policies/edit/${id}`), [navigate]);
 
+  const closeDialog = () => {
+    setConfirmDialog(prev => ({ ...prev, open: false }));
+  };
+
   // Restore Mutation
   const restoreMutation = useMutation({
     mutationFn: restoreBenefitPolicy,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      Swal.fire('تمت الاستعادة', 'تم استعادة الوثيقة بنجاح', 'success');
+      enqueueSnackbar('تم استعادة الوثيقة بنجاح', { variant: 'success' });
+      closeDialog();
     },
     onError: (err) => {
-      Swal.fire('خطأ', err.response?.data?.message || 'فشلت عملية الاستعادة', 'error');
+      enqueueSnackbar(err.response?.data?.message || 'فشلت عملية الاستعادة', { variant: 'error' });
+      closeDialog();
     }
   });
 
@@ -74,36 +105,42 @@ const BenefitPoliciesList = () => {
     mutationFn: deleteBenefitPolicy,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      Swal.fire('تم الحذف', 'تم حذف الوثيقة بنجاح', 'success');
+      enqueueSnackbar('تم حذف الوثيقة بنجاح', { variant: 'success' });
+      closeDialog();
     },
     onError: (err) => {
-      Swal.fire('خطأ', err.response?.data?.message || 'فشل الحذف', 'error');
+      enqueueSnackbar(err.response?.data?.message || 'فشل الحذف', { variant: 'error' });
+      closeDialog();
     }
   });
 
   const handleDelete = useCallback((id) => {
-
-    Swal.fire({
+    setConfirmDialog({
+      open: true,
       title: 'هل أنت متأكد؟',
-      text: "سيتم نقل الوثيقة إلى سلة المحذوفات",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'نعم، احذفها',
-      cancelButtonText: 'إلغاء'
-    }).then((result) => {
-      if (result.isConfirmed) {
+      content: "سيتم نقل الوثيقة إلى سلة المحذوفات",
+      confirmText: 'نعم، احذفها',
+      severity: 'error',
+      onConfirm: () => {
         deleteMutation.mutate(id);
       }
     });
   }, [deleteMutation]);
 
   const handleRestore = useCallback((id) => {
-    restoreMutation.mutate(id);
+    setConfirmDialog({
+      open: true,
+      title: 'تأكيد الاستعادة',
+      content: "هل تريد استعادة هذه الوثيقة؟",
+      confirmText: 'نعم، استعادة',
+      severity: 'success',
+      onConfirm: () => {
+        restoreMutation.mutate(id);
+      }
+    });
   }, [restoreMutation]);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showDeleted],
     queryFn: async () => {
       const params = {
@@ -305,6 +342,23 @@ const BenefitPoliciesList = () => {
           </TableErrorBoundary>
         </MainCard>
       </Box>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={closeDialog}
+      >
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmDialog.content}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog} color="inherit">{confirmDialog.cancelText}</Button>
+          <Button onClick={confirmDialog.onConfirm} color={confirmDialog.severity === 'error' ? 'error' : 'primary'} autoFocus>
+            {confirmDialog.confirmText}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </RBACGuard>
   );
 };

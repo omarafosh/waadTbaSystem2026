@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader } from '@mui/material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Card, CardContent, CardHeader, Box, Typography } from '@mui/material';
+import Chart from 'react-apexcharts';
 
 /**
  * Trend chart for PreAuth submissions over time
@@ -10,34 +10,78 @@ const TrendChart = ({ data, loading, days = 30 }) => {
       <Card>
         <CardHeader title={`الاتجاهات (آخر ${days} يوم)`} />
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>جاري التحميل...</div>
-          </ResponsiveContainer>
+          <Box sx={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="body2" color="text.secondary">جاري التحميل...</Typography>
+          </Box>
         </CardContent>
       </Card>
     );
   }
 
   // Transform data for chart
-  const chartData = data.map((item) => ({
-    date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    count: item.count || 0
-  }));
+  const categories = data.map((item) =>
+    new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  );
+  const seriesData = data.map((item) => item.count || 0);
+
+  const chartSeries = [{
+    name: "عدد الطلبات",
+    data: seriesData
+  }];
+
+  const chartOptions = {
+    chart: {
+      height: 350,
+      type: 'line',
+      zoom: {
+        enabled: false
+      },
+      fontFamily: 'Tajawal, sans-serif'
+    },
+    dataLabels: {
+      enabled: false
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 3
+    },
+    colors: ['#1976d2'],
+    grid: {
+      row: {
+        colors: ['#f3f3f3', 'transparent'],
+        opacity: 0.5
+      },
+    },
+    xaxis: {
+      categories: categories,
+      labels: {
+        style: {
+          fontFamily: 'Tajawal, sans-serif'
+        }
+      }
+    },
+    yaxis: {
+      labels: {
+        style: {
+          fontFamily: 'Tajawal, sans-serif'
+        },
+        formatter: (value) => value.toFixed(0)
+      }
+    },
+    tooltip: {
+      style: {
+        fontFamily: 'Tajawal, sans-serif'
+      }
+    }
+  };
 
   return (
     <Card>
       <CardHeader title={`اتجاهات الطلبات (آخر ${days} يوم)`} />
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" style={{ fontSize: '12px', direction: 'rtl' }} />
-            <YAxis />
-            <Tooltip formatter={(value) => [value.toLocaleString('en-US'), 'العدد']} contentStyle={{ direction: 'rtl' }} />
-            <Legend wrapperStyle={{ direction: 'rtl' }} />
-            <Line type="monotone" dataKey="count" stroke="#1976d2" strokeWidth={2} name="عدد الطلبات" dot={{ r: 4 }} activeDot={{ r: 6 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <Box sx={{ height: 350 }}>
+          <Chart options={chartOptions} series={chartSeries} type="line" height={350} />
+        </Box>
       </CardContent>
     </Card>
   );
