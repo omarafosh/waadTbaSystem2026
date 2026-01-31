@@ -159,10 +159,13 @@ public class ClaimMapper {
             }
             
             // ═══════════════════════════════════════════════════════════════════════════
-            // NEW: Check if service requires pre-approval from BenefitPolicyRule
+            // NEW: Get coverage info from BenefitPolicyRule (includes requiresPA + coverage %)
             // ═══════════════════════════════════════════════════════════════════════════
-            boolean requiresPA = benefitPolicyCoverageService.requiresPreApprovalFromPolicy(
-                    member, medicalService.getId(), visit.getVisitType());
+            var coverageInfoOpt = benefitPolicyCoverageService.getCoverageForService(member, medicalService.getId());
+            boolean requiresPA = coverageInfoOpt.map(c -> c.isRequiresPreApproval()).orElse(false);
+            Integer coveragePercentSnapshot = coverageInfoOpt.map(c -> c.getCoveragePercent()).orElse(null);
+            Integer patientCopayPercentSnapshot = coveragePercentSnapshot != null ? (100 - coveragePercentSnapshot) : null;
+            
             if (requiresPA) {
                 servicesRequiringPA.add(medicalService.getName() + " (" + medicalService.getCode() + ")");
             }
@@ -171,13 +174,39 @@ public class ClaimMapper {
             Integer quantity = lineDto.getQuantity() != null ? lineDto.getQuantity() : 1;
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
             
+            // ═══════════════════════════════════════════════════════════════════════════
+            // CANONICAL: Category ID resolution - prefer DTO, validate against service
+            // ═══════════════════════════════════════════════════════════════════════════
+            Long serviceCategoryId = lineDto.getServiceCategoryId() != null 
+                    ? lineDto.getServiceCategoryId() 
+                    : medicalService.getCategoryId();
+            
+            String serviceCategoryName = lineDto.getServiceCategoryName();
+            
+            // ═══════════════════════════════════════════════════════════════════════════
+            // ARCHITECTURAL GUARD: Validate that service belongs to selected category
+            // This is a HARD FAILURE - protects against Postman attacks or frontend bugs
+            // ═══════════════════════════════════════════════════════════════════════════
+            if (lineDto.getServiceCategoryId() != null && medicalService.getCategoryId() != null) {
+                if (!lineDto.getServiceCategoryId().equals(medicalService.getCategoryId())) {
+                    log.error("🚫 ARCHITECTURAL VIOLATION: Service {} does not belong to category {}. Service's actual category: {}",
+                            medicalService.getCode(), lineDto.getServiceCategoryId(), medicalService.getCategoryId());
+                    throw new IllegalArgumentException(
+                        "الخدمة الطبية '" + medicalService.getName() + "' (" + medicalService.getCode() + 
+                        ") لا تنتمي للتصنيف الطبي المختار. يرجى التأكد من اختيار التصنيف الصحيح.");
+                }
+            }
+            
             ClaimLine line = ClaimLine.builder()
                     .claim(claim)
                     .medicalService(medicalService)
                     .serviceCode(medicalService.getCode())
                     .serviceName(medicalService.getName())
-                    .serviceCategoryId(medicalService.getCategoryId())
+                    .serviceCategoryId(serviceCategoryId)
+                    .serviceCategoryName(serviceCategoryName)
                     .requiresPA(requiresPA) // Now correctly set from BenefitPolicyRule
+                    .coveragePercentSnapshot(coveragePercentSnapshot) // SNAPSHOT for financial audit
+                    .patientCopayPercentSnapshot(patientCopayPercentSnapshot) // SNAPSHOT for financial audit
                     .quantity(quantity)
                     .unitPrice(unitPrice)
                     .totalPrice(lineTotal)
@@ -186,8 +215,9 @@ public class ClaimMapper {
             lines.add(line);
             totalRequestedAmount = totalRequestedAmount.add(lineTotal);
             
-            log.info("  ✅ Line: {} x {} @ {} = {} (requiresPA={})", 
-                    medicalService.getCode(), quantity, unitPrice, lineTotal, requiresPA);
+            log.info("  ✅ Line: {} x {} @ {} = {} (categoryId={}, requiresPA={}, coverage={}%, copay={}%)", 
+                    medicalService.getCode(), quantity, unitPrice, lineTotal, serviceCategoryId, requiresPA,
+                    coveragePercentSnapshot, patientCopayPercentSnapshot);
         }
         
         claim.setLines(lines);

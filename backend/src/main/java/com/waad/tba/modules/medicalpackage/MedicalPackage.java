@@ -30,11 +30,11 @@ public class MedicalPackage {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
+    /**
+     * Package name (unified - Arabic-only system)
+     */
     @Column(nullable = false)
-    private String nameAr;
-
-    @Column(nullable = false)
-    private String nameEn;
+    private String name;
 
     @Column(length = 1000)
     private String description;

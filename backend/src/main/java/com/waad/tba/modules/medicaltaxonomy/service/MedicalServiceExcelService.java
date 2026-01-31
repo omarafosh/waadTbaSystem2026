@@ -26,14 +26,17 @@ import java.util.Map;
 /**
  * Service for importing Medical Services from Excel files
  * 
- * Expected Excel format:
- * | code | nameAr | categoryCode | priceLyd | requiresApproval | active |
+ * Expected Excel format (New Standard):
+ * | code | name | category_code | description | base_price | active |
+ * 
+ * Also supports legacy format:
+ * | code | nameAr | categoryCode | priceLyd | active |
  * 
  * Business Rules:
  * - code: unique, required
- * - nameAr: required
- * - categoryCode: must exist in database
- * - priceLyd: must be >= 0
+ * - name: required (Arabic-only system)
+ * - category_code: must exist in database
+ * - base_price: must be >= 0 (optional)
  * - Mode: upsert (update if exists, insert if not)
  */
 @Slf4j
@@ -132,20 +135,24 @@ public class MedicalServiceExcelService {
     private void processRow(Row row, int rowNum, Map<String, Integer> columnMap, 
                            Map<String, MedicalCategory> categoryCache, ImportSummary summary) {
         
-        // Extract data from row
+        // Extract data from row - support both new and legacy column names
         String code = getCellValueAsString(row, columnMap.get("code"));
-        String nameAr = getCellValueAsString(row, columnMap.get("nameAr"));
+        // Support both 'name' (new) and 'nameAr' (legacy)
+        String name = getCellValueAsString(row, columnMap.get("name"));
+        if (name == null || name.trim().isEmpty()) {
+            name = getCellValueAsString(row, columnMap.get("nameAr"));
+        }
         String categoryCode = getCellValueAsString(row, columnMap.get("categoryCode"));
+        String description = getCellValueAsString(row, columnMap.get("description"));
         BigDecimal price = getCellValueAsDecimal(row, columnMap.get("priceLyd"));
-        Boolean requiresApproval = getCellValueAsBoolean(row, columnMap.get("requiresApproval"));
         Boolean active = getCellValueAsBoolean(row, columnMap.get("active"));
 
         // Validate required fields
         if (code == null || code.trim().isEmpty()) {
             throw new BusinessRuleException("الرمز (code) مطلوب");
         }
-        if (nameAr == null || nameAr.trim().isEmpty()) {
-            throw new BusinessRuleException("الاسم بالعربية (nameAr) مطلوب");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessRuleException("اسم الخدمة (name) مطلوب");
         }
 
         // Get category
@@ -162,15 +169,15 @@ public class MedicalServiceExcelService {
 
         if (existingService != null) {
             // Update existing service
-            existingService.setName(nameAr.trim());
+            existingService.setName(name.trim());
             if (category != null) {
                 existingService.setCategoryId(category.getId());
             }
+            if (description != null && !description.trim().isEmpty()) {
+                existingService.setDescription(description.trim());
+            }
             if (price != null) {
                 existingService.setBasePrice(price);
-            }
-            if (requiresApproval != null) {
-                existingService.setRequiresPA(requiresApproval);
             }
             if (active != null) {
                 existingService.setActive(active);
@@ -189,10 +196,10 @@ public class MedicalServiceExcelService {
 
             MedicalService newService = MedicalService.builder()
                     .code(code.trim())
-                    .name(nameAr.trim())
+                    .name(name.trim())
                     .categoryId(category.getId())
+                    .description(description != null ? description.trim() : null)
                     .basePrice(price)
-                    .requiresPA(requiresApproval != null ? requiresApproval : false)
                     .active(active != null ? active : true)
                     .build();
             
@@ -204,7 +211,7 @@ public class MedicalServiceExcelService {
 
     /**
      * Map column names to indices
-     * يدعم أسماء الأعمدة بالعربي والإنجليزي
+     * يدعم أسماء الأعمدة بالعربي والإنجليزي - الجديدة والقديمة
      */
     private Map<String, Integer> mapColumns(Row headerRow) {
         Map<String, Integer> columnMap = new HashMap<>();
@@ -212,18 +219,32 @@ public class MedicalServiceExcelService {
         for (Cell cell : headerRow) {
             String columnName = cell.getStringCellValue().trim().toLowerCase();
             
-            // Map variations
+            // Code column (required)
             if (columnName.equals("code") || columnName.equals("الرمز") || columnName.equals("كود") || columnName.equals("service_code") || columnName.equals("رمز الخدمة")) {
                 columnMap.put("code", cell.getColumnIndex());
-            } else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم") || columnName.equals("اسم") || columnName.equals("name") || columnName.equals("الاسم بالعربية")) {
+            } 
+            // Name column (new standard - unified name)
+            else if (columnName.equals("name") || columnName.equals("اسم الخدمة")) {
+                columnMap.put("name", cell.getColumnIndex());
+            }
+            // Legacy nameAr column (for backward compatibility)
+            else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم") || columnName.equals("الاسم بالعربية")) {
                 columnMap.put("nameAr", cell.getColumnIndex());
-            } else if (columnName.equals("categorycode") || columnName.equals("category_code") || columnName.equals("رمز التصنيف") || columnName.equals("category") || columnName.equals("التصنيف") || columnName.equals("الفئة") || columnName.equals("اسم التصنيف") || columnName.equals("categoryname")) {
+            } 
+            // Category column
+            else if (columnName.equals("category_code") || columnName.equals("categorycode") || columnName.equals("رمز التصنيف") || columnName.equals("category") || columnName.equals("التصنيف") || columnName.equals("الفئة") || columnName.equals("categoryname")) {
                 columnMap.put("categoryCode", cell.getColumnIndex());
-            } else if (columnName.equals("pricelyd") || columnName.equals("price_lyd") || columnName.equals("price") || columnName.equals("السعر") || columnName.equals("baseprice") || columnName.equals("السعر (دينار)")) {
+            } 
+            // Description column
+            else if (columnName.equals("description") || columnName.equals("الوصف")) {
+                columnMap.put("description", cell.getColumnIndex());
+            }
+            // Price column
+            else if (columnName.equals("base_price") || columnName.equals("baseprice") || columnName.equals("pricelyd") || columnName.equals("price_lyd") || columnName.equals("price") || columnName.equals("السعر") || columnName.equals("السعر المرجعي")) {
                 columnMap.put("priceLyd", cell.getColumnIndex());
-            } else if (columnName.equals("requiresapproval") || columnName.equals("requires_approval") || columnName.equals("موافقة مسبقة") || columnName.equals("requirespa") || columnName.equals("تحتاج موافقة مسبقة")) {
-                columnMap.put("requiresApproval", cell.getColumnIndex());
-            } else if (columnName.equals("active") || columnName.equals("نشط") || columnName.equals("الحالة")) {
+            } 
+            // Active column
+            else if (columnName.equals("active") || columnName.equals("نشط") || columnName.equals("الحالة")) {
                 columnMap.put("active", cell.getColumnIndex());
             }
         }
@@ -240,8 +261,9 @@ public class MedicalServiceExcelService {
         if (!columnMap.containsKey("code")) {
             missing.add("code (الرمز)");
         }
-        if (!columnMap.containsKey("nameAr")) {
-            missing.add("nameAr (الاسم)");
+        // Accept either 'name' (new) or 'nameAr' (legacy)
+        if (!columnMap.containsKey("name") && !columnMap.containsKey("nameAr")) {
+            missing.add("name (اسم الخدمة)");
         }
         
         if (!missing.isEmpty()) {
@@ -262,7 +284,7 @@ public class MedicalServiceExcelService {
             if (category.getCode() != null) {
                 cache.put(category.getCode().trim(), category);
             }
-            // البحث بالاسم العربي
+            // البحث بالاسم
             if (category.getName() != null) {
                 cache.put(category.getName().trim(), category);
             }

@@ -1,6 +1,5 @@
 package com.waad.tba.modules.medicaltaxonomy.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -23,10 +22,9 @@ import java.math.BigDecimal;
 public class MedicalServiceUpdateDto {
 
     /**
-     * Arabic name (primary)
+     * Service name (unified field)
      */
     @Size(max = 200, message = "Service name must not exceed 200 characters")
-    @JsonAlias({"nameAr", "name"})
     private String name;
 
     /**

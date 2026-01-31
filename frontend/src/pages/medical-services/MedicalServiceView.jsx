@@ -248,8 +248,7 @@ const MedicalServiceView = () => {
         <Grid container spacing={3}>
           <DetailRow label="الرمز" value={service?.code} />
           <DetailRow label="التصنيف الطبي" value={categoryName} />
-          <DetailRow label="الاسم (عربي)" value={service?.name} />
-          <DetailRow label="الاسم (إنجليزي)" value={service?.nameEn} />
+          <DetailRow label="الاسم" value={service?.name} />
           <DetailRow label="الوصف" value={service?.description} fullWidth />
         </Grid>
 

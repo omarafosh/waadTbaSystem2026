@@ -30,12 +30,6 @@ public class ProviderContractCreateDto {
     private Long providerId;
 
     /**
-     * Employer ID (optional - if null, contract covers all employers/standard
-     * network)
-     */
-    private Long employerId;
-
-    /**
      * Custom contract code (optional - auto-generated if not provided)
      */
     @Size(max = 50, message = "Contract code must not exceed 50 characters")

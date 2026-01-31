@@ -115,6 +115,9 @@ public class ClaimService {
     
     // Phase 9: Architectural Guards (System Invariants)
     private final ArchitecturalGuardService architecturalGuard;
+    
+    // Phase 1 (2026-01-28): Atomic Financial Operations
+    private final AtomicFinancialService atomicFinancialService;
 
     /**
      * Search claims with explicit employer filtering.
@@ -583,10 +586,19 @@ public class ClaimService {
      * 
      * POST /api/claims/{id}/approve
      * 
+     * ╔═══════════════════════════════════════════════════════════════════════════╗
+     * ║           FINANCIAL INTEGRITY: PESSIMISTIC LOCKING ENABLED               ║
+     * ║───────────────────────────────────────────────────────────────────────────║
+     * ║ Uses SELECT ... FOR UPDATE to prevent:                                    ║
+     * ║  - Double approval (race condition)                                       ║
+     * ║  - Concurrent deductible calculations overspending                        ║
+     * ║  - Concurrent modifications during approval                               ║
+     * ╚═══════════════════════════════════════════════════════════════════════════╝
+     * 
      * Business Rules:
      * 1. Claim must be in SUBMITTED or UNDER_REVIEW status
-     * 2. Cost breakdown is calculated and validated
-     * 3. Coverage limits are checked (via CoverageValidationService)
+     * 2. Cost breakdown is calculated with ATOMIC deductible locking
+     * 3. Coverage limits are checked (via BenefitPolicyCoverageService)
      * 4. Financial snapshot is stored on the claim
      * 5. Status transitions to APPROVED
      * 
@@ -596,17 +608,29 @@ public class ClaimService {
      */
     @Transactional
     public ClaimViewDto approveClaim(Long id, ClaimApproveDto dto) {
-        log.info("✅ Approving claim {}", id);
+        log.info("✅ [FINANCIAL-LOCK] Approving claim {} with pessimistic lock", id);
         
-        Claim claim = claimRepository.findById(id)
+        // ══════════════════════════════════════════════════════════════════════════
+        // STEP 0: PESSIMISTIC LOCK - SELECT ... FOR UPDATE
+        // ══════════════════════════════════════════════════════════════════════════
+        // This MUST be used for all financial operations to prevent race conditions
+        Claim claim = claimRepository.findByIdForFinancialUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "id", id));
+        
+        log.info("🔒 [FINANCIAL-LOCK] Acquired pessimistic lock on claim {}", id);
         
         User currentUser = authorizationService.getCurrentUser();
         ClaimStatus previousStatus = claim.getStatus();
         
-        // Step 1: Calculate cost breakdown
-        CostCalculationService.CostBreakdown breakdown = costCalculationService.calculateCosts(claim);
-        log.info("💰 Cost breakdown for claim {}: {}", id, breakdown.getSummary());
+        // ══════════════════════════════════════════════════════════════════════════
+        // STEP 1: ATOMIC DEDUCTIBLE CALCULATION WITH MEMBER LOCK
+        // ══════════════════════════════════════════════════════════════════════════
+        // This locks the MEMBER to prevent concurrent claims from overspending deductible.
+        // Scenario: Member has $500 deductible, two claims ($400 each) submitted concurrently.
+        // Without lock: Both see $500 remaining, both apply $400, total = $800 (WRONG!)
+        // With lock: Claim A applies $400, Claim B waits and sees $100 remaining (CORRECT)
+        CostCalculationService.CostBreakdown breakdown = atomicFinancialService.calculateCostsWithAtomicDeductible(claim);
+        log.info("💰 [ATOMIC] Cost breakdown for claim {}: {}", id, breakdown.getSummary());
         
         // Step 2: Determine approved amount
         BigDecimal approvedAmount;
@@ -620,14 +644,9 @@ public class ClaimService {
             log.info("📊 Using manual approved amount: {}", approvedAmount);
         }
         
-        // Step 3: Validate approved amount
-        if (approvedAmount == null || approvedAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessRuleException("المبلغ المعتمد يجب أن يكون أكبر من صفر");
-        }
-        
-        if (approvedAmount.compareTo(claim.getRequestedAmount()) > 0) {
-            throw new BusinessRuleException("المبلغ المعتمد لا يمكن أن يتجاوز المبلغ المطلوب");
-        }
+        // Step 3: Validate approved amount using AtomicFinancialService
+        atomicFinancialService.validatePositiveAmount(approvedAmount, "المبلغ المعتمد (Approved Amount)");
+        atomicFinancialService.validateApprovedAmount(approvedAmount, claim.getRequestedAmount());
         
         // Step 4: Validate Financial Snapshot equation
         // Rule: RequestedAmount = PatientCoPay + NetProviderAmount
@@ -712,9 +731,205 @@ public class ClaimService {
     }
 
     /**
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * SPLIT-PHASE APPROVAL: PHASE 1 - Request Approval (Fast, Non-Blocking)
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * 
+     * This is the NEW approval endpoint that returns immediately.
+     * It transitions the claim to APPROVAL_IN_PROGRESS and triggers async processing.
+     * 
+     * REPLACES: approveClaim() for production use (old method kept for backward compatibility)
+     * 
+     * FLOW:
+     * 1. Validate claim exists and is in valid state
+     * 2. Change status to APPROVAL_IN_PROGRESS (< 1 second)
+     * 3. Trigger async background processing
+     * 4. Return immediately with status "APPROVAL_IN_PROGRESS"
+     * 
+     * @param id Claim ID
+     * @param dto Approval details
+     * @return Claim with APPROVAL_IN_PROGRESS status
+     */
+    @Transactional
+    public ClaimViewDto requestApproval(Long id, ClaimApproveDto dto) {
+        log.info("🚀 [SPLIT-PHASE] Phase 1: Requesting approval for claim {}", id);
+        
+        // Quick validation without heavy locks
+        Claim claim = claimRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Claim", "id", id));
+        
+        User currentUser = authorizationService.getCurrentUser();
+        ClaimStatus previousStatus = claim.getStatus();
+        
+        // Validate state transition
+        if (claim.getStatus() != ClaimStatus.UNDER_REVIEW && claim.getStatus() != ClaimStatus.SUBMITTED) {
+            throw new BusinessRuleException("لا يمكن الموافقة على المطالبة في الحالة الحالية: " + claim.getStatus().getArabicLabel());
+        }
+        
+        // Store approval metadata for async processing
+        if (dto.getNotes() != null && !dto.getNotes().isBlank()) {
+            claim.setReviewerComment(dto.getNotes());
+        }
+        
+        // Transition to APPROVAL_IN_PROGRESS
+        claimStateMachine.transition(claim, ClaimStatus.APPROVAL_IN_PROGRESS, currentUser);
+        Claim savedClaim = claimRepository.save(claim);
+        
+        log.info("✅ [SPLIT-PHASE] Phase 1 complete: Claim {} marked as APPROVAL_IN_PROGRESS", id);
+        
+        // Trigger async phase 2 processing
+        processApprovalAsync(id, dto);
+        
+        return claimMapper.toViewDto(savedClaim);
+    }
+    
+    /**
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * SPLIT-PHASE APPROVAL: PHASE 2 - Process Approval (Heavy, Background)
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * 
+     * This method executes in the background using @Async.
+     * It performs all heavy financial calculations with PESSIMISTIC locks.
+     * 
+     * EXECUTES:
+     * 1. Atomic deductible calculation (with MEMBER lock)
+     * 2. Coverage validation (BenefitPolicy)
+     * 3. Financial snapshot calculation
+     * 4. Transition to APPROVED or REJECTED
+     * 
+     * ISOLATION: REQUIRES_NEW to avoid deadlocks with Phase 1
+     * 
+     * @param id Claim ID
+     * @param dto Approval details (from Phase 1)
+     */
+    @org.springframework.scheduling.annotation.Async("approvalTaskExecutor")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+                   isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
+    public void processApprovalAsync(Long id, ClaimApproveDto dto) {
+        log.info("⚙️ [SPLIT-PHASE] Phase 2: Starting async approval processing for claim {}", id);
+        
+        try {
+            // ══════════════════════════════════════════════════════════════════════════
+            // STEP 0: PESSIMISTIC LOCK - SELECT ... FOR UPDATE
+            // ══════════════════════════════════════════════════════════════════════════
+            Claim claim = claimRepository.findByIdForFinancialUpdate(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Claim", "id", id));
+            
+            log.info("🔒 [FINANCIAL-LOCK] Acquired pessimistic lock on claim {}", id);
+            
+            User currentUser = authorizationService.getCurrentUser();
+            
+            // ══════════════════════════════════════════════════════════════════════════
+            // STEP 1: ATOMIC DEDUCTIBLE CALCULATION WITH MEMBER LOCK
+            // ══════════════════════════════════════════════════════════════════════════
+            CostCalculationService.CostBreakdown breakdown = atomicFinancialService.calculateCostsWithAtomicDeductible(claim);
+            log.info("💰 [ATOMIC] Cost breakdown for claim {}: {}", id, breakdown.getSummary());
+            
+            // Step 2: Determine approved amount
+            BigDecimal approvedAmount;
+            if (Boolean.TRUE.equals(dto.getUseSystemCalculation()) || dto.getApprovedAmount() == null) {
+                approvedAmount = breakdown.insuranceAmount();
+                log.info("📊 Using system-calculated approved amount: {}", approvedAmount);
+            } else {
+                approvedAmount = dto.getApprovedAmount();
+                log.info("📊 Using manual approved amount: {}", approvedAmount);
+            }
+            
+            // Step 3: Validate approved amount
+            atomicFinancialService.validatePositiveAmount(approvedAmount, "المبلغ المعتمد (Approved Amount)");
+            atomicFinancialService.validateApprovedAmount(approvedAmount, claim.getRequestedAmount());
+            
+            // Step 4: Validate Financial Snapshot equation
+            BigDecimal patientCoPay = breakdown.patientResponsibility();
+            BigDecimal netProviderAmount = breakdown.insuranceAmount();
+            BigDecimal total = patientCoPay.add(netProviderAmount);
+            
+            if (total.compareTo(claim.getRequestedAmount()) != 0) {
+                log.warn("⚠️ Financial calculation mismatch: {} + {} = {} != {}", 
+                    patientCoPay, netProviderAmount, total, claim.getRequestedAmount());
+                netProviderAmount = claim.getRequestedAmount().subtract(patientCoPay);
+            }
+            
+            // Step 5: Validate coverage limits
+            Member member = claim.getMember();
+            LocalDate serviceDate = claim.getServiceDate() != null ? claim.getServiceDate() : LocalDate.now();
+            
+            if (member.getBenefitPolicy() != null) {
+                try {
+                    benefitPolicyCoverageService.validateAmountLimits(
+                        member, member.getBenefitPolicy(), approvedAmount, serviceDate);
+                    log.debug("✅ BenefitPolicy amount validation passed");
+                } catch (Exception e) {
+                    log.error("❌ BenefitPolicy coverage validation failed: {}", e.getMessage());
+                    throw new BusinessRuleException("فشل التحقق من التغطية: " + e.getMessage());
+                }
+            }
+            
+            // Step 6: Update claim with financial snapshot
+            claim.setApprovedAmount(approvedAmount);
+            claim.setPatientCoPay(patientCoPay);
+            claim.setNetProviderAmount(netProviderAmount);
+            claim.setCoPayPercent(breakdown.coPayPercent());
+            claim.setDeductibleApplied(breakdown.deductibleApplied());
+            claim.setDifferenceAmount(claim.getRequestedAmount().subtract(approvedAmount));
+            
+            // Step 7: Transition to APPROVED status
+            claimStateMachine.transition(claim, ClaimStatus.APPROVED, currentUser);
+            
+            // Update visit status if linked
+            if (claim.getVisit() != null) {
+                claim.getVisit().setStatus(com.waad.tba.modules.visit.entity.VisitStatus.COMPLETED);
+                log.info("✅ Updated visit {} status to COMPLETED", claim.getVisit().getId());
+            }
+            
+            // Track SLA compliance
+            LocalDate completionDate = LocalDate.now();
+            claim.setActualCompletionDate(completionDate);
+            
+            if (claim.getExpectedCompletionDate() != null && claim.getSlaDaysConfigured() != null) {
+                LocalDate submissionDate = claim.getCreatedAt().toLocalDate();
+                int daysTaken = businessDaysCalculator.calculateBusinessDays(submissionDate, completionDate);
+                
+                claim.setBusinessDaysTaken(daysTaken);
+                claim.setWithinSla(daysTaken <= claim.getSlaDaysConfigured());
+            }
+            
+            Claim savedClaim = claimRepository.save(claim);
+            
+            // Step 8: Record in audit trail
+            claimAuditService.recordApproval(savedClaim, ClaimStatus.APPROVAL_IN_PROGRESS, null, currentUser, dto.getNotes());
+            
+            log.info("✅ [SPLIT-PHASE] Phase 2 complete: Claim {} approved successfully", id);
+            
+        } catch (Exception e) {
+            log.error("❌ [SPLIT-PHASE] Phase 2 failed for claim {}: {}", id, e.getMessage(), e);
+            
+            // On failure, transition to REJECTED with error message
+            try {
+                Claim failedClaim = claimRepository.findById(id).orElse(null);
+                if (failedClaim != null && failedClaim.getStatus() == ClaimStatus.APPROVAL_IN_PROGRESS) {
+                    User currentUser = authorizationService.getCurrentUser();
+                    failedClaim.setReviewerComment("فشل في المعالجة: " + e.getMessage());
+                    claimStateMachine.transition(failedClaim, ClaimStatus.REJECTED, currentUser);
+                    claimRepository.save(failedClaim);
+                    log.info("🔄 Claim {} transitioned to REJECTED due to processing failure", id);
+                }
+            } catch (Exception rollbackError) {
+                log.error("❌ Failed to rollback claim {} to REJECTED: {}", id, rollbackError.getMessage());
+            }
+        }
+    }
+
+    /**
      * Reject a claim with mandatory reason.
      * 
      * POST /api/claims/{id}/reject
+     * 
+     * ╔═══════════════════════════════════════════════════════════════════════════╗
+     * ║           FINANCIAL INTEGRITY: PESSIMISTIC LOCKING ENABLED               ║
+     * ║───────────────────────────────────────────────────────────────────────────║
+     * ║ Uses SELECT ... FOR UPDATE to prevent concurrent status changes.          ║
+     * ╚═══════════════════════════════════════════════════════════════════════════╝
      * 
      * Business Rules:
      * 1. Claim must be in SUBMITTED or UNDER_REVIEW status
@@ -727,10 +942,15 @@ public class ClaimService {
      */
     @Transactional
     public ClaimViewDto rejectClaim(Long id, ClaimRejectDto dto) {
-        log.info("❌ Rejecting claim {}", id);
+        log.info("❌ [FINANCIAL-LOCK] Rejecting claim {} with pessimistic lock", id);
         
-        Claim claim = claimRepository.findById(id)
+        // ══════════════════════════════════════════════════════════════════════════
+        // PESSIMISTIC LOCK - SELECT ... FOR UPDATE
+        // ══════════════════════════════════════════════════════════════════════════
+        Claim claim = claimRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "id", id));
+        
+        log.info("🔒 [FINANCIAL-LOCK] Acquired pessimistic lock on claim {}", id);
         
         User currentUser = authorizationService.getCurrentUser();
         ClaimStatus previousStatus = claim.getStatus();

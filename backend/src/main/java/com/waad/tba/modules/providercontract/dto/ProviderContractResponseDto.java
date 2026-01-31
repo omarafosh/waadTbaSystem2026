@@ -37,10 +37,6 @@ public class ProviderContractResponseDto {
     // Provider info (embedded)
     private ProviderSummaryDto provider;
 
-    // Employer info (optional)
-    private Long employerId;
-    private String employerName;
-
     // Status and model
     private ContractStatus status;
     private String statusLabel;
@@ -90,31 +86,15 @@ public class ProviderContractResponseDto {
         }
 
         ProviderSummaryDto providerDto = null;
-        try {
-            if (entity.getProvider() != null) {
-                providerDto = ProviderSummaryDto.builder()
-                        .id(entity.getProvider().getId())
-                        .name(entity.getProvider().getName())
-                        .code(entity.getProvider().getLicenseNumber())
-                        .providerType(entity.getProvider().getProviderType() != null
-                                ? entity.getProvider().getProviderType().name()
-                                : null)
-                        .city(entity.getProvider().getCity())
-                        .build();
-            }
-        } catch (Exception e) {
-            // Log error or ignore - avoid crashing
-        }
-
-        Long employerId = null;
-        String employerName = null;
-        try {
-            if (entity.getEmployer() != null) {
-                employerId = entity.getEmployer().getId();
-                employerName = entity.getEmployer().getNameAr();
-            }
-        } catch (Exception e) {
-            // Ignore missing employer reference
+        if (entity.getProvider() != null) {
+            providerDto = ProviderSummaryDto.builder()
+                    .id(entity.getProvider().getId())
+                    .name(entity.getProvider().getName())
+                    .code(entity.getProvider().getLicenseNumber())
+                    .providerType(entity.getProvider().getProviderType() != null 
+                            ? entity.getProvider().getProviderType().name() : null)
+                    .city(entity.getProvider().getCity())
+                    .build();
         }
 
         return ProviderContractResponseDto.builder()
@@ -122,8 +102,6 @@ public class ProviderContractResponseDto {
                 .contractCode(entity.getContractCode())
                 .contractNumber(entity.getContractNumber())
                 .provider(providerDto)
-                .employerId(employerId)
-                .employerName(employerName)
                 .status(entity.getStatus())
                 .statusLabel(getStatusLabel(entity.getStatus()))
                 .pricingModel(entity.getPricingModel())
@@ -157,8 +135,7 @@ public class ProviderContractResponseDto {
      * Get Arabic label for status
      */
     private static String getStatusLabel(ContractStatus status) {
-        if (status == null)
-            return null;
+        if (status == null) return null;
         return switch (status) {
             case DRAFT -> "مسودة";
             case ACTIVE -> "نشط";
@@ -172,8 +149,7 @@ public class ProviderContractResponseDto {
      * Get Arabic label for pricing model
      */
     private static String getPricingModelLabel(PricingModel model) {
-        if (model == null)
-            return null;
+        if (model == null) return null;
         return switch (model) {
             case FIXED -> "سعر ثابت";
             case DISCOUNT -> "نسبة خصم";

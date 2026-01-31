@@ -1,5 +1,6 @@
 package com.waad.tba.modules.providercontract.dto;
 
+import com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory;
 import com.waad.tba.modules.providercontract.entity.ProviderContractPricingItem;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * DTO for returning Provider Contract Pricing Item data in API responses.
@@ -72,17 +74,30 @@ public class ProviderContractPricingItemResponseDto {
      * Convert entity to response DTO
      */
     public static ProviderContractPricingItemResponseDto fromEntity(ProviderContractPricingItem entity) {
+        return fromEntity(entity, null);
+    }
+    
+    /**
+     * Convert entity to response DTO with category lookup
+     * @param entity The pricing item entity
+     * @param categoryMap Map of categoryId -> MedicalCategory (for resolving service categories)
+     */
+    public static ProviderContractPricingItemResponseDto fromEntity(
+            ProviderContractPricingItem entity, 
+            Map<Long, MedicalCategory> categoryMap) {
         if (entity == null) {
             return null;
         }
 
         ServiceSummaryDto serviceDto = null;
+        Long serviceCategoryId = null;
         if (entity.getMedicalService() != null) {
             serviceDto = ServiceSummaryDto.builder()
                     .id(entity.getMedicalService().getId())
                     .code(entity.getMedicalService().getCode())
                     .name(entity.getMedicalService().getName())
                     .build();
+            serviceCategoryId = entity.getMedicalService().getCategoryId();
         }
 
         CategorySummaryDto categoryDto = null;
@@ -94,14 +109,26 @@ public class ProviderContractPricingItemResponseDto {
                     .build();
         }
 
+        // Determine effective category:
+        // 1. Item's medicalCategory (override)
+        // 2. Service's category (from categoryMap lookup)
+        // 3. Item's categoryName field (for imported items)
         CategorySummaryDto effectiveCategoryDto = null;
-        var effectiveCategory = entity.getEffectiveCategory();
-        if (effectiveCategory != null) {
+        String effectiveCategoryName = entity.getCategoryName(); // Fallback for imported items
+        
+        if (entity.getMedicalCategory() != null) {
+            // Use item's override category
+            effectiveCategoryDto = categoryDto;
+            effectiveCategoryName = entity.getMedicalCategory().getName();
+        } else if (serviceCategoryId != null && categoryMap != null && categoryMap.containsKey(serviceCategoryId)) {
+            // Lookup category from service's categoryId
+            MedicalCategory serviceCategory = categoryMap.get(serviceCategoryId);
             effectiveCategoryDto = CategorySummaryDto.builder()
-                    .id(effectiveCategory.getId())
-                    .code(effectiveCategory.getCode())
-                    .name(effectiveCategory.getName())
+                    .id(serviceCategory.getId())
+                    .code(serviceCategory.getCode())
+                    .name(serviceCategory.getName())
                     .build();
+            effectiveCategoryName = serviceCategory.getName();
         }
 
         // Get display name: prefer medical service name, fallback to serviceName field
@@ -116,7 +143,7 @@ public class ProviderContractPricingItemResponseDto {
                 .medicalService(serviceDto)
                 .serviceName(displayServiceName)
                 .serviceCode(entity.getServiceCode())
-                .categoryName(entity.getCategoryName())
+                .categoryName(effectiveCategoryName)
                 .quantity(entity.getQuantity())
                 .medicalCategory(categoryDto)
                 .effectiveCategory(effectiveCategoryDto)

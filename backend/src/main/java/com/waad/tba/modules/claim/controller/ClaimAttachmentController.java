@@ -47,7 +47,7 @@ public class ClaimAttachmentController {
      * @return Uploaded attachment details
      */
     @PostMapping("/{claimId}/attachments")
-    @PreAuthorize("hasAnyAuthority('CREATE_CLAIM', 'UPDATE_CLAIM', 'MANAGE_CLAIMS', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PROVIDER', 'PROVIDER_USER', 'ADMIN') or hasAnyAuthority('CREATE_CLAIM', 'UPDATE_CLAIM', 'MANAGE_CLAIMS', 'ADMIN')")
     public ResponseEntity<ApiResponse<ClaimAttachmentDto>> uploadAttachment(
             @PathVariable Long claimId,
             @RequestParam("file") MultipartFile file,
@@ -81,7 +81,7 @@ public class ClaimAttachmentController {
      * @return List of attachments
      */
     @GetMapping("/{claimId}/attachments")
-    @PreAuthorize("hasAnyAuthority('VIEW_CLAIMS', 'CREATE_CLAIM', 'MANAGE_CLAIMS', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PROVIDER', 'PROVIDER_USER', 'ADMIN') or hasAnyAuthority('VIEW_CLAIMS', 'CREATE_CLAIM', 'MANAGE_CLAIMS', 'ADMIN')")
     public ResponseEntity<List<ClaimAttachmentDto>> getClaimAttachments(@PathVariable Long claimId) {
         log.info("Get attachments for claim ID: {}", claimId);
         

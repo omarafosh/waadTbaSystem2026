@@ -84,9 +84,9 @@ export const uploadMedicalCategoriesExcel = async (file) => {
 
   const response = await axiosClient.post(`${BASE_URL}/import/excel`, formData, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Content-Type': 'multipart/form-data'
     },
-    timeout: 300000, // 5 minutes for large Excel files
+    timeout: 300000 // 5 minutes for large Excel files
   });
 
   return unwrap(response);

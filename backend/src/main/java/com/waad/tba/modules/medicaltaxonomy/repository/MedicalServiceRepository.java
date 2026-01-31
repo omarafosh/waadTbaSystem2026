@@ -135,11 +135,11 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Search by name (Arabic or English) - case insensitive
+     * Search by name - case insensitive
      */
     @Query("""
         SELECT ms FROM MedicalService ms
-        WHERE (LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+        WHERE LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
           AND ms.active = true
     """)
     List<MedicalService> searchByName(@Param("searchTerm") String searchTerm);
@@ -149,7 +149,7 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
      */
     @Query("""
         SELECT ms FROM MedicalService ms
-        WHERE (LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+        WHERE LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
           AND ms.active = true
     """)
     Page<MedicalService> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);
@@ -268,23 +268,41 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     // LOOKUP QUERIES (For MedicalServiceSelector)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    
+    /**
+     * Unified lookup query for medical service selection
+     * 
+     * Returns services with full category context for display.
+     * Searches across: code, nameAr, nameEn, categoryNameAr, categoryNameEn
+     * 
+     * SQL:
+     * SELECT ms.*, mc.name_ar as category_name_ar, mc.name_en as category_name_en
+     * FROM medical_services ms
+     * LEFT JOIN medical_categories mc ON ms.category_id = mc.id
+     * WHERE ms.active = true
+     *   AND (:query IS NULL OR LOWER(ms.code) LIKE LOWER('%q%')
+     *        OR LOWER(ms.name_ar) LIKE LOWER('%q%')
+     *        OR LOWER(ms.name_en) LIKE LOWER('%q%')
+     *        OR LOWER(mc.name_ar) LIKE LOWER('%q%')
+     *        OR LOWER(mc.name_en) LIKE LOWER('%q%'))
+     *   AND (:categoryId IS NULL OR ms.category_id = :categoryId)
+     * ORDER BY mc.name, ms.name
+     */
     @Query(value = """
         SELECT 
             ms.id as id,
             ms.code as code,
-            ms.name_ar as nameAr,
+            ms.name as name,
             ms.category_id as categoryId,
-            mc.name_ar as categoryNameAr
+            mc.name as categoryName
         FROM medical_services ms
         LEFT JOIN medical_categories mc ON ms.category_id = mc.id
         WHERE ms.active = true
           AND (:query IS NULL OR :query = '' 
                OR LOWER(ms.code) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(ms.name_ar) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(mc.name_ar) LIKE LOWER(CONCAT('%', :query, '%')))
+               OR LOWER(ms.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(mc.name) LIKE LOWER(CONCAT('%', :query, '%')))
           AND (:categoryId IS NULL OR ms.category_id = :categoryId)
-        ORDER BY COALESCE(mc.name_ar, 'zzz'), COALESCE(ms.name_ar, '')
+        ORDER BY COALESCE(mc.name, 'zzz'), ms.name
         """, nativeQuery = true)
     List<MedicalServiceLookupProjection> lookupServices(
         @Param("query") String query,
@@ -297,8 +315,8 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     interface MedicalServiceLookupProjection {
         Long getId();
         String getCode();
-        String getNameAr();
+        String getName();
         Long getCategoryId();
-        String getCategoryNameAr();
+        String getCategoryName();
     }
 }

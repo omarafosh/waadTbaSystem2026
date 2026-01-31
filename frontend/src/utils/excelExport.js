@@ -35,7 +35,7 @@ const getCompanySettings = async () => {
   }
 
   try {
-    const response = await axios.get('/api/pdf/settings/active');
+    const response = await axios.get('/pdf/settings/active');
     cachedCompanySettings = response.data;
     cacheTimestamp = now;
     return cachedCompanySettings;

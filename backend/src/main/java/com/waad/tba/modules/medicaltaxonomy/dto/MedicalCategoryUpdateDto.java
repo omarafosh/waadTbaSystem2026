@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
  * 
  * Note: 'code' is immutable and cannot be changed.
  * All fields are optional (partial update).
+ * 
+ * PHASE 8: Unified name field only (Arabic system).
  */
 @Data
 @Builder
@@ -20,7 +22,7 @@ import lombok.NoArgsConstructor;
 public class MedicalCategoryUpdateDto {
 
     /**
-     * Arabic name (primary)
+     * Category name (unified)
      */
     @Size(max = 200, message = "Category name must not exceed 200 characters")
     @JsonAlias({"nameAr", "name"})

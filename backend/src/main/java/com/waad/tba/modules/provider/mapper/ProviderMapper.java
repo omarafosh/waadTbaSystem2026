@@ -121,7 +121,7 @@ public class ProviderMapper {
                 .contractCount(provider.getContracts() != null ? provider.getContracts().size() : 0)
                 .contractedEmployerNames(provider.getContracts() != null ? 
                         provider.getContracts().stream()
-                                .map(c -> c.getEmployer() != null ? c.getEmployer().getName() : "Unknown")
+                                .map(c -> "Contract " + c.getContractCode()) // Modified: Contract doesn't link to Employer directly anymore
                                 .collect(java.util.stream.Collectors.toList()) : java.util.Collections.emptyList())
                 .hasDocuments(hasDocuments)
                 .build();

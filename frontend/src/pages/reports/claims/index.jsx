@@ -131,7 +131,7 @@ const ClaimsReport = () => {
       // Prepare data for export
       const exportData = claims.map((claim) => ({
         'رقم المطالبة': claim._raw?.claimNumber || claim.id,
-        'اسم المؤمن عليه': claim.memberName,
+        'اسم المستفيد': claim.memberName,
         'الشريك': claim.employerName,
         'مقدم الخدمة': claim.providerName,
         'الحالة': CLAIM_STATUS_LABELS[claim.status] || claim.status,

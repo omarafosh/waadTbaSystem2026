@@ -1,21 +1,21 @@
 /**
  * Medical Service Create Page - CLEANED & FIXED
- * 
+ *
  * ✅ CORRECT Fields (Reference Data Only):
  * - code (required, unique)
- * - name (required)  
+ * - name (required)
  * - categoryId (required)
  * - description (optional)
  * - basePrice (optional - reference only)
  * - requiresPreApproval (boolean)
  * - active (boolean)
- * 
+ *
  * ❌ REMOVED (Coverage belongs in Benefit Policy Rules):
  * - coverageLimit
  * - coveragePercent
  * - duration
  * - cost (Removed from contract)
- * 
+ *
  * Permissions: SUPER_ADMIN, INSURANCE_ADMIN
  */
 
@@ -55,6 +55,7 @@ import { useTableRefresh } from 'contexts/TableRefreshContext';
 // Hooks & Services
 import { createMedicalService } from 'services/api/medical-services.service';
 import { useAllMedicalCategories } from 'hooks/useMedicalCategories';
+import { normalizePayload, validators } from 'utils/formValidation';
 
 // Snackbar
 import { openSnackbar } from 'api/snackbar';
@@ -119,14 +120,19 @@ const MedicalServiceCreate = () => {
   const validate = useCallback(() => {
     const newErrors = {};
 
-    if (!form.code?.trim()) newErrors.code = 'الرمز مطلوب';
-    if (!form.name?.trim()) newErrors.name = 'الاسم مطلوب';
-    if (!form.categoryId) newErrors.categoryId = 'التصنيف مطلوب';
+    // Use centralized validators
+    const codeResult = validators.required(form.code, 'الرمز');
+    if (!codeResult.valid) newErrors.code = codeResult.error;
 
-    // Validate price if provided
-    if (form.basePrice && parseFloat(form.basePrice) < 0) {
-      newErrors.basePrice = 'السعر يجب أن يكون أكبر من صفر';
-    }
+    const nameResult = validators.required(form.name, 'الاسم');
+    if (!nameResult.valid) newErrors.name = nameResult.error;
+
+    const categoryResult = validators.required(form.categoryId, 'التصنيف');
+    if (!categoryResult.valid) newErrors.categoryId = categoryResult.error;
+
+    // Validate price if provided (must be non-negative)
+    const priceResult = validators.nonNegativeNumber(form.basePrice, 'السعر');
+    if (!priceResult.valid) newErrors.basePrice = priceResult.error;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -142,15 +148,19 @@ const MedicalServiceCreate = () => {
       setApiError(null);
 
       try {
-        const payload = {
-          code: form.code?.trim() || '',
-          name: form.name?.trim() || '',
+        // Prepare raw payload and apply centralized normalization
+        const rawPayload = {
+          code: form.code,
+          name: form.name,
           categoryId: form.categoryId ? parseInt(form.categoryId, 10) : null,
-          description: form.description?.trim() || null,
+          description: form.description,
           basePrice: form.basePrice ? parseFloat(form.basePrice) : null,
           requiresPA: Boolean(form.requiresPA),
           active: Boolean(form.active)
         };
+
+        // Apply centralized normalization (trims strings, converts empty to null)
+        const payload = normalizePayload(rawPayload);
 
         await createMedicalService(payload);
 
@@ -198,10 +208,16 @@ const MedicalServiceCreate = () => {
 
       <MainCard>
         <Box component="form" onSubmit={handleSubmit}>
-          {apiError && <Alert severity="error" sx={{ mb: 3 }}>{apiError}</Alert>}
+          {apiError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {apiError}
+            </Alert>
+          )}
 
           {/* ====== BASIC INFO SECTION ====== */}
-          <Typography variant="h6" gutterBottom>المعلومات الأساسية</Typography>
+          <Typography variant="h6" gutterBottom>
+            المعلومات الأساسية
+          </Typography>
           <Divider sx={{ mb: 3 }} />
 
           <Grid container spacing={3}>
@@ -221,7 +237,7 @@ const MedicalServiceCreate = () => {
             </Grid>
 
             {/* Name */}
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 label="الاسم"
@@ -243,7 +259,7 @@ const MedicalServiceCreate = () => {
                   <MenuItem value="">-- اختر التصنيف --</MenuItem>
                   {categoryList.map((cat) => (
                     <MenuItem key={cat?.id} value={cat?.id}>
-                      {cat?.name || cat?.nameEn || '-'}
+                      {cat?.name || '-'}
                     </MenuItem>
                   ))}
                 </Select>
@@ -295,8 +311,6 @@ const MedicalServiceCreate = () => {
                 disabled={submitting}
               />
             </Grid>
-
-
           </Grid>
 
           {/* ====== SETTINGS SECTION ====== */}

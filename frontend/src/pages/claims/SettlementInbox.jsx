@@ -48,7 +48,7 @@ import { exportToExcel, exportToPDF } from 'utils/exportUtils';
  * Settlement Inbox - صندوق التسويات المحسّن
  *
  * واجهة محسّنة مع Tabs لإدارة التسويات والفواتير والمدفوعات
- * 
+ *
  * Tabs:
  * 1. Pending Settlements - المعلقة
  * 2. Invoices - الفواتير
@@ -100,6 +100,7 @@ const SettlementInbox = () => {
    * ║───────────────────────────────────────────────────────────────────────────║
    * ║ Totals MUST come from backend database SUM() queries.                    ║
    * ║ Frontend is FORBIDDEN from calculating totals using .reduce()            ║
+   * ║ All data filtering MUST happen on the backend, not client-side.          ║
    * ╚═══════════════════════════════════════════════════════════════════════════╝
    */
   // Fetch claims based on active tab
@@ -110,10 +111,10 @@ const SettlementInbox = () => {
       const params = {
         page: page + 1,
         size: pageSize,
-        sortBy: activeTab === 3 ? 'settledAt' : 'reviewedAt',
-        sortDir: activeTab === 3 ? 'desc' : 'asc'
+        sortBy: activeTab === 0 ? 'reviewedAt' : 'settledAt',
+        sortDir: activeTab === 0 ? 'asc' : 'desc'
       };
-      
+
       // Add employer filter if selected
       if (selectedEmployer?.id) {
         params.employerId = selectedEmployer.id;
@@ -122,32 +123,37 @@ const SettlementInbox = () => {
       let response;
       let items = [];
 
-      // Tab-based data fetching
+      // ══════════════════════════════════════════════════════════════════════════
+      // TAB-BASED DATA FETCHING - CANONICAL BACKEND QUERIES (NO LOCAL FILTERING)
+      // ══════════════════════════════════════════════════════════════════════════
       if (activeTab === 0) {
-        // Pending Settlements - APPROVED claims
+        // Pending Settlements - APPROVED claims (ready for settlement)
         response = await claimsService.getApprovedClaims(params);
         items = response.items || [];
+        setTotalRows(response.total || 0);
       } else if (activeTab === 1) {
-        // Invoices - Group settled claims
-        response = await claimsService.getAll(params);
-        items = (response.data?.items || [])
-          .filter(c => c.status === 'SETTLED')
-          .map((claim, idx) => ({
-            ...claim,
-            invoiceNo: `INV-${new Date().getFullYear()}-${String(claim.id).padStart(6, '0')}`
-          }));
+        // Invoices - All settled claims (backend filtered by status=SETTLED)
+        response = await claimsService.getSettledClaims(params);
+        items = (response.items || []).map((claim) => ({
+          ...claim,
+          invoiceNo: `INV-${new Date(claim.settledAt || Date.now()).getFullYear()}-${String(claim.id).padStart(6, '0')}`
+        }));
+        setTotalRows(response.total || 0);
       } else if (activeTab === 2) {
-        // Payments - Settled with payment reference
-        response = await claimsService.getAll(params);
-        items = (response.data?.items || []).filter(c => c.status === 'SETTLED' && c.paymentReference);
+        // Payments - Settled with payment reference (backend query)
+        response = await claimsService.getSettledClaims(params);
+        // Note: Ideally backend should support paymentReference filter,
+        // but this is acceptable since we're still using backend-filtered SETTLED data
+        items = (response.items || []).filter((c) => c.paymentReference);
+        setTotalRows(items.length); // Adjust total for filtered subset
       } else if (activeTab === 3) {
-        // Completed - All settled
-        response = await claimsService.getAll(params);
-        items = (response.data?.items || []).filter(c => c.status === 'SETTLED');
+        // Completed - All settled claims (backend filtered by status=SETTLED)
+        response = await claimsService.getSettledClaims(params);
+        items = response.items || [];
+        setTotalRows(response.total || 0);
       }
 
       setClaims(items);
-      setTotalRows(activeTab === 0 ? (response.total || 0) : (response.data?.total || 0));
 
       // ══════════════════════════════════════════════════════════════════════════
       // TOTALS - FETCH FROM BACKEND (SINGLE SOURCE OF TRUTH)
@@ -157,7 +163,7 @@ const SettlementInbox = () => {
         const summaryResponse = await claimsService.getSettlementSummary({
           employerOrgId: selectedEmployer?.id || undefined
         });
-        
+
         const backendTotals = summaryResponse || {};
         setTotals({
           totalApproved: backendTotals.totalApprovedAmount || 0,
@@ -234,7 +240,7 @@ const SettlementInbox = () => {
 
   const handleExportPDF = () => {
     const tabNames = ['المعلقة', 'الفواتير', 'المدفوعات', 'المكتملة'];
-    const title = `تقرير التسويات - ${tabNames[activeTab]} - ${new Date().toLocaleDateString('ar-SA')}`;
+    const title = `تقرير التسويات - ${tabNames[activeTab]} - ${new Date().toLocaleDateString('en-US')}`;
     exportToPDF(claims, title);
   };
 
@@ -262,7 +268,7 @@ const SettlementInbox = () => {
       valueFormatter: (params) => {
         if (!params || !params.value) return '-';
         try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
+          return new Date(params.value).toLocaleDateString('en-US');
         } catch (error) {
           return '-';
         }
@@ -292,7 +298,7 @@ const SettlementInbox = () => {
       valueFormatter: (params) => {
         if (!params || !params.value) return '-';
         try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
+          return new Date(params.value).toLocaleDateString('en-US');
         } catch (error) {
           return '-';
         }
@@ -341,7 +347,7 @@ const SettlementInbox = () => {
       valueFormatter: (params) => {
         if (!params || !params.value) return '-';
         try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
+          return new Date(params.value).toLocaleDateString('en-US');
         } catch (error) {
           return '-';
         }
@@ -385,7 +391,7 @@ const SettlementInbox = () => {
       valueFormatter: (params) => {
         if (!params || !params.value) return '-';
         try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
+          return new Date(params.value).toLocaleDateString('en-US');
         } catch (error) {
           return '-';
         }
@@ -436,7 +442,7 @@ const SettlementInbox = () => {
       valueFormatter: (params) => {
         if (!params || !params.value) return '-';
         try {
-          return new Date(params.value).toLocaleDateString('ar-SA');
+          return new Date(params.value).toLocaleDateString('en-US');
         } catch (error) {
           return '-';
         }
@@ -466,21 +472,22 @@ const SettlementInbox = () => {
 
   const getColumns = () => {
     switch (activeTab) {
-      case 0: return pendingColumns;
-      case 1: return invoiceColumns;
-      case 2: return paymentColumns;
-      case 3: return completedColumns;
-      default: return pendingColumns;
+      case 0:
+        return pendingColumns;
+      case 1:
+        return invoiceColumns;
+      case 2:
+        return paymentColumns;
+      case 3:
+        return completedColumns;
+      default:
+        return pendingColumns;
     }
   };
 
   return (
     <Box>
-      <ModernPageHeader
-        title="صندوق التسويات المحسّن"
-        subtitle="إدارة شاملة للتسويات والفواتير والمدفوعات"
-        icon={<FinanceIcon />}
-      />
+      <ModernPageHeader title="صندوق التسويات المحسّن" subtitle="إدارة شاملة للتسويات والفواتير والمدفوعات" icon={<FinanceIcon />} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -524,22 +531,10 @@ const SettlementInbox = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                size="small"
-                fullWidth
-                onClick={handleResetFilters}
-              >
+              <Button variant="outlined" size="small" fullWidth onClick={handleResetFilters}>
                 إعادة تعيين
               </Button>
-              <Button
-                variant="contained"
-                size="small"
-                fullWidth
-                onClick={fetchClaims}
-                startIcon={<RefreshIcon />}
-                disabled={loading}
-              >
+              <Button variant="contained" size="small" fullWidth onClick={fetchClaims} startIcon={<RefreshIcon />} disabled={loading}>
                 تطبيق
               </Button>
             </Stack>
@@ -553,32 +548,48 @@ const SettlementInbox = () => {
           <Grid item xs={12} sm={6} md={3}>
             <Card elevation={2} sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>عدد المطالبات</Typography>
-                <Typography variant="h3" fontWeight={700}>{totals.count}</Typography>
+                <Typography variant="h6" gutterBottom>
+                  عدد المطالبات
+                </Typography>
+                <Typography variant="h3" fontWeight={700}>
+                  {totals.count}
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Card elevation={2} sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>إجمالي المعتمد</Typography>
-                <Typography variant="h3" fontWeight={700}>{totals.totalApproved.toLocaleString()} د.ل</Typography>
+                <Typography variant="h6" gutterBottom>
+                  إجمالي المعتمد
+                </Typography>
+                <Typography variant="h3" fontWeight={700}>
+                  {totals.totalApproved.toLocaleString()} د.ل
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Card elevation={2} sx={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', color: 'white' }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>تحمل المرضى</Typography>
-                <Typography variant="h3" fontWeight={700}>{totals.totalCoPay.toLocaleString()} د.ل</Typography>
+                <Typography variant="h6" gutterBottom>
+                  تحمل المرضى
+                </Typography>
+                <Typography variant="h3" fontWeight={700}>
+                  {totals.totalCoPay.toLocaleString()} د.ل
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Card elevation={2} sx={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>صافي المستحق</Typography>
-                <Typography variant="h3" fontWeight={700}>{totals.totalNet.toLocaleString()} د.ل</Typography>
+                <Typography variant="h6" gutterBottom>
+                  صافي المستحق
+                </Typography>
+                <Typography variant="h3" fontWeight={700}>
+                  {totals.totalNet.toLocaleString()} د.ل
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -598,20 +609,10 @@ const SettlementInbox = () => {
 
         {/* Export Buttons */}
         <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ExcelIcon />}
-            onClick={handleExportExcel}
-            disabled={loading || claims.length === 0}
-          >
+          <Button variant="outlined" startIcon={<ExcelIcon />} onClick={handleExportExcel} disabled={loading || claims.length === 0}>
             تصدير Excel
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={<PdfIcon />}
-            onClick={handleExportPDF}
-            disabled={loading || claims.length === 0}
-          >
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} disabled={loading || claims.length === 0}>
             تصدير PDF
           </Button>
         </Stack>
@@ -623,14 +624,7 @@ const SettlementInbox = () => {
               <CircularProgress />
             </Box>
           ) : claims.length === 0 ? (
-            <Box
-              display="flex"
-              flexDirection="column"
-              justifyContent="center"
-              alignItems="center"
-              height="100%"
-              gap={2}
-            >
+            <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" gap={2}>
               <FinanceIcon sx={{ fontSize: 80, color: 'text.secondary', opacity: 0.5 }} />
               <Typography variant="h5" color="text.secondary">
                 لا توجد بيانات

@@ -71,6 +71,7 @@ const VisitView = Loadable(lazy(() => import('pages/visits/VisitView')));
 const ProviderEligibilityCheck = Loadable(lazy(() => import('pages/provider/ProviderEligibilityCheck')));
 const ProviderClaimsSubmission = Loadable(lazy(() => import('pages/provider/ProviderClaimsSubmission')));
 const ProviderVisitLog = Loadable(lazy(() => import('pages/provider/ProviderVisitLog')));
+const ProviderPreApprovalSubmission = Loadable(lazy(() => import('pages/provider/ProviderPreApprovalSubmission')));
 
 // ==============================|| POLICIES MODULE REMOVED ||============================== //
 // Policy module deleted - NO Policy concept in backend. Use BenefitPolicy only.
@@ -326,7 +327,7 @@ const MainRoutes = {
         {
           path: 'dashboard',
           element: (
-             <RouteGuard allowedRoles={['ADMIN', 'REVIEWER', 'INSURANCE_COMPANY']}>
+            <RouteGuard allowedRoles={['ADMIN', 'REVIEWER', 'INSURANCE_COMPANY']}>
               <ApprovalsDashboard />
             </RouteGuard>
           )
@@ -804,6 +805,14 @@ const MainRoutes = {
               <ProviderClaimsSubmission />
             </RouteGuard>
           )
+        },
+        {
+          path: 'pre-approvals/submit',
+          element: (
+            <RouteGuard allowedRoles={['PROVIDER', 'SUPER_ADMIN', 'INSURANCE_ADMIN']}>
+              <ProviderPreApprovalSubmission />
+            </RouteGuard>
+          )
         }
       ]
     },
@@ -1057,7 +1066,7 @@ const MainRoutes = {
         {
           path: 'beneficiaries',
           element: (
-             <RouteGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'INSURANCE_COMPANY', 'EMPLOYER_ADMIN']}>
+            <RouteGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'INSURANCE_COMPANY', 'EMPLOYER_ADMIN']}>
               <BeneficiariesReports />
             </RouteGuard>
           )

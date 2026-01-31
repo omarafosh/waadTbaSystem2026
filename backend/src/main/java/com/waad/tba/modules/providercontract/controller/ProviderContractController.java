@@ -186,6 +186,65 @@ public class ProviderContractController {
                 .ok(ApiResponse.success(result != null ? "Active contract found" : "No active contract", result));
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTRACTED CATEGORIES AND SERVICES (for Claims/PreAuth creation)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * GET /api/provider-contracts/provider/{providerId}/categories
+     * Get medical categories available in provider's active contract
+     * 
+     * CRITICAL: This is the ONLY way to get categories for claims/preauth creation
+     * Direct MedicalCategory queries are NOT allowed for this purpose
+     */
+    @GetMapping("/provider/{providerId}/categories")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('PROVIDER') or hasRole('PROVIDER_USER') or hasAuthority('VIEW_PROVIDER_CONTRACTS') or hasAuthority('CREATE_CLAIMS') or hasAuthority('CREATE_PRE_AUTHORIZATIONS')")
+    @Operation(summary = "Get contracted categories", 
+               description = "Get medical categories available in provider's active contract. Use this for claims/preauth creation.")
+    public ResponseEntity<ApiResponse<List<ProviderContractPricingItemService.ContractCategoryDto>>> getContractedCategories(
+            @Parameter(description = "Provider ID") @PathVariable Long providerId) {
+
+        log.debug("REST request to get contracted categories for provider: {}", providerId);
+        List<ProviderContractPricingItemService.ContractCategoryDto> result = pricingService.findCategoriesByProvider(providerId);
+        return ResponseEntity.ok(ApiResponse.success("Contracted categories retrieved", result));
+    }
+
+    /**
+     * GET /api/provider-contracts/provider/{providerId}/categories/{categoryId}/services
+     * Get medical services for a category in provider's active contract
+     * 
+     * CRITICAL: This is the ONLY way to get services for claims/preauth creation
+     * Direct MedicalService queries are NOT allowed for this purpose
+     */
+    @GetMapping("/provider/{providerId}/categories/{categoryId}/services")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('PROVIDER') or hasRole('PROVIDER_USER') or hasAuthority('VIEW_PROVIDER_CONTRACTS') or hasAuthority('CREATE_CLAIMS') or hasAuthority('CREATE_PRE_AUTHORIZATIONS')")
+    @Operation(summary = "Get contracted services by category", 
+               description = "Get medical services for a category in provider's active contract. Use this for claims/preauth creation.")
+    public ResponseEntity<ApiResponse<List<ProviderContractPricingItemService.ContractServiceDto>>> getContractedServicesByCategory(
+            @Parameter(description = "Provider ID") @PathVariable Long providerId,
+            @Parameter(description = "Category ID") @PathVariable Long categoryId) {
+
+        log.debug("REST request to get contracted services for provider: {}, category: {}", providerId, categoryId);
+        List<ProviderContractPricingItemService.ContractServiceDto> result = pricingService.findServicesByProviderAndCategory(providerId, categoryId);
+        return ResponseEntity.ok(ApiResponse.success("Contracted services retrieved", result));
+    }
+
+    /**
+     * GET /api/provider-contracts/provider/{providerId}/services
+     * Get ALL medical services in provider's active contract (without category filter)
+     */
+    @GetMapping("/provider/{providerId}/services")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('PROVIDER') or hasRole('PROVIDER_USER') or hasAuthority('VIEW_PROVIDER_CONTRACTS') or hasAuthority('CREATE_CLAIMS') or hasAuthority('CREATE_PRE_AUTHORIZATIONS')")
+    @Operation(summary = "Get all contracted services", 
+               description = "Get all medical services in provider's active contract.")
+    public ResponseEntity<ApiResponse<List<ProviderContractPricingItemService.ContractServiceDto>>> getAllContractedServices(
+            @Parameter(description = "Provider ID") @PathVariable Long providerId) {
+
+        log.debug("REST request to get all contracted services for provider: {}", providerId);
+        List<ProviderContractPricingItemService.ContractServiceDto> result = pricingService.findAllServicesByProvider(providerId);
+        return ResponseEntity.ok(ApiResponse.success("All contracted services retrieved", result));
+    }
+
     /**
      * POST /api/provider-contracts
      * Create new contract

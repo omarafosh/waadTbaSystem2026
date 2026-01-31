@@ -57,7 +57,7 @@ const TbaSelectField = ({
     if (typeof optionLabel === 'function') {
       return optionLabel(option);
     }
-    return option[optionLabel] || option.nameAr || option.name || '-';
+    return option[optionLabel] || option.name || '-';
   };
 
   // Get value for option

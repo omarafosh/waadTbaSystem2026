@@ -62,29 +62,39 @@ public class MedicalCategoryExcelTemplateService {
         return List.of(
             // Category Code - Mandatory & Unique
             ExcelTemplateColumn.builder()
-                .name("category_code")
-                .nameAr("رمز الفئة")
+                .name("code")
+                .nameAr("رمز التصنيف")
                 .type(ColumnType.TEXT)
                 .required(true)
-                .example("CAT-001")
-                .description("Unique category code (mandatory)")
-                .descriptionAr("رمز الفئة الفريد (إجباري)")
-                .width(15)
+                .example("CONSULTATION")
+                .description("رمز التصنيف الفريد (إجباري) - لا يمكن تعديله لاحقاً")
+                .descriptionAr("رمز التصنيف الفريد (إجباري)")
+                .width(18)
                 .build(),
                 
-            // Arabic Name - Mandatory
+            // Name - Mandatory (Arabic-only system)
             ExcelTemplateColumn.builder()
-                .name("name_ar")
-                .nameAr("الاسم بالعربية")
+                .name("name")
+                .nameAr("اسم التصنيف")
                 .type(ColumnType.TEXT)
                 .required(true)
-                .example("فحوصات طبية")
-                .description("Category name in Arabic (mandatory)")
-                .descriptionAr("اسم الفئة بالعربية (إجباري)")
-                .width(30)
+                .example("استشارات طبية")
+                .description("اسم التصنيف (إجباري)")
+                .descriptionAr("اسم التصنيف (إجباري)")
+                .width(35)
                 .build(),
                 
-
+            // Parent Code - Optional (for hierarchy)
+            ExcelTemplateColumn.builder()
+                .name("parent_code")
+                .nameAr("رمز التصنيف الأب")
+                .type(ColumnType.TEXT)
+                .required(false)
+                .example("MEDICAL")
+                .description("رمز التصنيف الأب للتصنيفات الفرعية (اختياري)")
+                .descriptionAr("رمز التصنيف الأب للتصنيفات الفرعية (اختياري)")
+                .width(20)
+                .build(),
                 
             // Active - Optional Boolean
             ExcelTemplateColumn.builder()
@@ -93,21 +103,9 @@ public class MedicalCategoryExcelTemplateService {
                 .type(ColumnType.TEXT)
                 .required(false)
                 .example("نعم")
-                .description("Is category active? (Yes/No or نعم/لا, default: Yes)")
-                .descriptionAr("هل الفئة نشطة؟ (نعم/لا، الافتراضي: نعم)")
-                .width(15)
-                .build(),
-                
-            // Description - Optional
-            ExcelTemplateColumn.builder()
-                .name("description")
-                .nameAr("الوصف")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("تشمل جميع الفحوصات الطبية...")
-                .description("Category description (optional)")
-                .descriptionAr("وصف الفئة (اختياري)")
-                .width(40)
+                .description("نعم / لا (الافتراضي: نعم)")
+                .descriptionAr("هل التصنيف نشط؟ (نعم/لا)")
+                .width(12)
                 .build()
         );
     }
@@ -186,27 +184,37 @@ public class MedicalCategoryExcelTemplateService {
     }
     
     private void processRow(Row row, int rowNumber, ImportSummary summary, List<ImportError> errors) {
-        // Read columns
-        String categoryCode = getCellValue(row, 0); // Column A
-        String nameAr = getCellValue(row, 1);       // Column B
-
-        String activeStr = getCellValue(row, 3);    // Column D
-        String description = getCellValue(row, 4);  // Column E
+        // Read columns based on new template structure
+        String code = getCellValue(row, 0);         // Column A: code
+        String name = getCellValue(row, 1);         // Column B: name
+        String parentCode = getCellValue(row, 2);   // Column C: parent_code
+        String activeStr = getCellValue(row, 3);    // Column D: active
         
         // Validate required fields
-        if (categoryCode == null || categoryCode.trim().isEmpty()) {
-            throw new BusinessRuleException("رمز الفئة مطلوب");
+        if (code == null || code.trim().isEmpty()) {
+            throw new BusinessRuleException("رمز التصنيف مطلوب");
         }
         
-        if (nameAr == null || nameAr.trim().isEmpty()) {
-            throw new BusinessRuleException("الاسم بالعربية مطلوب");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessRuleException("اسم التصنيف مطلوب");
         }
         
         // Parse active flag
         boolean active = parseBoolean(activeStr, true); // Default to true
         
+        // Resolve parent if provided
+        Long parentId = null;
+        if (parentCode != null && !parentCode.trim().isEmpty()) {
+            Optional<MedicalCategory> parentOpt = categoryRepository.findByCode(parentCode.trim());
+            if (parentOpt.isPresent()) {
+                parentId = parentOpt.get().getId();
+            } else {
+                log.warn("[MedicalCategoryImport] Row {}: Parent code '{}' not found, will be created as root", rowNumber, parentCode);
+            }
+        }
+        
         // Check if category exists (upsert logic)
-        Optional<MedicalCategory> existingOpt = categoryRepository.findByCode(categoryCode.trim());
+        Optional<MedicalCategory> existingOpt = categoryRepository.findByCode(code.trim());
         
         MedicalCategory category;
         boolean isUpdate = false;
@@ -218,12 +226,12 @@ public class MedicalCategoryExcelTemplateService {
         } else {
             // Create new
             category = new MedicalCategory();
-            category.setCode(categoryCode.trim());
+            category.setCode(code.trim());
         }
         
         // Set/Update fields
-        category.setName(nameAr.trim()); // name field is Arabic
-
+        category.setName(name.trim());
+        category.setParentId(parentId);
         category.setActive(active);
         
         // Save

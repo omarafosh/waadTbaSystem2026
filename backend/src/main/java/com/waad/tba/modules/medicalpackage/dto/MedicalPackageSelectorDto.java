@@ -12,6 +12,5 @@ import lombok.NoArgsConstructor;
 public class MedicalPackageSelectorDto {
     private Long id;
     private String code;
-    private String nameAr;
-    private String nameEn;
+    private String name;
 }

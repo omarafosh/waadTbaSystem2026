@@ -249,4 +249,51 @@ public interface ProviderContractPricingItemRepository extends JpaRepository<Pro
     List<ProviderContractPricingItem> findEffectivePricingByProvider(
             @Param("providerId") Long providerId,
             @Param("date") LocalDate date);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CATEGORY AND SERVICE LOOKUPS BY PROVIDER (for claims/preauth creation)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Get distinct categories available in active contracts for a provider
+     */
+    @Query("SELECT DISTINCT p.medicalCategory FROM ProviderContractPricingItem p " +
+           "WHERE p.contract.provider.id = :providerId " +
+           "AND p.active = true " +
+           "AND p.contract.active = true " +
+           "AND p.contract.status = 'ACTIVE' " +
+           "AND p.medicalCategory IS NOT NULL " +
+           "AND p.contract.startDate <= CURRENT_DATE " +
+           "AND (p.contract.endDate IS NULL OR p.contract.endDate >= CURRENT_DATE)")
+    List<com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory> findDistinctCategoriesByProvider(
+            @Param("providerId") Long providerId);
+
+    /**
+     * Get services available in active contracts for a provider filtered by category
+     */
+    @Query("SELECT p FROM ProviderContractPricingItem p " +
+           "WHERE p.contract.provider.id = :providerId " +
+           "AND p.active = true " +
+           "AND p.contract.active = true " +
+           "AND p.contract.status = 'ACTIVE' " +
+           "AND p.medicalCategory.id = :categoryId " +
+           "AND p.contract.startDate <= CURRENT_DATE " +
+           "AND (p.contract.endDate IS NULL OR p.contract.endDate >= CURRENT_DATE)")
+    List<ProviderContractPricingItem> findServicesByProviderAndCategory(
+            @Param("providerId") Long providerId,
+            @Param("categoryId") Long categoryId);
+
+    /**
+     * Get all services available in active contracts for a provider
+     */
+    @Query("SELECT p FROM ProviderContractPricingItem p " +
+           "WHERE p.contract.provider.id = :providerId " +
+           "AND p.active = true " +
+           "AND p.contract.active = true " +
+           "AND p.contract.status = 'ACTIVE' " +
+           "AND p.medicalService IS NOT NULL " +
+           "AND p.contract.startDate <= CURRENT_DATE " +
+           "AND (p.contract.endDate IS NULL OR p.contract.endDate >= CURRENT_DATE)")
+    List<ProviderContractPricingItem> findAllServicesByProvider(
+            @Param("providerId") Long providerId);
 }

@@ -27,19 +27,30 @@ import {
   AssignmentInd as AssignmentIndIcon,
   HowToReg as HowToRegIcon,
   PostAdd as PostAddIcon,
-  FormatListBulleted as FormatListBulletedIcon
+  FormatListBulleted as FormatListBulletedIcon,
+  Folder as FolderIcon
 } from '@mui/icons-material';
+
+// RBAC Configuration
+import { filterMenuByPermissions } from 'config/rbac.config';
 
 // ==============================|| RBAC MENU FILTERING ||============================== //
 
 /**
- * Filter menu items based on user roles (RBAC)
+ * Filter menu items based on user permissions (NEW ARCHITECTURE)
  * Enterprise Closed System - Al-Waha Insurance Only
  * @param {Array} menuItems - Full menu structure
- * @param {Array} userRoles - User's assigned roles
+ * @param {Array} userRoles - User's assigned roles (DEPRECATED - kept for backward compatibility)
+ * @param {Object} user - User object with permissions (NEW)
  * @returns {Array} Filtered menu items
  */
-export const filterMenuByRoles = (menuItems, userRoles = []) => {
+export const filterMenuByRoles = (menuItems, userRoles = [], user = null) => {
+  // NEW ARCHITECTURE: If user object provided, use permission-based filtering
+  if (user && user.permissions) {
+    return filterMenuByPermissions(menuItems, user);
+  }
+
+  // FALLBACK: Legacy role-based filtering (backward compatibility)
   // SUPER_ADMIN sees everything (also support legacy 'ADMIN')
   if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('ADMIN')) {
     return menuItems;
@@ -50,7 +61,7 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
     // INSURANCE_ADMIN - Full operational access (no RBAC management)
     // ═══════════════════════════════════════════════════════════════════════════
     INSURANCE_ADMIN: {
-      hide: ['rbac'],  // Only RBAC is hidden
+      hide: ['rbac'], // Only RBAC is hidden
       show: [
         'dashboard',
         'members',
@@ -116,7 +127,7 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
         'employers',
         'providers',
         'provider-contracts',
-        'claims-inbox',          // Not inbox - can only create requests
+        'claims-inbox', // Not inbox - can only create requests
         'settlement-inbox',
         'admin-users',
         'rbac'
@@ -126,7 +137,7 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
         'members',
         'claims',
         'visits',
-        'pre-approvals',         // Can request pre-approvals
+        'pre-approvals', // Can request pre-approvals
         'medical-categories',
         'medical-services',
         'medical-packages',
@@ -149,25 +160,25 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
     PROVIDER: {
       hide: [
         // HARD BLOCK (2026-01-14): PROVIDER has ZERO access to these
-        'dashboard',              // No main dashboard
-        'reports',                // No reports access at all
+        'dashboard', // No main dashboard
+        'reports', // No reports access at all
         'employers',
         'providers',
         'provider-contracts',
         'policies',
         'benefit-policies',
-        'members',                // No members list access
-        'claims',                 // No standalone claims access
-        'claims-history',         // No standalone claims access
-        'claims-inbox',           // Not inbox access
-        'pre-approvals',          // No standalone pre-approvals (Visit-Centric)
-        'pre-approvals-inbox',    // PROVIDER cannot see inbox
+        'members', // No members list access
+        'claims', // No standalone claims access
+        'claims-history', // No standalone claims access
+        'claims-inbox', // Not inbox access
+        'pre-approvals', // No standalone pre-approvals (Visit-Centric)
+        'pre-approvals-inbox', // PROVIDER cannot see inbox
         'settlement-inbox',
-        'unified-approvals-dashboard',  // Insurance-only
+        'unified-approvals-dashboard', // Insurance-only
         'admin-users',
         'rbac',
-        'settings',               // No settings access
-        'audit',                  // No audit access
+        'settings', // No settings access
+        'audit', // No audit access
         'employer-dashboard',
         'claims-report',
         'visits-report',
@@ -178,9 +189,10 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
       show: [
         'provider-portal',
         'provider-eligibility-check',
-        'provider-visit-log'      // Visit Log is the ONLY place to create PreAuth/Claim
+        'provider-visit-log', // Visit Log is the ONLY place to create PreAuth/Claim
+        'provider-documents' // Documents Center for Provider Portal
         // REMOVED (2026-01-14): provider-dashboard, eligibility-check, visits, medical-*, visits-report
-        // Provider role ONLY sees: Eligibility Check + Visit Log
+        // Provider role ONLY sees: Eligibility Check + Visit Log + Documents
       ]
     },
     // ═══════════════════════════════════════════════════════════════════════════
@@ -242,21 +254,26 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
   if (userRoles.includes('PROVIDER') && !userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
     // Return ONLY the Provider Portal group
     const providerAllowedGroups = ['group-provider-portal'];
-    return menuItems.filter(group => providerAllowedGroups.includes(group.id));
+    return menuItems.filter((group) => providerAllowedGroups.includes(group.id));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REVIEWER SPECIAL CASE: Use WHITELIST approach (show ONLY review-related groups)
   // Reviewer focuses on: Claims Inbox, Pre-Approvals Inbox, Dashboard, Reports
   // ═══════════════════════════════════════════════════════════════════════════
-  if (userRoles.includes('REVIEWER') && !userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN') && !userRoles.includes('INSURANCE_ADMIN')) {
+  if (
+    userRoles.includes('REVIEWER') &&
+    !userRoles.includes('SUPER_ADMIN') &&
+    !userRoles.includes('ADMIN') &&
+    !userRoles.includes('INSURANCE_ADMIN')
+  ) {
     // Return ONLY the groups relevant for medical review work
     const reviewerAllowedGroups = [
-      'group-dashboard',           // Main dashboard for overview
-      'group-claims-approvals',    // Claims & Approvals inbox (main work area)
-      'group-reports'              // Reports for analysis
+      'group-dashboard', // Main dashboard for overview
+      'group-claims-approvals', // Claims & Approvals inbox (main work area)
+      'group-reports' // Reports for analysis
     ];
-    return menuItems.filter(group => reviewerAllowedGroups.includes(group.id));
+    return menuItems.filter((group) => reviewerAllowedGroups.includes(group.id));
   }
 
   // Get hide rules for all user roles
@@ -300,15 +317,15 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
  * ═══════════════════════════════════════════════════════════════════════════
  * 🏥 PROFESSIONAL TPA SYSTEM - NAVIGATION MENU (2026 STANDARD)
  * ═══════════════════════════════════════════════════════════════════════════
- * 
+ *
  * DESIGN PHILOSOPHY:
  * ✅ Professional TPA Industry Standards
  * ✅ Clear separation: Implemented vs. Under Development
  * ✅ Future-proof structure (no breaking changes when adding features)
  * ✅ Role-based visibility (RBAC enforced)
- * 
+ *
  * NAVIGATION STRUCTURE:
- * 
+ *
  * 📊 Dashboard
  * 👥 Members
  * 🏢 Employers (Partners)
@@ -317,16 +334,15 @@ export const filterMenuByRoles = (menuItems, userRoles = []) => {
  * 📈 Reports
  * 📂 Documents (under development)
  * ⚙️ System Settings
- * 
+ *
  * STATUS INDICATORS:
  * ✅ = Implemented and working
  * ⏳ = Under development (shows placeholder page)
- * 
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 const menuItem = [
-
   // ═══════════════════════════════════════════════════════════════════════════
   // 📊 DASHBOARD
   // ═══════════════════════════════════════════════════════════════════════════
@@ -359,41 +375,51 @@ const menuItem = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-members',
-    title: 'المنتفعين',
-    titleEn: 'Beneficiaries',
+    title: 'المستفيدين',
+    titleEn: 'Insured',
     type: 'group',
     children: [
       {
         id: 'members',
-        title: 'المنتفعين',
-        titleEn: 'Beneficiaries',
-        type: 'item',
-        url: '/members',
+        title: 'إدارة المستفيدين',
+        titleEn: 'Insured Management',
+        type: 'collapse',
         icon: PeopleAltIcon,
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small'
-        }
+        children: [
+          {
+            id: 'members-list',
+            title: 'قائمة المستفيدين',
+            titleEn: 'Insured List',
+            type: 'item',
+            url: '/members',
+            icon: FormatListBulletedIcon,
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          }
+          // NOTE (2026-01-23): Removed old 'eligibility-check' - now in /members/eligibility page
+        ]
       }
     ]
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🏥 SERVICE PORTAL (VISIT-CENTRIC FLOW 2026-01-14)
+  // 🏥 PROVIDER PORTAL (VISIT-CENTRIC FLOW 2026-01-14)
   // ═══════════════════════════════════════════════════════════════════════════
   // ARCHITECTURAL RULE: No standalone Pre-Authorization access
   // Pre-Auth can ONLY be created from Visit Log
   {
     id: 'group-provider-portal',
-    title: 'بوابة الخدمة',
-    titleEn: 'Service Portal',
+    title: 'بوابة مقدم الخدمة',
+    titleEn: 'Provider Portal',
     type: 'group',
     children: [
       {
         id: 'provider-portal',
-        title: 'بوابة الخدمة',
-        titleEn: 'Service Portal',
+        title: 'بوابة مقدم الخدمة',
+        titleEn: 'Provider Portal',
         type: 'collapse',
         icon: LocalHospitalIcon,
         children: [
@@ -422,6 +448,19 @@ const menuItem = [
               color: 'info',
               size: 'small'
             }
+          },
+          {
+            id: 'provider-documents',
+            title: 'المستندات',
+            titleEn: 'Documents',
+            type: 'item',
+            url: '/provider/documents',
+            icon: FolderIcon,
+            chip: {
+              label: '3️⃣',
+              color: 'secondary',
+              size: 'small'
+            }
           }
           // NOTE (2026-01-14): Pre-Approvals menu item REMOVED
           // Per Visit-Centric Architecture: Pre-Auth can ONLY be created from Visit Log
@@ -436,20 +475,20 @@ const menuItem = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-employers',
-    title: 'جهات العمل',
+    title: 'الشركاء (جهات العمل)',
     titleEn: 'Employers (Partners)',
     type: 'group',
     children: [
       {
         id: 'employers',
-        title: 'إدارة جهات العمل',
+        title: 'إدارة الشركاء',
         titleEn: 'Employers Management',
         type: 'collapse',
         icon: BusinessIcon,
         children: [
           {
             id: 'employers-list',
-            title: 'قائمة جهات العمل',
+            title: 'قائمة الشركاء',
             titleEn: 'Employers List',
             type: 'item',
             url: '/employers',
@@ -468,6 +507,33 @@ const menuItem = [
             url: '/benefit-policies',
             icon: PolicyIcon,
             permission: ['benefit_policies.view'],
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
+            id: 'employer-contracts',
+            title: 'عقود الشركاء',
+            titleEn: 'Employer Contracts',
+            type: 'item',
+            url: '/employers/contracts',
+            icon: HandshakeIcon,
+            permission: ['benefit_policies.view'],
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
+            id: 'employer-analytics',
+            title: 'تحليلات الشركاء',
+            titleEn: 'Employer Analytics',
+            type: 'item',
+            url: '/reports/employer-dashboard',
+            icon: AssessmentIcon,
             chip: {
               label: '✅',
               color: 'success',
@@ -663,6 +729,19 @@ const menuItem = [
             }
           },
           {
+            id: 'provider-settlement-reports',
+            title: 'تقارير تسوية مقدمي الخدمة',
+            titleEn: 'Provider Settlement Reports',
+            type: 'item',
+            url: '/reports/provider-settlement',
+            icon: LocalHospitalIcon,
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
             id: 'employer-reports',
             title: 'تقارير الشركاء',
             titleEn: 'Employer Reports',
@@ -703,8 +782,8 @@ const menuItem = [
           },
           {
             id: 'beneficiaries-report',
-            title: 'تقارير المنتفعين',
-            titleEn: 'Beneficiaries Reports',
+            title: 'تقارير المستفيدين',
+            titleEn: 'Insured Reports',
             type: 'item',
             url: '/reports/beneficiaries',
             icon: PeopleAltIcon,
@@ -844,18 +923,53 @@ const menuItem = [
         ]
       },
       {
-        id: 'settings',
-        title: 'إعدادات الشركة',
-        titleEn: 'Company Settings',
+        id: 'cities-networks',
+        title: 'المدن والشبكات',
+        titleEn: 'Cities & Networks',
         type: 'item',
-        url: '/settings/company',
-        icon: SettingsIcon,
-        permission: ['settings.view'],
+        url: '/under-development',
+        icon: BusinessIcon,
         chip: {
-          label: '✅',
-          color: 'success',
+          label: '⏳',
+          color: 'warning',
           size: 'small'
         }
+      },
+      {
+        id: 'settings',
+        title: 'إعدادات عامة',
+        titleEn: 'General Settings',
+        type: 'collapse',
+        icon: SettingsIcon,
+        permission: ['settings.view'],
+        children: [
+          {
+            id: 'company-settings',
+            title: 'معلومات المؤسسة',
+            titleEn: 'Organization Information',
+            type: 'item',
+            url: '/settings/company',
+            icon: BusinessIcon,
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
+            id: 'system-configuration',
+            title: 'تكوين النظام',
+            titleEn: 'System Configuration',
+            type: 'item',
+            url: '/under-development',
+            icon: SettingsIcon,
+            chip: {
+              label: '⏳',
+              color: 'warning',
+              size: 'small'
+            }
+          }
+        ]
       }
     ]
   }

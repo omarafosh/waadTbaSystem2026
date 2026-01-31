@@ -181,7 +181,7 @@ const MedicalCategoryView = () => {
       {/* ====== PAGE HEADER ====== */}
       <ModernPageHeader
         title="عرض التصنيف الطبي"
-        subtitle={category?.nameAr || ''}
+        subtitle={category?.name || ''}
         icon={CategoryIcon}
         breadcrumbs={[
           { label: 'الرئيسية', path: '/' },
@@ -240,26 +240,14 @@ const MedicalCategoryView = () => {
             </Paper>
           </Grid>
 
-          {/* Name Arabic */}
+          {/* Name */}
           <Grid item xs={12} md={6}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                الاسم (عربي)
+                الاسم
               </Typography>
               <Typography variant="body1" fontWeight="medium">
-                {category?.name || category?.nameAr || '-'}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          {/* Name English */}
-          <Grid item xs={12} md={6}>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                الاسم (إنجليزي)
-              </Typography>
-              <Typography variant="body1" fontWeight="medium" dir="ltr" align="left">
-                {category?.nameEn || '-'}
+                {category?.name || '-'}
               </Typography>
             </Paper>
           </Grid>

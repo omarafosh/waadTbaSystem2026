@@ -23,8 +23,11 @@ import java.util.Map;
 /**
  * Service for importing Medical Categories from Excel files
  * 
- * Expected Excel format:
- * | code | nameAr | sortOrder | active |
+ * Expected Excel format (New Standard):
+ * | code | name | parent_code | active |
+ * 
+ * Also supports legacy format:
+ * | code | nameAr | active |
  */
 @Slf4j
 @Service
@@ -108,21 +111,38 @@ public class MedicalCategoryExcelService {
 
     private void processRow(Row row, int rowNum, Map<String, Integer> columnMap, ImportSummary summary) {
         String code = getCellValueAsString(row, columnMap.get("code"));
-        String nameAr = getCellValueAsString(row, columnMap.get("nameAr"));
-        // Note: sortOrder field removed from MedicalCategory entity
+        // Support both 'name' (new) and 'nameAr' (legacy)
+        String name = getCellValueAsString(row, columnMap.get("name"));
+        if (name == null || name.trim().isEmpty()) {
+            name = getCellValueAsString(row, columnMap.get("nameAr"));
+        }
+        // Support parent category
+        String parentCode = getCellValueAsString(row, columnMap.get("parentCode"));
         Boolean active = getCellValueAsBoolean(row, columnMap.get("active"));
 
         if (code == null || code.trim().isEmpty()) {
             throw new BusinessRuleException("الرمز (code) مطلوب");
         }
-        if (nameAr == null || nameAr.trim().isEmpty()) {
-            throw new BusinessRuleException("الاسم بالعربية (nameAr) مطلوب");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessRuleException("اسم التصنيف (name) مطلوب");
+        }
+
+        // Resolve parent if provided
+        Long parentId = null;
+        if (parentCode != null && !parentCode.trim().isEmpty()) {
+            MedicalCategory parent = categoryRepository.findByCode(parentCode.trim()).orElse(null);
+            if (parent != null) {
+                parentId = parent.getId();
+            } else {
+                log.warn("[MedicalCategoryExcel] Row {}: Parent code '{}' not found, creating as root", rowNum, parentCode);
+            }
         }
 
         MedicalCategory existingCategory = categoryRepository.findByCode(code.trim()).orElse(null);
 
         if (existingCategory != null) {
-            existingCategory.setName(nameAr.trim());
+            existingCategory.setName(name.trim());
+            existingCategory.setParentId(parentId);
             if (active != null) {
                 existingCategory.setActive(active);
             }
@@ -135,7 +155,8 @@ public class MedicalCategoryExcelService {
         } else {
             MedicalCategory newCategory = MedicalCategory.builder()
                     .code(code.trim())
-                    .name(nameAr.trim())
+                    .name(name.trim())
+                    .parentId(parentId)
                     .active(active != null ? active : true)
                     .build();
             
@@ -151,13 +172,24 @@ public class MedicalCategoryExcelService {
         for (Cell cell : headerRow) {
             String columnName = cell.getStringCellValue().trim().toLowerCase();
             
-            if (columnName.equals("code") || columnName.equals("الرمز") || columnName.equals("كود")) {
+            // Code column (required)
+            if (columnName.equals("code") || columnName.equals("الرمز") || columnName.equals("كود") || columnName.equals("رمز التصنيف")) {
                 columnMap.put("code", cell.getColumnIndex());
-            } else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم") || columnName.equals("اسم")) {
+            } 
+            // Name column (new standard - unified name)
+            else if (columnName.equals("name") || columnName.equals("اسم التصنيف") || columnName.equals("الاسم")) {
+                columnMap.put("name", cell.getColumnIndex());
+            }
+            // Legacy nameAr column (for backward compatibility)
+            else if (columnName.equals("namear") || columnName.equals("name_ar") || columnName.equals("الاسم بالعربية")) {
                 columnMap.put("nameAr", cell.getColumnIndex());
-            } else if (columnName.equals("sortorder") || columnName.equals("sort_order") || columnName.equals("الترتيب")) {
-                columnMap.put("sortOrder", cell.getColumnIndex());
-            } else if (columnName.equals("active") || columnName.equals("نشط") || columnName.equals("الحالة")) {
+            } 
+            // Parent code column (for hierarchy)
+            else if (columnName.equals("parent_code") || columnName.equals("parentcode") || columnName.equals("رمز التصنيف الأب") || columnName.equals("الأب")) {
+                columnMap.put("parentCode", cell.getColumnIndex());
+            }
+            // Active column
+            else if (columnName.equals("active") || columnName.equals("نشط") || columnName.equals("الحالة")) {
                 columnMap.put("active", cell.getColumnIndex());
             }
         }
@@ -171,8 +203,9 @@ public class MedicalCategoryExcelService {
         if (!columnMap.containsKey("code")) {
             missing.add("code (الرمز)");
         }
-        if (!columnMap.containsKey("nameAr")) {
-            missing.add("nameAr (الاسم)");
+        // Accept either 'name' (new) or 'nameAr' (legacy)
+        if (!columnMap.containsKey("name") && !columnMap.containsKey("nameAr")) {
+            missing.add("name (اسم التصنيف)");
         }
         
         if (!missing.isEmpty()) {

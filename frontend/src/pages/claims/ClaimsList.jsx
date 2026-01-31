@@ -9,6 +9,10 @@
  * ✅ PDF button at page level (backend-driven)
  * ❌ NO Excel export
  * ❌ NO frontend PDF generation
+ *
+ * CANONICAL 2026-01-26:
+ * - Edit/Delete actions hidden for REVIEWER role
+ * - Creation only via Provider Portal
  */
 
 import { useMemo, useCallback } from 'react';
@@ -33,6 +37,9 @@ import TableErrorBoundary from 'components/TableErrorBoundary';
 import PermissionGuard from 'components/PermissionGuard';
 import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
 
+// Auth Context - for role-based action visibility
+import { useAuth } from 'contexts/AuthContext';
+
 // Insurance UX Components
 import { CardStatusBadge } from 'components/insurance';
 
@@ -55,6 +62,8 @@ import { openSnackbar } from 'api/snackbar';
 
 const QUERY_KEY = 'claims';
 const MODULE_NAME = 'claims';
+// Roles that can edit/delete (NOT reviewers)
+const EDIT_ROLES = ['SUPER_ADMIN', 'INSURANCE_ADMIN', 'PROVIDER', 'EMPLOYER'];
 
 // Claim Status Mapping for CardStatusBadge
 const CLAIM_STATUS_MAP = {
@@ -95,6 +104,18 @@ const formatDate = (date) => {
 const ClaimsList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // ========================================
+  // AUTH CONTEXT - for role-based action visibility
+  // ========================================
+
+  const { user } = useAuth();
+
+  // Determine if current user can edit/delete (REVIEWER cannot)
+  const canEdit = useMemo(() => {
+    const role = user?.role || user?.roles?.[0];
+    return EDIT_ROLES.includes(role);
+  }, [user]);
 
   // ========================================
   // EMPLOYER FILTER CONTEXT
@@ -313,24 +334,29 @@ const ClaimsList = () => {
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="تعديل">
-              <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {/* CANONICAL 2026-01-26: Edit/Delete hidden for REVIEWER role */}
+            {canEdit && (
+              <>
+                <Tooltip title="تعديل">
+                  <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
 
-            <Tooltip title="حذف">
-              <PermissionGuard requires="claims.delete">
-                <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </PermissionGuard>
-            </Tooltip>
+                <Tooltip title="حذف">
+                  <PermissionGuard requires="claims.delete">
+                    <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </PermissionGuard>
+                </Tooltip>
+              </>
+            )}
           </Stack>
         )
       }
     ],
-    [handleNavigateView, handleNavigateEdit, handleDelete]
+    [handleNavigateView, handleNavigateEdit, handleDelete, canEdit]
   );
 
   // ========================================
@@ -346,18 +372,11 @@ const ClaimsList = () => {
           subtitle="إدارة ومتابعة مطالبات التأمين"
           icon={ReceiptIcon}
           breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'المطالبات' }]}
-          pdfModule={MODULE_NAME}
-          pdfFilters={tableState.columnFilters}
-          pdfSorting={tableState.sorting}
           showAddButton={false}
           customActions={
             <Stack direction="row" spacing={2}>
               <EmployerFilterSelector />
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => refetch()}
-              >
+              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => refetch()}>
                 تحديث
               </Button>
             </Stack>
@@ -367,8 +386,8 @@ const ClaimsList = () => {
 
       {/* تنبيه النظام Visit-Centric */}
       <Alert severity="info" sx={{ mb: 3 }}>
-        💡 <strong>إنشاء مطالبة جديدة:</strong> يتم إنشاء المطالبات من خلال{' '}
-        <strong>سجل الزيارات</strong> في بوابة مقدم الخدمة. كل مطالبة يجب أن ترتبط بزيارة مسجلة.
+        💡 <strong>إنشاء مطالبة جديدة:</strong> يتم إنشاء المطالبات من خلال <strong>سجل الزيارات</strong> في بوابة مقدم الخدمة. كل مطالبة
+        يجب أن ترتبط بزيارة مسجلة.
       </Alert>
 
       {/* ====== UNIFIED DATA TABLE ====== */}

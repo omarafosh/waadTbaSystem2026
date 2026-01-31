@@ -405,17 +405,22 @@ const TbaDataTable = ({
         )}
 
         {enableExcelUpload && onExcelUpload && (
-          <ExcelUploadButton
-            onUpload={handleExcelUpload}
-            disabled={loading}
-            buttonText="رفع Excel"
-            size="small"
-            variant="outlined"
-          />
+          <ExcelUploadButton onUpload={handleExcelUpload} disabled={loading} buttonText="رفع Excel" size="small" variant="outlined" />
         )}
       </Stack>
     ),
-    [handleRefresh, handleExport, handlePrint, handleExcelUpload, loading, enableExport, enablePrint, enableExcelUpload, onExcelUpload, data.length]
+    [
+      handleRefresh,
+      handleExport,
+      handlePrint,
+      handleExcelUpload,
+      loading,
+      enableExport,
+      enablePrint,
+      enableExcelUpload,
+      onExcelUpload,
+      data.length
+    ]
   );
 
   // ========================================

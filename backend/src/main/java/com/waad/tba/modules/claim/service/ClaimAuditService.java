@@ -286,6 +286,7 @@ public class ClaimAuditService {
             case APPROVED -> ChangeType.APPROVAL;
             case REJECTED -> ChangeType.REJECTION;
             case SETTLED -> ChangeType.SETTLEMENT;
+            default -> ChangeType.STATUS_CHANGE;
         };
     }
 

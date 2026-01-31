@@ -4,6 +4,7 @@ import com.waad.tba.common.dto.ApiResponse;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryCreateDto;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryResponseDto;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryUpdateDto;
+import com.waad.tba.modules.medicaltaxonomy.dto.MedicalServiceResponseDto;
 import com.waad.tba.modules.medicaltaxonomy.service.MedicalCategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -126,6 +127,42 @@ public class MedicalCategoryController {
         List<MedicalCategoryResponseDto> result = categoryService.findChildren(id);
         
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MEDICAL SERVICES BY CATEGORY (CANONICAL ENDPOINT)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Get all active medical services belonging to a specific category.
+     * 
+     * ARCHITECTURAL LAW:
+     * This endpoint is the ONLY way to retrieve services for selection.
+     * Direct service selection without category is NOT allowed.
+     * 
+     * Flow: Category Selection → This Endpoint → Service Selection → Coverage Resolution
+     */
+    @GetMapping("/{id}/medical-services")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'INSURANCE_ADMIN', 'PROVIDER') or hasAuthority('medical_services.view')")
+    @Operation(
+        summary = "Get services by category (CANONICAL)",
+        description = "Get all active medical services belonging to this category. " +
+                      "This is the canonical endpoint for service selection - services MUST be filtered by category first."
+    )
+    public ResponseEntity<ApiResponse<List<MedicalServiceResponseDto>>> getServicesByCategory(
+            @Parameter(description = "Category ID") @PathVariable Long id) {
+        
+        log.info("[MEDICAL-CATEGORIES] GET /api/medical-categories/{}/medical-services - Canonical service lookup", id);
+        
+        // Validate category exists
+        categoryService.findById(id); // Throws if not found
+        
+        // Get services for this category
+        List<MedicalServiceResponseDto> services = categoryService.findServicesByCategory(id);
+        
+        log.info("[MEDICAL-CATEGORIES] Found {} services for category {}", services.size(), id);
+        
+        return ResponseEntity.ok(ApiResponse.success(services));
     }
 
     @GetMapping("/tree")

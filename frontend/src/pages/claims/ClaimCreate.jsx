@@ -73,7 +73,7 @@ const LABELS = {
   title: 'إنشاء مطالبة جديدة',
   subtitle: 'تقديم مطالبة تأمينية (يجب الربط بزيارة)',
   visitInfo: 'معلومات الزيارة',
-  memberInfo: 'معلومات المؤمن عليه',
+  memberInfo: 'معلومات المستفيد',
   medicalInfo: 'المعلومات الطبية',
   financialInfo: 'الخدمات والمبالغ',
   attachments: 'المرفقات',
@@ -175,7 +175,7 @@ const ClaimCreate = () => {
   const [searchParams] = useSearchParams();
   const { user, providerId } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
-  
+
   // Toast helper functions
   const showSuccessToast = (msg) => enqueueSnackbar(msg, { variant: 'success' });
   const showErrorToast = (msg) => enqueueSnackbar(msg, { variant: 'error' });
@@ -234,10 +234,10 @@ const ClaimCreate = () => {
     try {
       // Fetch pre-authorizations for this visit
       await fetchPreAuthorizations();
-      
+
       // Fetch all medical services for dropdown
       await fetchMedicalServices();
-      
+
       // Create temporary claim for attachments
       await createTempClaim();
     } catch (error) {
@@ -250,14 +250,14 @@ const ClaimCreate = () => {
 
   const fetchPreAuthorizations = async () => {
     if (!linkedMemberId) return;
-    
+
     setLoadingPreAuths(true);
     try {
       // Get approved pre-auths for this visit/member
       const response = await preApprovalsService.getByMember(linkedMemberId);
       // Filter to only approved ones linked to this visit
-      const approvedPreAuths = (response || []).filter(pa => 
-        pa.status === 'APPROVED' && 
+      const approvedPreAuths = (response || []).filter(pa =>
+        pa.status === 'APPROVED' &&
         (!linkedVisitId || pa.visitId === parseInt(linkedVisitId))
       );
       setPreAuths(approvedPreAuths);
@@ -273,22 +273,22 @@ const ClaimCreate = () => {
     setLoadingServices(true);
     try {
       if (linkedProviderId) {
-          // FIX: Filter services by Provider Contract
-          const response = await axiosClient.get(`/providers/${linkedProviderId}/services`);
-          const data = response.data?.data || response.data || [];
-          
-          const mappedServices = data.map(s => ({
-              id: s.serviceId || s.id,
-              code: s.serviceCode || s.code,
-              name: s.serviceName || s.name,
-              nameArabic: s.serviceNameArabic || s.nameArabic || s.name_arabic,
-              category: s.category
-          }));
-          setAllServices(mappedServices);
+        // FIX: Filter services by Provider Contract
+        const response = await axiosClient.get(`/providers/${linkedProviderId}/services`);
+        const data = response.data?.data || response.data || [];
+
+        const mappedServices = data.map(s => ({
+          id: s.serviceId || s.id,
+          code: s.serviceCode || s.code,
+          name: s.serviceName || s.name,
+          nameArabic: s.serviceNameArabic || s.nameArabic || s.name_arabic,
+          category: s.category
+        }));
+        setAllServices(mappedServices);
       } else {
-          // Fallback if no provider linked (should not happen in visit-centric flow)
-          const response = await medicalServicesService.getAllMedicalServices();
-          setAllServices(response?.content || response || []);
+        // Fallback if no provider linked (should not happen in visit-centric flow)
+        const response = await medicalServicesService.getAllMedicalServices();
+        setAllServices(response?.content || response || []);
       }
     } catch (error) {
       console.error('Failed to fetch medical services:', error);
@@ -301,10 +301,10 @@ const ClaimCreate = () => {
   const createTempClaim = async () => {
     const vId = parseInt(linkedVisitId);
     if (!vId) {
-        console.warn('Cannot create temp claim: Invalid Visit ID');
-        return;
+      console.warn('Cannot create temp claim: Invalid Visit ID');
+      return;
     }
-    
+
     try {
       const response = await claimsService.create({
         visitId: vId,
@@ -341,7 +341,7 @@ const ClaimCreate = () => {
     if (!linkedProviderId || !serviceCode) return null;
 
     // Update line to show loading
-    setClaimLines(prev => prev.map(line => 
+    setClaimLines(prev => prev.map(line =>
       line.id === lineId ? { ...line, loadingPrice: true, priceError: null } : line
     ));
 
@@ -350,7 +350,7 @@ const ClaimCreate = () => {
       const priceData = response.data;
 
       // Update line with contract price
-      setClaimLines(prev => prev.map(line => 
+      setClaimLines(prev => prev.map(line =>
         line.id === lineId ? {
           ...line,
           unitPrice: priceData.price || priceData.contractPrice || 0,
@@ -363,9 +363,9 @@ const ClaimCreate = () => {
       return priceData.price || priceData.contractPrice || 0;
     } catch (error) {
       console.error(`Failed to fetch price for service ${serviceCode}:`, error);
-      
+
       // Update line to show no contract
-      setClaimLines(prev => prev.map(line => 
+      setClaimLines(prev => prev.map(line =>
         line.id === lineId ? {
           ...line,
           unitPrice: 0,
@@ -405,7 +405,7 @@ const ClaimCreate = () => {
   const handleServiceChange = async (lineId, selectedService) => {
     if (!selectedService) {
       // Clear the line
-      setClaimLines(prev => prev.map(line => 
+      setClaimLines(prev => prev.map(line =>
         line.id === lineId ? {
           ...line,
           medicalServiceId: null,
@@ -420,7 +420,7 @@ const ClaimCreate = () => {
     }
 
     // Update line with selected service
-    setClaimLines(prev => prev.map(line => 
+    setClaimLines(prev => prev.map(line =>
       line.id === lineId ? {
         ...line,
         medicalServiceId: selectedService.id,
@@ -436,7 +436,7 @@ const ClaimCreate = () => {
 
   const handleQuantityChange = (lineId, newQuantity) => {
     const qty = Math.max(1, parseInt(newQuantity) || 1);
-    setClaimLines(prev => prev.map(line => 
+    setClaimLines(prev => prev.map(line =>
       line.id === lineId ? { ...line, quantity: qty } : line
     ));
   };
@@ -509,7 +509,7 @@ const ClaimCreate = () => {
   // ══════════════════════════════════════════════════════════════════════════════
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
+
     if (!validateForm()) {
       showErrorToast('يرجى تصحيح الأخطاء في النموذج');
       return;
@@ -517,8 +517,8 @@ const ClaimCreate = () => {
 
     const vId = parseInt(linkedVisitId);
     if (!vId) {
-       showErrorToast('خطأ: رقم الزيارة مفقود أو غير صحيح. لا يمكن إنشاء المطالبة.');
-       return;
+      showErrorToast('خطأ: رقم الزيارة مفقود أو غير صحيح. لا يمكن إنشاء المطالبة.');
+      return;
     }
 
     setCreating(true);
@@ -566,7 +566,7 @@ const ClaimCreate = () => {
 
       const claimId = response.id || tempClaimId;
       showSuccessToast('تم إنشاء المطالبة بنجاح');
-      
+
       // If submitAfterSave is true, submit the claim for review
       if (submitAfterSave && claimId) {
         try {
@@ -577,7 +577,7 @@ const ClaimCreate = () => {
           showErrorToast('تم حفظ المطالبة ولكن فشل الإرسال للمراجعة');
         }
       }
-      
+
       navigate(`/claims/${claimId}`);
     } catch (error) {
       console.error('Failed to create claim:', error);
@@ -588,16 +588,16 @@ const ClaimCreate = () => {
       setCreating(false);
     }
   };
-  
+
   // State to track if we should submit after save
   const [submitAfterSave, setSubmitAfterSave] = useState(false);
-  
+
   // Handle save as draft
   const handleSaveAsDraft = (event) => {
     setSubmitAfterSave(false);
     handleSubmit(event);
   };
-  
+
   // Handle save and submit
   const handleSaveAndSubmit = (event) => {
     setSubmitAfterSave(true);
@@ -739,7 +739,7 @@ const ClaimCreate = () => {
               <Card variant="outlined" sx={{ height: '100%' }}>
                 <CardContent>
                   <SectionHeader icon={VisitIcon} title={LABELS.visitInfo} color="success" />
-                  
+
                   <Box sx={{ bgcolor: '#f8f9fa', p: 2, borderRadius: 1 }}>
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
@@ -767,12 +767,12 @@ const ClaimCreate = () => {
               <Card variant="outlined" sx={{ height: '100%' }}>
                 <CardContent>
                   <SectionHeader icon={PersonIcon} title={LABELS.memberInfo} color="info" />
-                  
+
                   <Box sx={{ bgcolor: '#f8f9fa', p: 2, borderRadius: 1 }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12}>
                         <ReadOnlyField
-                          label="اسم المؤمن عليه"
+                          label="اسم المستفيد"
                           value={linkedMemberName}
                           icon={PersonIcon}
                         />
@@ -802,7 +802,7 @@ const ClaimCreate = () => {
               <Card variant="outlined">
                 <CardContent>
                   <SectionHeader icon={ContractIcon} title={LABELS.linkedPreAuth} color="warning" />
-                  
+
                   <Autocomplete
                     options={preAuths}
                     getOptionLabel={(option) =>
@@ -852,7 +852,7 @@ const ClaimCreate = () => {
               <Card variant="outlined">
                 <CardContent>
                   <SectionHeader icon={MedicalIcon} title={LABELS.medicalInfo} color="warning" />
-                  
+
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={4}>
                       <TextField
@@ -866,7 +866,7 @@ const ClaimCreate = () => {
                         placeholder="J06.9"
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={8}>
                       <TextField
                         fullWidth
@@ -1066,7 +1066,7 @@ const ClaimCreate = () => {
               <Card variant="outlined">
                 <CardContent>
                   <SectionHeader icon={AttachmentIcon} title={LABELS.attachments} color="action" />
-                  
+
                   <Alert severity="info" sx={{ mb: 2 }}>
                     يجب رفع فاتورة واحدة على الأقل مع المطالبة.
                   </Alert>

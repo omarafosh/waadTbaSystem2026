@@ -4,7 +4,9 @@ import com.waad.tba.common.exception.BusinessRuleException;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryCreateDto;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryResponseDto;
 import com.waad.tba.modules.medicaltaxonomy.dto.MedicalCategoryUpdateDto;
+import com.waad.tba.modules.medicaltaxonomy.dto.MedicalServiceResponseDto;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory;
+import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalCategoryRepository;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +63,6 @@ public class MedicalCategoryService {
         MedicalCategory category = MedicalCategory.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
-
                 .parentId(dto.getParentId())
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .build();
@@ -181,7 +182,6 @@ public class MedicalCategoryService {
         if (dto.getName() != null) {
             category.setName(dto.getName());
         }
-
         if (dto.getParentId() != null) {
             // Validate parent category exists and is active
             categoryRepository.findActiveById(dto.getParentId())
@@ -241,6 +241,37 @@ public class MedicalCategoryService {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // MEDICAL SERVICES BY CATEGORY (CANONICAL)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Find all active medical services belonging to a specific category.
+     * 
+     * ARCHITECTURAL LAW:
+     * This method is the canonical way to retrieve services for selection.
+     * Services MUST be filtered by category before selection.
+     * 
+     * @param categoryId The category ID
+     * @return List of services with category info populated
+     */
+    @Transactional(readOnly = true)
+    public List<MedicalServiceResponseDto> findServicesByCategory(Long categoryId) {
+        log.debug("Finding services for category: {}", categoryId);
+        
+        // Get category info for response enrichment
+        MedicalCategory category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessRuleException("Medical category not found: " + categoryId));
+        
+        // Get all active services in this category
+        List<MedicalService> services = serviceRepository.findActiveByCategoryId(categoryId);
+        
+        // Convert to DTOs with category info
+        return services.stream()
+                .map(service -> toServiceDto(service, category))
+                .collect(Collectors.toList());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // DTO MAPPING
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -259,12 +290,31 @@ public class MedicalCategoryService {
                 .id(category.getId())
                 .code(category.getCode())
                 .name(category.getName())
-
                 .parentId(category.getParentId())
                 .parentName(parentName)
                 .active(category.isActive())
                 .createdAt(category.getCreatedAt())
                 .updatedAt(category.getUpdatedAt())
+                .build();
+    }
+    
+    /**
+     * Convert MedicalService entity to DTO with category info.
+     */
+    private MedicalServiceResponseDto toServiceDto(MedicalService service, MedicalCategory category) {
+        return MedicalServiceResponseDto.builder()
+                .id(service.getId())
+                .code(service.getCode())
+                .name(service.getName())
+                .categoryId(category.getId())
+                .categoryName(category.getName())
+                .categoryCode(category.getCode())
+                .description(service.getDescription())
+                .basePrice(service.getBasePrice())
+                .requiresPA(service.isRequiresPA())
+                .active(service.isActive())
+                .createdAt(service.getCreatedAt())
+                .updatedAt(service.getUpdatedAt())
                 .build();
     }
 }

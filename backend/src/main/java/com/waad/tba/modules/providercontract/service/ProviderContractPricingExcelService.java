@@ -389,7 +389,7 @@ public class ProviderContractPricingExcelService {
                 byCode.put(service.getCode().toUpperCase(), service);
             }
             
-            // Index by name (Arabic - primary field mapped from name_ar)
+            // Index by name (unified name field)
             if (service.getName() != null && !service.getName().isBlank()) {
                 byName.put(service.getName().trim(), service);
             }

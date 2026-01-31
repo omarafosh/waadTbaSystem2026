@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  Box, Button, Grid, TextField, MenuItem, Alert, 
+import {
+  Box, Button, Grid, TextField, MenuItem, Alert,
   Typography, Divider, CircularProgress, InputAdornment,
   Card, CardContent, Chip
 } from '@mui/material';
@@ -45,7 +45,7 @@ const ClaimEdit = () => {
 
   // Check if claim is editable (DRAFT or RETURNED_FOR_INFO)
   const isEditable = claim?.status === 'DRAFT' || claim?.status === 'RETURNED_FOR_INFO';
-  
+
   // Check if user can review (SUBMITTED or UNDER_REVIEW)
   const canReview = claim?.status === 'SUBMITTED' || claim?.status === 'UNDER_REVIEW';
 
@@ -67,10 +67,10 @@ const ClaimEdit = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Build payload with only allowed fields
     const payload = {};
-    
+
     // Always allow these corrections
     if (formData.doctorName !== claim?.doctorName) {
       payload.doctorName = formData.doctorName || null;
@@ -81,7 +81,7 @@ const ClaimEdit = () => {
     if (formData.diagnosisDescription !== claim?.diagnosisDescription) {
       payload.diagnosisDescription = formData.diagnosisDescription || null;
     }
-    
+
     // Reviewer fields (only if reviewing)
     if (canReview) {
       if (formData.approvedAmount && formData.approvedAmount !== claim?.approvedAmount) {
@@ -91,12 +91,12 @@ const ClaimEdit = () => {
         payload.reviewerComment = formData.reviewerComment || null;
       }
     }
-    
+
     if (Object.keys(payload).length === 0) {
       showErrorToast('لا توجد تغييرات لحفظها');
       return;
     }
-    
+
     const result = await update(id, payload);
     if (result.success) {
       showSuccessToast('تم تحديث المطالبة بنجاح');
@@ -167,14 +167,14 @@ const ClaimEdit = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <Typography variant="body2" color="text.secondary">الحالة</Typography>
-              <Chip 
-                label={claim?.statusLabel || claim?.status || '-'} 
+              <Chip
+                label={claim?.statusLabel || claim?.status || '-'}
                 color={claim?.status === 'APPROVED' ? 'success' : claim?.status === 'REJECTED' ? 'error' : 'default'}
                 size="small"
               />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Typography variant="body2" color="text.secondary">المؤمن عليه</Typography>
+              <Typography variant="body2" color="text.secondary">المستفيد</Typography>
               <Typography variant="body1" fontWeight={500}>{claim?.memberName || '-'}</Typography>
             </Grid>
           </Grid>
@@ -187,37 +187,37 @@ const ClaimEdit = () => {
           <Typography variant="h6" gutterBottom>
             الحقول القابلة للتعديل
           </Typography>
-          
+
           <Grid container spacing={3}>
             {/* Doctor Name */}
             <Grid item xs={12} md={6}>
-              <TextField 
-                fullWidth 
-                label="اسم الطبيب" 
-                value={formData.doctorName} 
+              <TextField
+                fullWidth
+                label="اسم الطبيب"
+                value={formData.doctorName}
                 onChange={handleChange('doctorName')}
                 disabled={!isEditable && !canReview}
               />
             </Grid>
-            
+
             {/* Diagnosis Code */}
             <Grid item xs={12} md={6}>
-              <TextField 
-                fullWidth 
-                label="رمز التشخيص (ICD-10)" 
-                value={formData.diagnosisCode} 
+              <TextField
+                fullWidth
+                label="رمز التشخيص (ICD-10)"
+                value={formData.diagnosisCode}
                 onChange={handleChange('diagnosisCode')}
                 disabled={!isEditable && !canReview}
                 placeholder="مثال: J00"
               />
             </Grid>
-            
+
             {/* Diagnosis Description */}
             <Grid item xs={12}>
-              <TextField 
-                fullWidth 
-                label="وصف التشخيص" 
-                value={formData.diagnosisDescription} 
+              <TextField
+                fullWidth
+                label="وصف التشخيص"
+                value={formData.diagnosisDescription}
                 onChange={handleChange('diagnosisDescription')}
                 disabled={!isEditable && !canReview}
                 multiline
@@ -234,7 +234,7 @@ const ClaimEdit = () => {
                     قسم المراجعة
                   </Typography>
                 </Grid>
-                
+
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
@@ -249,7 +249,7 @@ const ClaimEdit = () => {
                     helperText={`المبلغ المطلوب: ${claim?.requestedAmount ? Number(claim.requestedAmount).toLocaleString() : 0} د.ل`}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
@@ -270,10 +270,10 @@ const ClaimEdit = () => {
                 <Button variant="outlined" onClick={() => navigate(`/claims/${id}`)}>
                   إلغاء
                 </Button>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
-                  startIcon={updating ? <CircularProgress size={20} color="inherit" /> : <Save />} 
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={updating ? <CircularProgress size={20} color="inherit" /> : <Save />}
                   disabled={updating || (!isEditable && !canReview)}
                 >
                   {updating ? 'جاري الحفظ...' : 'حفظ التغييرات'}

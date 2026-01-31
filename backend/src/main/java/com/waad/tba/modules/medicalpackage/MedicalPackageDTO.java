@@ -15,8 +15,7 @@ public class MedicalPackageDTO {
     
     private Long id;
     private String code;
-    private String nameAr;
-    private String nameEn;
+    private String name;
     private String description;
     private Set<Long> serviceIds;
     private Double totalCoverageLimit;

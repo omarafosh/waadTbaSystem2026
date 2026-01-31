@@ -190,9 +190,9 @@ public class MedicalServiceService {
                 .map(p -> MedicalServiceLookupDto.builder()
                         .id(p.getId())
                         .code(p.getCode())
-                        .nameAr(p.getNameAr())
+                        .name(p.getName())
                         .categoryId(p.getCategoryId())
-                        .categoryNameAr(p.getCategoryNameAr())
+                        .categoryName(p.getCategoryName())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -242,7 +242,6 @@ public class MedicalServiceService {
         if (dto.getName() != null) {
             service.setName(dto.getName());
         }
-
         if (dto.getCategoryId() != null) {
             // Validate category exists and is active
             categoryRepository.findActiveById(dto.getCategoryId())

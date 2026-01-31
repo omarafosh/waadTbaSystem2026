@@ -86,9 +86,9 @@ import { claimsService } from 'services/api';
 // STATISTICS CARD COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 const StatCard = ({ title, value, icon: Icon, color = 'primary', trend = null, subtitle = null }) => (
-  <Card 
-    elevation={0} 
-    sx={{ 
+  <Card
+    elevation={0}
+    sx={{
       bgcolor: `${color}.lighter`,
       border: '1px solid',
       borderColor: `${color}.light`,
@@ -123,7 +123,8 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', trend = null, s
         <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1 }}>
           <TrendingIcon sx={{ fontSize: 16, color: trend > 0 ? 'success.main' : 'error.main' }} />
           <Typography variant="caption" color={trend > 0 ? 'success.main' : 'error.main'}>
-            {trend > 0 ? '+' : ''}{trend}% من الأمس
+            {trend > 0 ? '+' : ''}
+            {trend}% من الأمس
           </Typography>
         </Stack>
       )}
@@ -137,10 +138,10 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', trend = null, s
 const AgeIndicator = ({ createdAt }) => {
   const days = dayjs().diff(dayjs(createdAt), 'day');
   const hours = dayjs().diff(dayjs(createdAt), 'hour');
-  
+
   let color = 'success';
   let label = '';
-  
+
   if (days > 7) {
     color = 'error';
     label = `${days} يوم ⚠️`;
@@ -154,10 +155,10 @@ const AgeIndicator = ({ createdAt }) => {
     color = 'success';
     label = hours > 1 ? `${hours} ساعة` : 'جديد';
   }
-  
+
   return (
-    <Chip 
-      size="small" 
+    <Chip
+      size="small"
       label={label}
       color={color}
       variant="outlined"
@@ -181,7 +182,7 @@ const ClaimsInbox = () => {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
-  
+
   // Statistics
   const [stats, setStats] = useState({
     total: 0,
@@ -212,7 +213,7 @@ const ClaimsInbox = () => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [useSystemCalculation, setUseSystemCalculation] = useState(true);
-  
+
   // Upload States
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -229,33 +230,33 @@ const ClaimsInbox = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = {
         page: page + 1,
         size: pageSize,
         sortBy: 'createdAt',
         sortDir: 'asc' // FIFO - oldest first
       };
-      
+
       // Apply filters
       if (selectedEmployer?.id) params.employerId = selectedEmployer.id;
       if (statusFilter) params.status = statusFilter;
       if (searchQuery) params.search = searchQuery;
       if (dateFrom) params.fromDate = dateFrom.format('YYYY-MM-DD');
       if (dateTo) params.toDate = dateTo.format('YYYY-MM-DD');
-      
+
       const response = await claimsService.getPendingClaims(params);
       const items = response.items || response.content || [];
-      
+
       setClaims(items);
       setTotalRows(response.total || response.totalElements || 0);
-      
+
       // Calculate statistics
-      const submitted = items.filter(c => c.status === 'SUBMITTED').length;
-      const underReview = items.filter(c => c.status === 'UNDER_REVIEW').length;
-      const today = items.filter(c => dayjs(c.createdAt).isSame(dayjs(), 'day')).length;
+      const submitted = items.filter((c) => c.status === 'SUBMITTED').length;
+      const underReview = items.filter((c) => c.status === 'UNDER_REVIEW').length;
+      const today = items.filter((c) => dayjs(c.createdAt).isSame(dayjs(), 'day')).length;
       const totalAmount = items.reduce((sum, c) => sum + (c.requestedAmount || c.totalAmount || 0), 0);
-      
+
       setStats({
         total: response.total || response.totalElements || items.length,
         submitted,
@@ -263,7 +264,6 @@ const ClaimsInbox = () => {
         todayNew: today,
         avgAmount: items.length > 0 ? (totalAmount / items.length).toFixed(2) : 0
       });
-      
     } catch (err) {
       console.error('Error fetching claims:', err);
       setError(err.userMessage || err.response?.data?.message || 'فشل في تحميل المطالبات');
@@ -353,13 +353,13 @@ const ClaimsInbox = () => {
     try {
       setUploading(true);
       setError(null);
-      
+
       let uploaded = 0;
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('attachmentType', 'MEDICAL_REPORT');
-        
+
         await claimsService.uploadAttachment(selectedClaim.id, formData);
         uploaded++;
         setUploadProgress(Math.round((uploaded / selectedFiles.length) * 100));
@@ -444,191 +444,184 @@ const ClaimsInbox = () => {
     };
     const config = configs[status] || configs.SUBMITTED;
     const Icon = config.icon;
-    
-    return (
-      <Chip 
-        label={config.label}
-        color={config.color}
-        size="small"
-        icon={<Icon sx={{ fontSize: 16 }} />}
-        sx={{ fontWeight: 600 }}
-      />
-    );
+
+    return <Chip label={config.label} color={config.color} size="small" icon={<Icon sx={{ fontSize: 16 }} />} sx={{ fontWeight: 600 }} />;
   };
 
   // ════════════════════════════════════════════════════════════════════════════
   // DATAGRID COLUMNS
   // ════════════════════════════════════════════════════════════════════════════
-  const columns = useMemo(() => [
-    {
-      field: 'claimNumber',
-      headerName: 'رقم المطالبة',
-      width: 130,
-      renderCell: (params) => (
-        <Stack>
-          <Typography variant="body2" fontWeight="bold" color="primary">
-            {params.row?.claimNumber || `CLM-${params.row?.id}`}
-          </Typography>
-          <AgeIndicator createdAt={params.row?.createdAt} />
-        </Stack>
-      )
-    },
-    {
-      field: 'memberName',
-      headerName: 'المؤمن عليه',
-      flex: 1,
-      minWidth: 180,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.lighter' }}>
-            <PersonIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-          </Avatar>
-          <Box>
-            <Typography variant="body2" fontWeight={500}>
-              {params.row?.memberName || params.row?.memberFullName || '-'}
+  const columns = useMemo(
+    () => [
+      {
+        field: 'claimNumber',
+        headerName: 'رقم المطالبة',
+        width: 130,
+        renderCell: (params) => (
+          <Stack>
+            <Typography variant="body2" fontWeight="bold" color="primary">
+              {params.row?.claimNumber || `CLM-${params.row?.id}`}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {params.row?.memberNationalNumber || params.row?.memberCivilId || ''}
+            <AgeIndicator createdAt={params.row?.createdAt} />
+          </Stack>
+        )
+      },
+      {
+        field: 'memberName',
+        headerName: 'المستفيد',
+        flex: 1,
+        minWidth: 180,
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.lighter' }}>
+              <PersonIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+            </Avatar>
+            <Box>
+              <Typography variant="body2" fontWeight={500}>
+                {params.row?.memberName || params.row?.memberFullName || '-'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {params.row?.memberNationalNumber || params.row?.memberCivilId || ''}
+              </Typography>
+            </Box>
+          </Stack>
+        )
+      },
+      {
+        field: 'providerName',
+        headerName: 'مقدم الخدمة',
+        flex: 1,
+        minWidth: 150,
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Avatar sx={{ width: 28, height: 28, bgcolor: 'success.lighter' }}>
+              <ProviderIcon sx={{ fontSize: 16, color: 'success.main' }} />
+            </Avatar>
+            <Typography variant="body2">{params.row?.providerName || '-'}</Typography>
+          </Stack>
+        )
+      },
+      {
+        field: 'serviceDate',
+        headerName: 'تاريخ الخدمة',
+        width: 120,
+        valueGetter: (value, row) => {
+          const date = row?.serviceDate || row?.visitDate;
+          return date ? dayjs(date).format('YYYY/MM/DD') : '-';
+        }
+      },
+      {
+        field: 'requestedAmount',
+        headerName: 'المبلغ المطلوب',
+        width: 140,
+        renderCell: (params) => {
+          const amount = params.row?.totalAmount || params.row?.requestedAmount;
+          return (
+            <Typography variant="body2" fontWeight="bold" color="primary.main">
+              {amount ? `${Number(amount).toLocaleString()} د.ل` : '-'}
             </Typography>
-          </Box>
-        </Stack>
-      )
-    },
-    {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar sx={{ width: 28, height: 28, bgcolor: 'success.lighter' }}>
-            <ProviderIcon sx={{ fontSize: 16, color: 'success.main' }} />
-          </Avatar>
-          <Typography variant="body2">
-            {params.row?.providerName || '-'}
-          </Typography>
-        </Stack>
-      )
-    },
-    {
-      field: 'serviceDate',
-      headerName: 'تاريخ الخدمة',
-      width: 120,
-      valueGetter: (value, row) => {
-        const date = row?.serviceDate || row?.visitDate;
-        return date ? dayjs(date).format('YYYY/MM/DD') : '-';
-      }
-    },
-    {
-      field: 'requestedAmount',
-      headerName: 'المبلغ المطلوب',
-      width: 140,
-      renderCell: (params) => {
-        const amount = params.row?.totalAmount || params.row?.requestedAmount;
-        return (
-          <Typography variant="body2" fontWeight="bold" color="primary.main">
-            {amount ? `${Number(amount).toLocaleString()} د.ل` : '-'}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 150,
-      renderCell: (params) => renderStatus(params.value)
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 200,
-      sortable: false,
-      renderCell: (params) => {
-        const isSubmitted = params.row.status === 'SUBMITTED';
-        const isUnderReview = params.row.status === 'UNDER_REVIEW';
+          );
+        }
+      },
+      {
+        field: 'status',
+        headerName: 'الحالة',
+        width: 150,
+        renderCell: (params) => renderStatus(params.value)
+      },
+      {
+        field: 'actions',
+        headerName: 'الإجراءات',
+        width: 200,
+        sortable: false,
+        renderCell: (params) => {
+          const isSubmitted = params.row.status === 'SUBMITTED';
+          const isUnderReview = params.row.status === 'UNDER_REVIEW';
 
-        return (
-          <Stack direction="row" spacing={0.5}>
-            <Tooltip title="عرض التفاصيل">
-              <IconButton 
-                size="small" 
-                onClick={() => navigate(`/claims/${params.row.id}`)} 
-                disabled={actionLoading}
-                sx={{ 
-                  bgcolor: 'primary.lighter',
-                  '&:hover': { bgcolor: 'primary.light' }
-                }}
-              >
-                <ViewIcon fontSize="small" color="primary" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="رفع مستندات">
-              <IconButton 
-                size="small" 
-                onClick={() => handleOpenUpload(params.row)} 
-                disabled={actionLoading}
-                sx={{ 
-                  bgcolor: 'secondary.lighter',
-                  '&:hover': { bgcolor: 'secondary.light' }
-                }}
-              >
-                <AttachFileIcon fontSize="small" color="secondary" />
-              </IconButton>
-            </Tooltip>
-
-            {isSubmitted && (
-              <Tooltip title="استلام للمراجعة">
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleStartReview(params.row)} 
+          return (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="عرض التفاصيل">
+                <IconButton
+                  size="small"
+                  onClick={() => navigate(`/claims/${params.row.id}`)}
                   disabled={actionLoading}
-                  sx={{ 
-                    bgcolor: 'info.lighter',
-                    '&:hover': { bgcolor: 'info.light' }
+                  sx={{
+                    bgcolor: 'primary.lighter',
+                    '&:hover': { bgcolor: 'primary.light' }
                   }}
                 >
-                  <StartReviewIcon fontSize="small" color="info" />
+                  <ViewIcon fontSize="small" color="primary" />
                 </IconButton>
               </Tooltip>
-            )}
 
-            {isUnderReview && (
-              <>
-                <Tooltip title="موافقة">
+              <Tooltip title="رفع مستندات">
+                <IconButton
+                  size="small"
+                  onClick={() => handleOpenUpload(params.row)}
+                  disabled={actionLoading}
+                  sx={{
+                    bgcolor: 'secondary.lighter',
+                    '&:hover': { bgcolor: 'secondary.light' }
+                  }}
+                >
+                  <AttachFileIcon fontSize="small" color="secondary" />
+                </IconButton>
+              </Tooltip>
+
+              {isSubmitted && (
+                <Tooltip title="استلام للمراجعة">
                   <IconButton
                     size="small"
-                    onClick={() => handleOpenApprove(params.row)}
+                    onClick={() => handleStartReview(params.row)}
                     disabled={actionLoading}
-                    sx={{ 
-                      bgcolor: 'success.lighter',
-                      '&:hover': { bgcolor: 'success.light' }
+                    sx={{
+                      bgcolor: 'info.lighter',
+                      '&:hover': { bgcolor: 'info.light' }
                     }}
                   >
-                    <ApproveIcon fontSize="small" color="success" />
+                    <StartReviewIcon fontSize="small" color="info" />
                   </IconButton>
                 </Tooltip>
+              )}
 
-                <Tooltip title="رفض">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleOpenReject(params.row)}
-                    disabled={actionLoading}
-                    sx={{ 
-                      bgcolor: 'error.lighter',
-                      '&:hover': { bgcolor: 'error.light' }
-                    }}
-                  >
-                    <RejectIcon fontSize="small" color="error" />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
-          </Stack>
-        );
+              {isUnderReview && (
+                <>
+                  <Tooltip title="موافقة">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenApprove(params.row)}
+                      disabled={actionLoading}
+                      sx={{
+                        bgcolor: 'success.lighter',
+                        '&:hover': { bgcolor: 'success.light' }
+                      }}
+                    >
+                      <ApproveIcon fontSize="small" color="success" />
+                    </IconButton>
+                  </Tooltip>
+
+                  <Tooltip title="رفض">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenReject(params.row)}
+                      disabled={actionLoading}
+                      sx={{
+                        bgcolor: 'error.lighter',
+                        '&:hover': { bgcolor: 'error.light' }
+                      }}
+                    >
+                      <RejectIcon fontSize="small" color="error" />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </Stack>
+          );
+        }
       }
-    }
-  ], [actionLoading, navigate]);
+    ],
+    [actionLoading, navigate]
+  );
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -641,17 +634,17 @@ const ClaimsInbox = () => {
         icon={ClaimIcon}
         actions={
           <Stack direction="row" spacing={1}>
-            <Button 
+            <Button
               variant="outlined"
-              startIcon={showFilters ? <CollapseIcon /> : <FilterIcon />} 
+              startIcon={showFilters ? <CollapseIcon /> : <FilterIcon />}
               onClick={() => setShowFilters(!showFilters)}
             >
               {showFilters ? 'إخفاء الفلاتر' : 'فلترة'}
             </Button>
-            <Button 
+            <Button
               variant="contained"
-              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />} 
-              onClick={fetchClaims} 
+              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
+              onClick={fetchClaims}
               disabled={loading}
             >
               تحديث
@@ -675,40 +668,16 @@ const ClaimsInbox = () => {
       {/* ══════════ STATISTICS CARDS ══════════ */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="إجمالي المعلق" 
-            value={stats.total} 
-            icon={ClaimIcon} 
-            color="primary"
-            subtitle="مطالبة تنتظر المراجعة"
-          />
+          <StatCard title="إجمالي المعلق" value={stats.total} icon={ClaimIcon} color="primary" subtitle="مطالبة تنتظر المراجعة" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="جديد (لم يُراجع)" 
-            value={stats.submitted} 
-            icon={PendingIcon} 
-            color="warning"
-            subtitle="SUBMITTED"
-          />
+          <StatCard title="جديد (لم يُراجع)" value={stats.submitted} icon={PendingIcon} color="warning" subtitle="SUBMITTED" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="قيد المراجعة" 
-            value={stats.underReview} 
-            icon={AssignmentIcon} 
-            color="info"
-            subtitle="UNDER_REVIEW"
-          />
+          <StatCard title="قيد المراجعة" value={stats.underReview} icon={AssignmentIcon} color="info" subtitle="UNDER_REVIEW" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="وصل اليوم" 
-            value={stats.todayNew} 
-            icon={TrendingIcon} 
-            color="success"
-            subtitle="مطالبات جديدة"
-          />
+          <StatCard title="وصل اليوم" value={stats.todayNew} icon={TrendingIcon} color="success" subtitle="مطالبات جديدة" />
         </Grid>
       </Grid>
 
@@ -725,7 +694,7 @@ const ClaimsInbox = () => {
               <TextField
                 fullWidth
                 size="small"
-                placeholder="بحث برقم المطالبة أو اسم المؤمن..."
+                placeholder="بحث برقم المطالبة أو اسم المستفيد..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -740,11 +709,7 @@ const ClaimsInbox = () => {
             <Grid item xs={12} md={2}>
               <FormControl fullWidth size="small">
                 <InputLabel>الحالة</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="الحالة"
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
+                <Select value={statusFilter} label="الحالة" onChange={(e) => setStatusFilter(e.target.value)}>
                   <MenuItem value="">الكل</MenuItem>
                   <MenuItem value="SUBMITTED">جديد</MenuItem>
                   <MenuItem value="UNDER_REVIEW">قيد المراجعة</MenuItem>
@@ -769,18 +734,10 @@ const ClaimsInbox = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <Stack direction="row" spacing={1}>
-                <Button 
-                  variant="contained" 
-                  onClick={fetchClaims}
-                  startIcon={<SearchIcon />}
-                >
+                <Button variant="contained" onClick={fetchClaims} startIcon={<SearchIcon />}>
                   بحث
                 </Button>
-                <Button 
-                  variant="outlined" 
-                  onClick={handleResetFilters}
-                  startIcon={<ClearIcon />}
-                >
+                <Button variant="outlined" onClick={handleResetFilters} startIcon={<ClearIcon />}>
                   مسح
                 </Button>
               </Stack>
@@ -831,10 +788,10 @@ const ClaimsInbox = () => {
       </MainCard>
 
       {/* ══════════ APPROVE DIALOG ══════════ */}
-      <Dialog 
-        open={approveDialogOpen} 
-        onClose={() => !actionLoading && setApproveDialogOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={approveDialogOpen}
+        onClose={() => !actionLoading && setApproveDialogOpen(false)}
+        maxWidth="md"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
@@ -854,15 +811,23 @@ const ClaimsInbox = () => {
                 </Typography>
                 <Stack spacing={1}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">المؤمن عليه</Typography>
-                    <Typography variant="body2" fontWeight={500}>{selectedClaim?.memberName}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      المستفيد
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      {selectedClaim?.memberName}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">مقدم الخدمة</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      مقدم الخدمة
+                    </Typography>
                     <Typography variant="body2">{selectedClaim?.providerName}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">تاريخ الخدمة</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      تاريخ الخدمة
+                    </Typography>
                     <Typography variant="body2">{selectedClaim?.serviceDate || selectedClaim?.visitDate}</Typography>
                   </Box>
                 </Stack>
@@ -891,7 +856,9 @@ const ClaimsInbox = () => {
                     </Box>
                     <Divider />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" fontWeight="bold">المستحق للمستشفى:</Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        المستحق للمستشفى:
+                      </Typography>
                       <Typography variant="h6" color="success.main" fontWeight="bold">
                         {costBreakdown.netProviderAmount?.toLocaleString()} د.ل
                       </Typography>
@@ -958,10 +925,10 @@ const ClaimsInbox = () => {
       </Dialog>
 
       {/* ══════════ REJECT DIALOG ══════════ */}
-      <Dialog 
-        open={rejectDialogOpen} 
-        onClose={() => !actionLoading && setRejectDialogOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => !actionLoading && setRejectDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
@@ -973,11 +940,9 @@ const ClaimsInbox = () => {
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              سيتم إبلاغ مقدم الخدمة بسبب الرفض. يرجى كتابة سبب واضح ومهني.
-            </Typography>
+            <Typography variant="body2">سيتم إبلاغ مقدم الخدمة بسبب الرفض. يرجى كتابة سبب واضح ومهني.</Typography>
           </Alert>
-          
+
           <TextField
             fullWidth
             required
@@ -1009,10 +974,10 @@ const ClaimsInbox = () => {
       </Dialog>
 
       {/* ══════════ UPLOAD DIALOG ══════════ */}
-      <Dialog 
-        open={uploadDialogOpen} 
-        onClose={() => !uploading && setUploadDialogOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={uploadDialogOpen}
+        onClose={() => !uploading && setUploadDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
@@ -1024,9 +989,7 @@ const ClaimsInbox = () => {
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              يمكنك رفع تقارير طبية أو مستندات داعمة إضافية. الملفات المدعومة: PDF, JPG, PNG
-            </Typography>
+            <Typography variant="body2">يمكنك رفع تقارير طبية أو مستندات داعمة إضافية. الملفات المدعومة: PDF, JPG, PNG</Typography>
           </Alert>
 
           <Button
@@ -1038,13 +1001,7 @@ const ClaimsInbox = () => {
             sx={{ mb: 2, py: 1.5 }}
           >
             اختيار ملفات
-            <input
-              type="file"
-              hidden
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={handleFileSelect}
-            />
+            <input type="file" hidden multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} />
           </Button>
 
           {selectedFiles.length > 0 && (
@@ -1053,12 +1010,7 @@ const ClaimsInbox = () => {
                 الملفات المختارة ({selectedFiles.length}):
               </Typography>
               {selectedFiles.map((file, index) => (
-                <Chip
-                  key={index}
-                  label={file.name}
-                  size="small"
-                  sx={{ mr: 0.5, mb: 0.5 }}
-                />
+                <Chip key={index} label={file.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
               ))}
             </Box>
           )}

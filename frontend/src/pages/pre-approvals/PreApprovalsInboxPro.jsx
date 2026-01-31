@@ -490,7 +490,7 @@ const PreApprovalsInbox = () => {
     },
     {
       field: 'memberName',
-      headerName: 'المؤمن عليه',
+      headerName: 'المستفيد',
       flex: 1,
       minWidth: 180,
       renderCell: (params) => (
@@ -746,7 +746,7 @@ const PreApprovalsInbox = () => {
               <TextField
                 fullWidth
                 size="small"
-                placeholder="بحث برقم الطلب أو اسم المؤمن..."
+                placeholder="بحث برقم الطلب أو اسم المستفيد..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -881,7 +881,7 @@ const PreApprovalsInbox = () => {
             <Table size="small">
               <TableBody>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 500, width: '40%' }}>المؤمن عليه</TableCell>
+                  <TableCell sx={{ fontWeight: 500, width: '40%' }}>المستفيد</TableCell>
                   <TableCell>{selectedPreApproval?.memberFullNameArabic || selectedPreApproval?.memberName}</TableCell>
                 </TableRow>
                 <TableRow>

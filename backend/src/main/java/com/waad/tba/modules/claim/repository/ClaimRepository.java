@@ -17,15 +17,15 @@ import com.waad.tba.modules.claim.entity.Claim;
 public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // FINANCIAL CLOSURE: PESSIMISTIC LOCKING FOR SETTLEMENT
+    // FINANCIAL CLOSURE: PESSIMISTIC LOCKING FOR ALL FINANCIAL OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════════════
-    // Use SELECT ... FOR UPDATE to prevent double settlement and race conditions.
-    // This is MANDATORY for financial integrity.
+    // Use SELECT ... FOR UPDATE to prevent double settlement, double approval,
+    // and race conditions. This is MANDATORY for financial integrity.
     // ═══════════════════════════════════════════════════════════════════════════════
 
     /**
      * Find claim by ID with pessimistic write lock (SELECT ... FOR UPDATE).
-     * MANDATORY for settlement operations to prevent double settlement.
+     * MANDATORY for ALL financial state changes: approve, reject, settle.
      * 
      * @param id Claim ID
      * @return Claim with exclusive lock held until transaction commits
@@ -33,6 +33,25 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Claim c WHERE c.id = :id")
     java.util.Optional<Claim> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Find claim by ID with pessimistic write lock AND full fetch joins.
+     * MANDATORY for approval operations that need member and benefit policy data.
+     * Prevents N+1 queries while maintaining financial locking.
+     * 
+     * @param id Claim ID
+     * @return Claim with exclusive lock and eagerly loaded relationships
+     */
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.lines cl " +
+           "LEFT JOIN FETCH cl.medicalService ms " +
+           "WHERE c.id = :id")
+    java.util.Optional<Claim> findByIdForFinancialUpdate(@Param("id") Long id);
 
     /**
      * PHASE 5.B: Enhanced with full fetch joins for member.benefitPolicy and insuranceOrganization
@@ -224,6 +243,85 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "WHERE c.active = true " +
            "AND c.providerId = :providerId")
     List<Claim> findByProviderId(@Param("providerId") Long providerId);
+    
+    /**
+     * Find all active claims for a provider (for documents aggregation)
+     */
+    @Query("SELECT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "WHERE c.active = true AND c.providerId = :providerId " +
+           "ORDER BY c.serviceDate DESC")
+    List<Claim> findByProviderIdAndActiveTrue(@Param("providerId") Long providerId);
+
+    /**
+     * Find claims for settlement report with optimized filtering at DB level.
+     * PERFORMANCE CRITICAL: All filtering done in database, not in memory.
+     * 
+     * @param providerId Provider ID (required)
+     * @param statuses List of claim statuses to include
+     * @param fromDate Service date from (inclusive)
+     * @param toDate Service date to (inclusive)
+     * @return List of claims with member and preAuth eagerly loaded
+     */
+    @Query("SELECT DISTINCT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.lines cl " +
+           "LEFT JOIN FETCH cl.medicalService ms " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status IN :statuses " +
+           "AND c.serviceDate >= :fromDate " +
+           "AND c.serviceDate <= :toDate " +
+           "ORDER BY c.serviceDate ASC")
+    List<Claim> findForSettlementReport(
+        @Param("providerId") Long providerId,
+        @Param("statuses") List<com.waad.tba.modules.claim.entity.ClaimStatus> statuses,
+        @Param("fromDate") java.time.LocalDate fromDate,
+        @Param("toDate") java.time.LocalDate toDate
+    );
+
+    /**
+     * Count claims for settlement report (for validation/statistics).
+     */
+    @Query("SELECT COUNT(c) FROM Claim c " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status IN :statuses " +
+           "AND c.serviceDate >= :fromDate " +
+           "AND c.serviceDate <= :toDate")
+    long countForSettlementReport(
+        @Param("providerId") Long providerId,
+        @Param("statuses") List<com.waad.tba.modules.claim.entity.ClaimStatus> statuses,
+        @Param("fromDate") java.time.LocalDate fromDate,
+        @Param("toDate") java.time.LocalDate toDate
+    );
+
+    /**
+     * Get settlement totals directly from database (NO entity loading).
+     * CANONICAL: All financial calculations in database for accuracy.
+     * 
+     * Returns: [totalRequested, totalApproved, totalCoPay, count]
+     */
+    @Query("SELECT " +
+           "COALESCE(SUM(c.requestedAmount), 0), " +
+           "COALESCE(SUM(c.approvedAmount), 0), " +
+           "COALESCE(SUM(c.patientCoPay), 0), " +
+           "COUNT(c) " +
+           "FROM Claim c " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status IN :statuses " +
+           "AND c.serviceDate >= :fromDate " +
+           "AND c.serviceDate <= :toDate")
+    List<Object[]> getSettlementTotals(
+        @Param("providerId") Long providerId,
+        @Param("statuses") List<com.waad.tba.modules.claim.entity.ClaimStatus> statuses,
+        @Param("fromDate") java.time.LocalDate fromDate,
+        @Param("toDate") java.time.LocalDate toDate
+    );
 
     /**
      * Count claims by provider ID.

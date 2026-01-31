@@ -1,20 +1,20 @@
 /**
  * EmployerFilterSelector
- * 
+ *
  * Standalone employer/partner filter dropdown component.
  * Can be used independently without EmployerFilterContext.
- * 
+ *
  * Features:
  * - Autocomplete dropdown with search
  * - Shows employer name (Arabic primary, English secondary)
  * - Controlled component (value passed from parent)
  * - Clear filter button
  * - Proper event handling for parent state management
- * 
+ *
  * Usage:
  * ```jsx
  * import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
- * 
+ *
  * <EmployerFilterSelector
  *   selectedEmployerId={employerId}
  *   onEmployerChange={(employer) => setEmployerId(employer?.id || null)}
@@ -25,14 +25,7 @@
 
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import {
-  Autocomplete,
-  TextField,
-  Box,
-  Typography,
-  IconButton,
-  Chip
-} from '@mui/material';
+import { Autocomplete, TextField, Box, Typography, IconButton, Chip } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import BusinessIcon from '@mui/icons-material/Business';
 
@@ -60,13 +53,15 @@ const EmployerFilterSelector = ({
 
   // Use props if provided, otherwise fall back to context
   const selectedEmployerId = propSelectedEmployerId !== undefined ? propSelectedEmployerId : contextEmployerId;
-  const onEmployerChange = propOnEmployerChange || ((emp) => {
-    if (emp) {
-      setEmployer(emp);
-    } else {
-      clearFilter();
-    }
-  });
+  const onEmployerChange =
+    propOnEmployerChange ||
+    ((emp) => {
+      if (emp) {
+        setEmployer(emp);
+      } else {
+        clearFilter();
+      }
+    });
 
   const [employers, setEmployers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +81,7 @@ const EmployerFilterSelector = ({
 
         // Add "All" option if requested
         if (showAllOption) {
-          const allOption = { id: 'ALL', label: 'الكل (All)', nameAr: 'الكل', nameEn: 'All' };
+          const allOption = { id: 'ALL', label: 'الكل (All)', name: 'الكل' };
           items = [allOption, ...items];
         }
 
@@ -97,7 +92,7 @@ const EmployerFilterSelector = ({
           if (selectedEmployerId === 'ALL') {
             setSelectedValue(items[0]);
           } else {
-            const found = items.find(emp => emp.id === selectedEmployerId);
+            const found = items.find((emp) => emp.id === selectedEmployerId);
             if (found) {
               setSelectedValue(found);
             }
@@ -119,7 +114,7 @@ const EmployerFilterSelector = ({
    */
   useEffect(() => {
     if (selectedEmployerId && employers.length > 0) {
-      const found = employers.find(emp => emp.id === selectedEmployerId);
+      const found = employers.find((emp) => emp.id === selectedEmployerId);
       if (found) {
         setSelectedValue(found);
       }
@@ -162,7 +157,7 @@ const EmployerFilterSelector = ({
         value={selectedValue}
         onChange={handleChange}
         options={employers}
-        getOptionLabel={(option) => option?.label || option?.name || option?.nameAr || ''}
+        getOptionLabel={(option) => option?.label || option?.name || ''}
         isOptionEqualToValue={(option, value) => option?.id === value?.id}
         loading={loading}
         disabled={disabled}
@@ -171,7 +166,7 @@ const EmployerFilterSelector = ({
         renderInput={(params) => (
           <TextField
             {...params}
-            {...(label ? { label } : {})}
+            label={label}
             placeholder={placeholder}
             size={size}
             InputProps={{
@@ -188,9 +183,7 @@ const EmployerFilterSelector = ({
         renderOption={(props, option) => (
           <Box component="li" {...props} key={option.id}>
             <Box>
-              <Typography variant="body1">
-                {option.label || option.name || option.nameAr}
-              </Typography>
+              <Typography variant="body1">{option.label || option.name}</Typography>
               {option.code && (
                 <Typography variant="caption" color="text.secondary">
                   {option.code}
@@ -203,7 +196,7 @@ const EmployerFilterSelector = ({
 
       {selectedValue && showAllOption && (
         <Chip
-          label={selectedValue?.label || selectedValue?.name || selectedValue?.nameAr || 'مُفلتر'}
+          label={selectedValue?.label || selectedValue?.name || 'مُفلتر'}
           onDelete={handleClear}
           color="primary"
           variant="outlined"
@@ -230,4 +223,3 @@ EmployerFilterSelector.propTypes = {
 };
 
 export default EmployerFilterSelector;
-

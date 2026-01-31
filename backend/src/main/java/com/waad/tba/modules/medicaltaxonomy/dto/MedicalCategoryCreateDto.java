@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
  * 
  * Field Mapping:
  * - Frontend: categoryCode → Backend: code
- * - Frontend: nameAr → Backend: name
+ * - Frontend: name → Backend: name (unified)
  * - Frontend: parentCategoryId → Backend: parentId
  */
 @Data
@@ -32,11 +32,10 @@ public class MedicalCategoryCreateDto {
     private String code;
 
     /**
-     * Arabic name (primary)
+     * Category name (unified field)
      */
     @NotBlank(message = "Category name is required")
     @Size(max = 200, message = "Category name must not exceed 200 characters")
-    @JsonAlias({"nameAr", "name"})
     private String name;
 
     /**

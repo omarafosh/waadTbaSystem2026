@@ -38,17 +38,20 @@ const MedicalPackagesList = () => {
   const handleNavigateView = useCallback((id) => navigate(`/medical-packages/${id}`), [navigate]);
   const handleNavigateEdit = useCallback((id) => navigate(`/medical-packages/edit/${id}`), [navigate]);
 
-  const handleDelete = useCallback(async (id, name) => {
-    if (!window.confirm(`هل أنت متأكد من حذف الباقة "${name}"؟`)) return;
-    try {
-      await deleteMedicalPackage(id);
-      openSnackbar({ message: 'تم حذف الباقة بنجاح', variant: 'success' });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-    } catch (err) {
-      console.error('[MedicalPackages] Delete failed:', err);
-      openSnackbar({ message: 'فشل حذف الباقة', variant: 'error' });
-    }
-  }, [queryClient]);
+  const handleDelete = useCallback(
+    async (id, name) => {
+      if (!window.confirm(`هل أنت متأكد من حذف الباقة "${name}"؟`)) return;
+      try {
+        await deleteMedicalPackage(id);
+        openSnackbar({ message: 'تم حذف الباقة بنجاح', variant: 'success' });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      } catch (err) {
+        console.error('[MedicalPackages] Delete failed:', err);
+        openSnackbar({ message: 'فشل حذف الباقة', variant: 'error' });
+      }
+    },
+    [queryClient]
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters],
@@ -67,82 +70,108 @@ const MedicalPackagesList = () => {
     keepPreviousData: true
   });
 
-  const columns = useMemo(() => [
-    {
-      accessorKey: 'code',
-      header: 'الرمز',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 100,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'name',
-      header: 'الاسم',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 180,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'description',
-      header: 'الوصف',
-      enableSorting: false,
-      enableColumnFilter: false,
-      minWidth: 200,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'totalCoverageLimit',
-      header: 'حد التغطية',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 120,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{formatPrice(getValue())}</Typography>
-    },
-    {
-      accessorKey: 'active',
-      header: 'الحالة',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 100,
-      align: 'center',
-      cell: ({ row }) => <Chip label={row.original?.active ? 'نشط' : 'غير نشط'} color={row.original?.active ? 'success' : 'default'} size="small" variant="light" />
-    },
-    {
-      id: 'actions',
-      header: 'الإجراءات',
-      enableSorting: false,
-      enableColumnFilter: false,
-      minWidth: 130,
-      align: 'center',
-      cell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} justifyContent="center">
-          <Tooltip title="عرض">
-            <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <PermissionGuard requires="medical-packages.delete">
-              <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id, row.original?.nameAr || row.original?.code)}>
-                <DeleteIcon fontSize="small" />
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: 'code',
+        header: 'الرمز',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 100,
+        align: 'right',
+        cell: ({ getValue }) => (
+          <Typography variant="body2" fontWeight="medium">
+            {getValue() || '-'}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: 'name',
+        header: 'الاسم',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 180,
+        align: 'right',
+        cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
+      },
+      {
+        accessorKey: 'description',
+        header: 'الوصف',
+        enableSorting: false,
+        enableColumnFilter: false,
+        minWidth: 200,
+        align: 'right',
+        cell: ({ getValue }) => (
+          <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
+            {getValue() || '-'}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: 'totalCoverageLimit',
+        header: 'حد التغطية',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 120,
+        align: 'right',
+        cell: ({ getValue }) => (
+          <Typography variant="body2" fontWeight="medium">
+            {formatPrice(getValue())}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: 'active',
+        header: 'الحالة',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 100,
+        align: 'center',
+        cell: ({ row }) => (
+          <Chip
+            label={row.original?.active ? 'نشط' : 'غير نشط'}
+            color={row.original?.active ? 'success' : 'default'}
+            size="small"
+            variant="light"
+          />
+        )
+      },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        enableSorting: false,
+        enableColumnFilter: false,
+        minWidth: 130,
+        align: 'center',
+        cell: ({ row }) => (
+          <Stack direction="row" spacing={0.5} justifyContent="center">
+            <Tooltip title="عرض">
+              <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
+                <VisibilityIcon fontSize="small" />
               </IconButton>
-            </PermissionGuard>
-          </Tooltip>
-        </Stack>
-      )
-    }
-  ], [handleNavigateView, handleNavigateEdit, handleDelete]);
+            </Tooltip>
+            <Tooltip title="تعديل">
+              <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="حذف">
+              <PermissionGuard requires="medical-packages.delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDelete(row.original?.id, row.original?.name || row.original?.code)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </PermissionGuard>
+            </Tooltip>
+          </Stack>
+        )
+      }
+    ],
+    [handleNavigateView, handleNavigateEdit, handleDelete]
+  );
 
   return (
     <Box>

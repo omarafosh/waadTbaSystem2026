@@ -24,12 +24,7 @@ import {
   ListItemText,
   OutlinedInput
 } from '@mui/material';
-import {
-  Save as SaveIcon,
-  Cancel as CancelIcon,
-  Inventory as InventoryIcon,
-  Category as CategoryIcon
-} from '@mui/icons-material';
+import { Save as SaveIcon, Cancel as CancelIcon, Inventory as InventoryIcon, Category as CategoryIcon } from '@mui/icons-material';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
@@ -40,7 +35,7 @@ import { openSnackbar } from 'api/snackbar';
 
 /**
  * Medical Package Create Page - Simplified Version
- * 
+ *
  * Features:
  * - Select Medical Categories instead of individual services
  * - Categories are linked to services automatically
@@ -68,7 +63,7 @@ const MedicalPackageCreate = () => {
     code: '',
     name: '',
     description: '',
-    categoryIds: [],  // Selected category IDs
+    categoryIds: [], // Selected category IDs
     totalCoverageLimit: '',
     active: true
   });
@@ -79,8 +74,8 @@ const MedicalPackageCreate = () => {
 
   // Map categories to their services count
   const categoriesWithServiceCount = useMemo(() => {
-    return categories.map(cat => {
-      const servicesInCategory = allServices.filter(s => s.categoryId === cat.id);
+    return categories.map((cat) => {
+      const servicesInCategory = allServices.filter((s) => s.categoryId === cat.id);
       return {
         ...cat,
         servicesCount: servicesInCategory.length
@@ -92,16 +87,14 @@ const MedicalPackageCreate = () => {
   const selectedServiceIds = useMemo(() => {
     if (form.categoryIds.length === 0) return [];
 
-    const serviceIds = allServices
-      .filter(service => form.categoryIds.includes(service.categoryId))
-      .map(service => service.id);
+    const serviceIds = allServices.filter((service) => form.categoryIds.includes(service.categoryId)).map((service) => service.id);
 
     return [...new Set(serviceIds)]; // Remove duplicates
   }, [form.categoryIds, allServices]);
 
   // Get selected categories info
   const selectedCategoriesInfo = useMemo(() => {
-    return categories.filter(cat => form.categoryIds.includes(cat.id));
+    return categories.filter((cat) => form.categoryIds.includes(cat.id));
   }, [form.categoryIds, categories]);
 
   const handleChange = (field) => (event) => {
@@ -123,7 +116,7 @@ const MedicalPackageCreate = () => {
   const handleRemoveCategory = (categoryId) => {
     setForm((prev) => ({
       ...prev,
-      categoryIds: prev.categoryIds.filter(id => id !== categoryId)
+      categoryIds: prev.categoryIds.filter((id) => id !== categoryId)
     }));
   };
 
@@ -206,7 +199,7 @@ const MedicalPackageCreate = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 required
@@ -238,18 +231,9 @@ const MedicalPackageCreate = () => {
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CategoryIcon color="primary" />
             التصنيفات الطبية المشمولة
-            <Chip
-              label={form.categoryIds.length + ' تصنيف'}
-              size="small"
-              color={form.categoryIds.length > 0 ? 'primary' : 'default'}
-            />
+            <Chip label={form.categoryIds.length + ' تصنيف'} size="small" color={form.categoryIds.length > 0 ? 'primary' : 'default'} />
             {selectedServiceIds.length > 0 && (
-              <Chip
-                label={selectedServiceIds.length + ' خدمة'}
-                size="small"
-                color="success"
-                variant="outlined"
-              />
+              <Chip label={selectedServiceIds.length + ' خدمة'} size="small" color="success" variant="outlined" />
             )}
           </Typography>
           <Divider sx={{ mb: 3 }} />
@@ -271,15 +255,8 @@ const MedicalPackageCreate = () => {
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {selected.map((catId) => {
-                        const cat = categories.find(c => c.id === catId);
-                        return (
-                          <Chip
-                            key={catId}
-                            label={cat?.name || catId}
-                            size="small"
-                            color="primary"
-                          />
-                        );
+                        const cat = categories.find((c) => c.id === catId);
+                        return <Chip key={catId} label={cat?.name || catId} size="small" color="primary" />;
                       })}
                     </Box>
                   )}
@@ -287,10 +264,7 @@ const MedicalPackageCreate = () => {
                   {categoriesWithServiceCount.map((cat) => (
                     <MenuItem key={cat.id} value={cat.id}>
                       <Checkbox checked={form.categoryIds.includes(cat.id)} />
-                      <ListItemText
-                        primary={cat.name}
-                        secondary={`${cat.servicesCount} خدمة`}
-                      />
+                      <ListItemText primary={cat.name} secondary={`${cat.servicesCount} خدمة`} />
                     </MenuItem>
                   ))}
                 </Select>
@@ -306,7 +280,7 @@ const MedicalPackageCreate = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                 {selectedCategoriesInfo.map((cat) => {
-                  const servicesCount = allServices.filter(s => s.categoryId === cat.id).length;
+                  const servicesCount = allServices.filter((s) => s.categoryId === cat.id).length;
                   return (
                     <Chip
                       key={cat.id}
@@ -355,21 +329,11 @@ const MedicalPackageCreate = () => {
 
             <Grid item xs={12} md={6}>
               <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.active}
-                    onChange={handleChange('active')}
-                    color="success"
-                  />
-                }
+                control={<Switch checked={form.active} onChange={handleChange('active')} color="success" />}
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography>{form.active ? 'نشطة' : 'غير نشطة'}</Typography>
-                    <Chip
-                      label={form.active ? 'مفعّلة' : 'معطّلة'}
-                      size="small"
-                      color={form.active ? 'success' : 'default'}
-                    />
+                    <Chip label={form.active ? 'مفعّلة' : 'معطّلة'} size="small" color={form.active ? 'success' : 'default'} />
                   </Stack>
                 }
               />
@@ -378,12 +342,7 @@ const MedicalPackageCreate = () => {
 
           {/* Action Buttons */}
           <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<CancelIcon />}
-              onClick={handleCancel}
-              disabled={loading}
-            >
+            <Button variant="outlined" startIcon={<CancelIcon />} onClick={handleCancel} disabled={loading}>
               إلغاء
             </Button>
             <Button

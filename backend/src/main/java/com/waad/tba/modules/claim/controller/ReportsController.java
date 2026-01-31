@@ -1,9 +1,13 @@
 package com.waad.tba.modules.claim.controller;
 
+import java.io.IOException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,14 +19,19 @@ import org.springframework.web.bind.annotation.RestController;
 import com.waad.tba.common.dto.ApiResponse;
 import com.waad.tba.modules.claim.dto.AdjudicationReportDto;
 import com.waad.tba.modules.claim.dto.ClaimFinancialSummaryDto;
+import com.waad.tba.modules.claim.dto.ProviderSettlementReportDto;
 import com.waad.tba.modules.claim.entity.ClaimStatus;
 import com.waad.tba.modules.claim.service.AdjudicationReportService;
 import com.waad.tba.modules.claim.service.ClaimFinancialSummaryService;
+import com.waad.tba.modules.claim.service.ProviderSettlementExcelExporter;
+import com.waad.tba.modules.claim.service.ProviderSettlementReportService;
+import com.waad.tba.security.AuthorizationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Reports Controller - Adjudication & Settlement Reports.
@@ -32,6 +41,7 @@ import lombok.RequiredArgsConstructor;
  * القاعدة: المطلوب = تحمل المريض + المستحق للمستشفى
  * RequestedAmount = PatientCoPay + NetProviderAmount
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
@@ -40,6 +50,9 @@ public class ReportsController {
     
     private final AdjudicationReportService adjudicationReportService;
     private final ClaimFinancialSummaryService claimFinancialSummaryService;
+    private final ProviderSettlementReportService providerSettlementReportService;
+    private final ProviderSettlementExcelExporter providerSettlementExcelExporter;
+    private final AuthorizationService authorizationService;
     
     /**
      * Generate Adjudication Report.
@@ -206,5 +219,212 @@ public class ReportsController {
         ClaimFinancialSummaryDto summary = claimFinancialSummaryService.getSettlementSummary(employerOrgId);
         
         return ResponseEntity.ok(ApiResponse.success("تم استرجاع ملخص التسويات", summary));
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PROVIDER SETTLEMENT REPORTS - LINE-LEVEL DETAIL (CANONICAL)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // These endpoints provide detailed settlement reports for providers.
+    // Matches paper reports: Gross, Net, Rejected, Patient Share per service line.
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Generate Provider Settlement Report with line-level detail.
+     * 
+     * تقرير تسوية مقدم الخدمة:
+     * - تفاصيل على مستوى الخدمة/السطر
+     * - المبلغ الإجمالي (Gross) والمعتمد (Net) والمرفوض
+     * - حصة المؤمن عليه وصافي المستحق للمقدم
+     * 
+     * Access:
+     * - ADMIN/FINANCE: Can view any provider
+     * - PROVIDER: Can only view their own provider (providerId ignored, uses token)
+     */
+    @GetMapping("/provider-settlements")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_REPORTS') or hasRole('PROVIDER')")
+    @Operation(
+        summary = "تقرير تسوية مقدم الخدمة",
+        description = "تقرير مفصل على مستوى الخدمة/السطر يطابق التقارير الورقية"
+    )
+    public ResponseEntity<ApiResponse<ProviderSettlementReportDto>> getProviderSettlementReport(
+            @Parameter(description = "معرف مقدم الخدمة (إجباري للأدمن، يُتجاهل للمقدمين)")
+            @RequestParam(required = false) Long providerId,
+            
+            @Parameter(description = "تاريخ البداية (YYYY-MM-DD)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            
+            @Parameter(description = "تاريخ النهاية (YYYY-MM-DD)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            
+            @Parameter(description = "فلترة حسب حالة المطالبة (APPROVED, SETTLED)")
+            @RequestParam(required = false) List<ClaimStatus> statuses,
+            
+            @Parameter(description = "فلترة حسب رقم المطالبة")
+            @RequestParam(required = false) String claimNumber,
+            
+            @Parameter(description = "فلترة حسب رقم الموافقة المسبقة")
+            @RequestParam(required = false) String preAuthNumber,
+            
+            @Parameter(description = "فلترة حسب المريض")
+            @RequestParam(required = false) Long memberId) {
+        
+        // Security: PROVIDER users can only see their own provider
+        Long effectiveProviderId = providerId;
+        var currentUser = authorizationService.getCurrentUser();
+        
+        if (currentUser != null) {
+            boolean isAdmin = authorizationService.isSuperAdmin(currentUser) || 
+                             authorizationService.isInsuranceAdmin(currentUser);
+            
+            if (!isAdmin && currentUser.getProviderId() != null) {
+                // Provider user: force their own provider ID
+                effectiveProviderId = currentUser.getProviderId();
+            }
+        }
+        
+        // Validate provider ID
+        if (effectiveProviderId == null) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("معرف مقدم الخدمة مطلوب"));
+        }
+        
+        ProviderSettlementReportDto report = providerSettlementReportService.generateReport(
+            effectiveProviderId, fromDate, toDate, statuses, claimNumber, preAuthNumber, memberId);
+        
+        return ResponseEntity.ok(ApiResponse.success("تم إنشاء تقرير التسوية", report));
+    }
+    
+    /**
+     * Get list of providers available for settlement reports.
+     * 
+     * Admin: returns all providers
+     * Provider: returns only their provider
+     */
+    @GetMapping("/provider-settlements/providers")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_REPORTS') or hasRole('PROVIDER')")
+    @Operation(
+        summary = "قائمة مقدمي الخدمة للتقارير",
+        description = "قائمة مقدمي الخدمة المتاحين لتقارير التسوية"
+    )
+    public ResponseEntity<ApiResponse<List<ProviderSettlementReportService.ProviderInfo>>> getProvidersForReport() {
+        
+        var currentUser = authorizationService.getCurrentUser();
+        Long userProviderId = currentUser != null ? currentUser.getProviderId() : null;
+        
+        boolean isAdmin = currentUser != null && (
+            authorizationService.isSuperAdmin(currentUser) || 
+            authorizationService.isInsuranceAdmin(currentUser)
+        );
+        
+        List<ProviderSettlementReportService.ProviderInfo> providers = 
+            providerSettlementReportService.getAvailableProviders(userProviderId, isAdmin);
+        
+        return ResponseEntity.ok(ApiResponse.success("قائمة مقدمي الخدمة", providers));
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // EXCEL EXPORT ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Export Provider Settlement Report to Excel.
+     * 
+     * تصدير تقرير تسوية مقدم الخدمة إلى Excel:
+     * - نفس البيانات المعروضة على الشاشة
+     * - لا يوجد إعادة حساب للأرقام
+     * - يتم التحقق من تناسق الأرقام المالية (تحذير فقط)
+     * 
+     * Access:
+     * - ADMIN/FINANCE: Can export any provider
+     * - PROVIDER: Can only export their own provider
+     */
+    @GetMapping("/provider-settlements/export/excel")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_REPORTS') or hasRole('PROVIDER')")
+    @Operation(
+        summary = "تصدير تقرير التسوية إلى Excel",
+        description = "تصدير تقرير تسوية مقدم الخدمة بصيغة Excel - نفس أرقام الشاشة"
+    )
+    public ResponseEntity<byte[]> exportProviderSettlementToExcel(
+            @Parameter(description = "معرف مقدم الخدمة (إجباري للأدمن، يُتجاهل للمقدمين)")
+            @RequestParam(required = false) Long providerId,
+            
+            @Parameter(description = "تاريخ البداية (YYYY-MM-DD)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            
+            @Parameter(description = "تاريخ النهاية (YYYY-MM-DD)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            
+            @Parameter(description = "فلترة حسب حالة المطالبة (APPROVED, SETTLED)")
+            @RequestParam(required = false) List<ClaimStatus> statuses,
+            
+            @Parameter(description = "فلترة حسب رقم المطالبة")
+            @RequestParam(required = false) String claimNumber,
+            
+            @Parameter(description = "فلترة حسب رقم الموافقة المسبقة")
+            @RequestParam(required = false) String preAuthNumber,
+            
+            @Parameter(description = "فلترة حسب المريض")
+            @RequestParam(required = false) Long memberId) {
+        
+        log.info("📊 [EXCEL-EXPORT] Export request for provider: {}", providerId);
+        
+        // Security: PROVIDER users can only see their own provider
+        Long effectiveProviderId = providerId;
+        var currentUser = authorizationService.getCurrentUser();
+        
+        if (currentUser != null) {
+            boolean isAdmin = authorizationService.isSuperAdmin(currentUser) || 
+                             authorizationService.isInsuranceAdmin(currentUser);
+            
+            if (!isAdmin && currentUser.getProviderId() != null) {
+                // Provider user: force their own provider ID
+                effectiveProviderId = currentUser.getProviderId();
+            }
+        }
+        
+        // Validate provider ID
+        if (effectiveProviderId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        try {
+            // Generate report using SAME service as UI (no recalculation)
+            ProviderSettlementReportDto report = providerSettlementReportService.generateReport(
+                effectiveProviderId, fromDate, toDate, statuses, claimNumber, preAuthNumber, memberId);
+            
+            // Export to Excel
+            byte[] excelBytes = providerSettlementExcelExporter.exportToExcel(report);
+            
+            // Generate filename
+            String filename = generateExcelFilename(report);
+            
+            log.info("📊 [EXCEL-EXPORT] Export completed: {} bytes, filename: {}", 
+                excelBytes.length, filename);
+            
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(excelBytes.length)
+                .body(excelBytes);
+                
+        } catch (IOException e) {
+            log.error("❌ [EXCEL-EXPORT] Failed to export report", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Generate Excel filename with provider and date range.
+     */
+    private String generateExcelFilename(ProviderSettlementReportDto report) {
+        String providerName = report.getProviderName() != null ? 
+            report.getProviderName().replaceAll("[^a-zA-Z0-9\\u0600-\\u06FF]", "_") : "Provider";
+        String fromDate = report.getFromDate() != null ? 
+            report.getFromDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")) : "start";
+        String toDate = report.getToDate() != null ? 
+            report.getToDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")) : "end";
+        
+        return String.format("Settlement_Report_%s_%s_%s.xlsx", providerName, fromDate, toDate);
     }
 }

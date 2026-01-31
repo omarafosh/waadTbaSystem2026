@@ -68,64 +68,62 @@ public class MedicalServiceExcelTemplateService {
         return List.of(
             // Service Code - Mandatory & Unique
             ExcelTemplateColumn.builder()
-                .name("service_code")
+                .name("code")
                 .nameAr("رمز الخدمة")
                 .type(ColumnType.TEXT)
                 .required(true)
-                .example("SRV-001")
-                .description("Unique service code (mandatory)")
+                .example("SRV-CARDIO-001")
+                .description("رمز الخدمة الفريد (إجباري) - لا يمكن تعديله لاحقاً")
                 .descriptionAr("رمز الخدمة الفريد (إجباري)")
-                .width(15)
+                .width(18)
                 .build(),
                 
-            // Arabic Name - Mandatory
+            // Name - Mandatory (Arabic-only system)
             ExcelTemplateColumn.builder()
-                .name("name_ar")
-                .nameAr("الاسم بالعربية")
+                .name("name")
+                .nameAr("اسم الخدمة")
                 .type(ColumnType.TEXT)
                 .required(true)
-                .example("فحص شامل")
-                .description("Service name in Arabic (mandatory)")
-                .descriptionAr("اسم الخدمة بالعربية (إجباري)")
-                .width(30)
+                .example("فحص القلب الشامل")
+                .description("اسم الخدمة (إجباري)")
+                .descriptionAr("اسم الخدمة (إجباري)")
+                .width(35)
                 .build(),
                 
-
-                
-            // Category - Mandatory Lookup
+            // Category Code - Mandatory Lookup
             ExcelTemplateColumn.builder()
-                .name("category")
-                .nameAr("الفئة")
+                .name("category_code")
+                .nameAr("رمز التصنيف")
                 .type(ColumnType.TEXT)
                 .required(true)
-                .example("فحوصات طبية")
-                .description("Category name (must match lookup sheet)")
-                .descriptionAr("اسم الفئة (يجب أن يطابق ورقة البحث)")
-                .width(25)
+                .example("CONSULTATION")
+                .description("رمز التصنيف (إجباري) - راجع ورقة التصنيفات")
+                .descriptionAr("رمز التصنيف من ورقة Lookup (إجباري)")
+                .width(20)
+                .build(),
+                
+            // Description - Optional
+            ExcelTemplateColumn.builder()
+                .name("description")
+                .nameAr("الوصف")
+                .type(ColumnType.TEXT)
+                .required(false)
+                .example("فحص شامل للقلب يتضمن تخطيط القلب...")
+                .description("وصف الخدمة (اختياري)")
+                .descriptionAr("وصف الخدمة (اختياري)")
+                .width(40)
                 .build(),
                 
             // Price - Optional
             ExcelTemplateColumn.builder()
-                .name("price_lyd")
-                .nameAr("السعر (دينار)")
+                .name("base_price")
+                .nameAr("السعر المرجعي")
                 .type(ColumnType.NUMBER)
                 .required(false)
-                .example("50.00")
-                .description("Service price in Libyan Dinar (optional)")
-                .descriptionAr("سعر الخدمة بالدينار الليبي (اختياري)")
+                .example("150.00")
+                .description("السعر المرجعي بالدينار (اختياري)")
+                .descriptionAr("السعر المرجعي - للإشارة فقط (اختياري)")
                 .width(15)
-                .build(),
-                
-            // Requires Approval - Optional Boolean
-            ExcelTemplateColumn.builder()
-                .name("requires_approval")
-                .nameAr("تحتاج موافقة مسبقة")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("نعم")
-                .description("Requires prior approval? (Yes/No or نعم/لا)")
-                .descriptionAr("هل تحتاج موافقة مسبقة؟ (نعم/لا)")
-                .width(20)
                 .build(),
                 
             // Active - Optional Boolean
@@ -135,21 +133,9 @@ public class MedicalServiceExcelTemplateService {
                 .type(ColumnType.TEXT)
                 .required(false)
                 .example("نعم")
-                .description("Is service active? (Yes/No or نعم/لا, default: Yes)")
-                .descriptionAr("هل الخدمة نشطة؟ (نعم/لا، الافتراضي: نعم)")
-                .width(15)
-                .build(),
-                
-            // Description - Optional
-            ExcelTemplateColumn.builder()
-                .name("description")
-                .nameAr("الوصف")
-                .type(ColumnType.TEXT)
-                .required(false)
-                .example("فحص طبي شامل يتضمن...")
-                .description("Service description (optional)")
-                .descriptionAr("وصف الخدمة (اختياري)")
-                .width(40)
+                .description("نعم / لا (الافتراضي: نعم)")
+                .descriptionAr("هل الخدمة نشطة؟ (نعم/لا)")
+                .width(12)
                 .build()
         );
     }
@@ -167,11 +153,11 @@ public class MedicalServiceExcelTemplateService {
         
         return List.of(
             ExcelLookupData.builder()
-                .sheetName("Categories / الفئات")
-                .headers(Arrays.asList("Code", "Name (AR)"))
+                .sheetName("التصنيفات")
+                .headers(Arrays.asList("رمز التصنيف", "اسم التصنيف"))
                 .data(categoryData)
-                .description("List of valid categories - Use exact name from this sheet")
-                .descriptionAr("قائمة الفئات الصالحة - استخدم الاسم المطابق تماماً من هذه الورقة")
+                .description("استخدم رمز التصنيف (العمود الأول) في عمود category_code")
+                .descriptionAr("قائمة التصنيفات المتاحة - استخدم الرمز في ملف البيانات")
                 .build()
         );
     }
@@ -254,40 +240,39 @@ public class MedicalServiceExcelTemplateService {
     
     private void processRow(Row row, int rowNumber, Map<String, MedicalCategory> categoryCache, 
                            ImportSummary summary, List<ImportError> errors) {
-        // Read columns using helper
-        String serviceCode = getCellValue(row, 0); // Column A
-        String nameAr = getCellValue(row, 1);      // Column B
-        String categoryName = getCellValue(row, 3); // Column D
-        String priceStr = getCellValue(row, 4);    // Column E
-        String requiresApprovalStr = getCellValue(row, 5); // Column F
-        String activeStr = getCellValue(row, 6);   // Column G
-        String description = getCellValue(row, 7); // Column H
+        // Read columns based on new template structure
+        String code = getCellValue(row, 0);           // Column A: code
+        String name = getCellValue(row, 1);           // Column B: name
+        String categoryCode = getCellValue(row, 2);   // Column C: category_code
+        String description = getCellValue(row, 3);    // Column D: description
+        String priceStr = getCellValue(row, 4);       // Column E: base_price
+        String activeStr = getCellValue(row, 5);      // Column F: active
         
         // Validate required fields
-        if (serviceCode == null || serviceCode.trim().isEmpty()) {
+        if (code == null || code.trim().isEmpty()) {
             throw new BusinessRuleException("رمز الخدمة مطلوب");
         }
         
-        if (nameAr == null || nameAr.trim().isEmpty()) {
-            throw new BusinessRuleException("الاسم بالعربية مطلوب");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessRuleException("اسم الخدمة مطلوب");
         }
         
-        if (categoryName == null || categoryName.trim().isEmpty()) {
-            throw new BusinessRuleException("الفئة مطلوبة");
+        if (categoryCode == null || categoryCode.trim().isEmpty()) {
+            throw new BusinessRuleException("رمز التصنيف مطلوب");
         }
         
-        // Lookup category
-        MedicalCategory category = categoryCache.get(categoryName.trim());
+        // Lookup category by code
+        MedicalCategory category = categoryCache.get(categoryCode.trim());
         if (category == null) {
-            throw new BusinessRuleException("الفئة غير موجودة: " + categoryName);
+            throw new BusinessRuleException("التصنيف غير موجود: " + categoryCode);
         }
         
         // Parse price
-        BigDecimal priceLyd = null;
+        BigDecimal basePrice = null;
         if (priceStr != null && !priceStr.trim().isEmpty()) {
             try {
-                priceLyd = new BigDecimal(priceStr.trim());
-                if (priceLyd.compareTo(BigDecimal.ZERO) < 0) {
+                basePrice = new BigDecimal(priceStr.trim());
+                if (basePrice.compareTo(BigDecimal.ZERO) < 0) {
                     throw new BusinessRuleException("السعر يجب أن يكون أكبر من أو يساوي صفر");
                 }
             } catch (NumberFormatException e) {
@@ -295,12 +280,11 @@ public class MedicalServiceExcelTemplateService {
             }
         }
         
-        // Parse booleans
-        boolean requiresApproval = parseBoolean(requiresApprovalStr, false);
+        // Parse active flag
         boolean active = parseBoolean(activeStr, true); // Default to true
         
         // Check if service exists (upsert logic)
-        Optional<MedicalService> existingOpt = serviceRepository.findByCode(serviceCode.trim());
+        Optional<MedicalService> existingOpt = serviceRepository.findByCode(code.trim());
         
         MedicalService service;
         boolean isUpdate = false;
@@ -312,14 +296,16 @@ public class MedicalServiceExcelTemplateService {
         } else {
             // Create new
             service = new MedicalService();
-            service.setCode(serviceCode.trim());
+            service.setCode(code.trim());
         }
         
         // Set/Update fields
-        service.setName(nameAr.trim()); // name field is Arabic
+        service.setName(name.trim());
         service.setCategoryId(category.getId());
-        service.setBasePrice(priceLyd);
-        service.setRequiresPA(requiresApproval);
+        if (description != null && !description.trim().isEmpty()) {
+            service.setDescription(description.trim());
+        }
+        service.setBasePrice(basePrice);
         service.setActive(active);
         
         // Save
@@ -337,10 +323,14 @@ public class MedicalServiceExcelTemplateService {
         Map<String, MedicalCategory> cache = new HashMap<>();
         
         for (MedicalCategory cat : categories) {
-            if (cat.getName() != null) { // Name field is Arabic
+            // Index by code (primary lookup)
+            if (cat.getCode() != null) {
+                cache.put(cat.getCode().trim(), cat);
+            }
+            // Also index by name for backward compatibility
+            if (cat.getName() != null) {
                 cache.put(cat.getName().trim(), cat);
             }
-
         }
         
         return cache;

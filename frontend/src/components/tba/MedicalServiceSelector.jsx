@@ -1,28 +1,28 @@
 /**
  * MedicalServiceSelector - Unified Medical Service Selection Component
- * 
+ *
  * ═══════════════════════════════════════════════════════════════════════════════
  * ARCHITECTURAL LAW (NON-NEGOTIABLE)
  * ═══════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * MedicalService MUST always be represented as:
  *   CODE + NAME + CATEGORY
- * 
+ *
  * Anywhere a service is selectable or displayed.
  * NO EXCEPTIONS.
- * 
+ *
  * ═══════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Display Format:
  *   [SVC-001] أشعة مقطعية CT Scan
  *   🗂 التصنيف: الأشعة التشخيصية
- * 
+ *
  * Search Behavior:
  * - Type ANY of: Code, Arabic name, English name, Category
- * 
+ *
  * Selection:
  * - Stores medicalServiceId ONLY
- * 
+ *
  * Used in:
  * - Provider Contract form (Pricing Item selector)
  * - Benefit Policy Rule form (Service selector)
@@ -160,8 +160,7 @@ const MedicalServiceSelector = ({
 
   const getOptionLabel = useCallback((option) => {
     if (!option) return '';
-    const name = option.nameAr || option.nameEn || '';
-    return `[${option.code}] ${name}`;
+    return `[${option.code}] ${option.name || ''}`;
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -171,8 +170,7 @@ const MedicalServiceSelector = ({
   const renderOption = useCallback(
     (props, option, { selected }) => {
       const { key, ...restProps } = props;
-      const categoryName =
-        option.categoryNameAr || option.categoryNameEn || LABELS.uncategorized;
+      const categoryName = option.categoryName || LABELS.uncategorized;
       const isExcluded = excludeIds.includes(option.id);
 
       return (
@@ -220,13 +218,8 @@ const MedicalServiceSelector = ({
                     fontSize: '0.75rem'
                   }}
                 />
-                <Typography
-                  variant="body1"
-                  fontWeight={600}
-                  noWrap
-                  sx={{ maxWidth: 300 }}
-                >
-                  {option.nameAr || option.nameEn}
+                <Typography variant="body1" fontWeight={600} noWrap sx={{ maxWidth: 300 }}>
+                  {option.name}
                 </Typography>
               </Stack>
 
@@ -237,17 +230,6 @@ const MedicalServiceSelector = ({
                   {LABELS.categoryLabel}: {categoryName}
                 </Typography>
               </Stack>
-
-              {/* English Name (if available and different) */}
-              {option.nameEn && option.nameAr && (
-                <Typography
-                  variant="caption"
-                  color="text.disabled"
-                  sx={{ display: 'block', mt: 0.25 }}
-                >
-                  {option.nameEn}
-                </Typography>
-              )}
             </Box>
 
             {/* Selected Indicator */}
@@ -281,9 +263,7 @@ const MedicalServiceSelector = ({
           ),
           endAdornment: (
             <>
-              {(isLoading || isFetching) && inputValue ? (
-                <CircularProgress color="inherit" size={20} />
-              ) : null}
+              {(isLoading || isFetching) && inputValue ? <CircularProgress color="inherit" size={20} /> : null}
               {params.InputProps.endAdornment}
             </>
           )

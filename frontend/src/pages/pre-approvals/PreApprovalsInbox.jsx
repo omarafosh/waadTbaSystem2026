@@ -211,7 +211,7 @@ const PreApprovalsInbox = () => {
     },
     {
       field: 'memberName',
-      headerName: 'اسم المؤمن عليه',
+      headerName: 'اسم المستفيد',
       flex: 1,
       minWidth: 150,
       valueGetter: (value, row) => row.memberName || '-'
@@ -234,7 +234,7 @@ const PreApprovalsInbox = () => {
       headerName: 'المبلغ',
       width: 120,
       valueGetter: (value, row) => {
-        return row.contractPrice 
+        return row.contractPrice
           ? `${Number(row.contractPrice).toFixed(2)} ${row.currency || 'د.ل'}`
           : '-';
       }
@@ -250,7 +250,7 @@ const PreApprovalsInbox = () => {
       headerName: 'تاريخ الطلب',
       width: 130,
       valueGetter: (value, row) => {
-        return row.requestDate 
+        return row.requestDate
           ? new Date(row.requestDate).toLocaleDateString('ar-LY')
           : '-';
       }
@@ -397,7 +397,7 @@ const PreApprovalsInbox = () => {
               <Table size="small">
                 <TableBody>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 500 }}>المؤمن عليه</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>المستفيد</TableCell>
                     <TableCell>{selectedPreApproval?.memberFullNameArabic}</TableCell>
                   </TableRow>
                   <TableRow>

@@ -31,7 +31,7 @@ const LABELS = {
 };
 
 // Tip message for mandatory code
-const CODE_HELPER_TEXT = 'هذا الرمز سيظهر في رقم بطاقة المؤمن عليه كـ [PRO]. يرجى إدخاله بدقة.';
+const CODE_HELPER_TEXT = 'هذا الرمز سيظهر في رقم بطاقة المستفيد كـ [PRO]. يرجى إدخاله بدقة.';
 
 const emptyEmployer = {
   code: '',

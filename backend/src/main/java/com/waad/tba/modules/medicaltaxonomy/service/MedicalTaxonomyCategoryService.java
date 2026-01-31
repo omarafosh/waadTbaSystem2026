@@ -62,7 +62,6 @@ public class MedicalTaxonomyCategoryService {
         MedicalCategory category = MedicalCategory.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
-
                 .parentId(dto.getParentId())
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .build();
@@ -166,7 +165,6 @@ public class MedicalTaxonomyCategoryService {
         if (dto.getName() != null) {
             category.setName(dto.getName());
         }
-
         if (dto.getParentId() != null) {
             // Validate parent category exists and is active
             categoryRepository.findActiveById(dto.getParentId())
@@ -244,7 +242,6 @@ public class MedicalTaxonomyCategoryService {
                 .id(category.getId())
                 .code(category.getCode())
                 .name(category.getName())
-
                 .parentId(category.getParentId())
                 .parentName(parentName)
                 .active(category.isActive())

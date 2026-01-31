@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  * 
  * Field Mapping:
  * - Frontend: serviceCode → Backend: code
- * - Frontend: nameAr → Backend: name
+ * - Frontend: name → Backend: name (unified)
  */
 @Data
 @Builder
@@ -32,11 +32,10 @@ public class MedicalServiceCreateDto {
     private String code;
 
     /**
-     * Arabic name (primary)
+     * Service name (unified field)
      */
     @NotBlank(message = "Service name is required")
     @Size(max = 200, message = "Service name must not exceed 200 characters")
-    @JsonAlias({"nameAr", "name"})
     private String name;
 
     /**

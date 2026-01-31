@@ -274,7 +274,11 @@ const MedicalServiceEdit = () => {
             icon={errorInfo.icon}
             title={errorInfo.title}
             description={errorInfo.message}
-            action={<Button variant="outlined" onClick={handleBack}>رجوع للقائمة</Button>}
+            action={
+              <Button variant="outlined" onClick={handleBack}>
+                رجوع للقائمة
+              </Button>
+            }
           />
         </MainCard>
       </Box>
@@ -301,10 +305,16 @@ const MedicalServiceEdit = () => {
 
       <MainCard>
         <Box component="form" onSubmit={handleSubmit}>
-          {apiError && <Alert severity="error" sx={{ mb: 3 }}>{apiError}</Alert>}
+          {apiError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {apiError}
+            </Alert>
+          )}
 
           {/* BASIC INFO */}
-          <Typography variant="h6" gutterBottom>المعلومات الأساسية</Typography>
+          <Typography variant="h6" gutterBottom>
+            المعلومات الأساسية
+          </Typography>
           <Divider sx={{ mb: 3 }} />
 
           <Grid container spacing={3}>
@@ -330,7 +340,7 @@ const MedicalServiceEdit = () => {
                   <MenuItem value="">-- اختر التصنيف --</MenuItem>
                   {categoryList.map((cat) => (
                     <MenuItem key={cat?.id} value={cat?.id}>
-                      {cat?.name || cat?.nameEn || '-'}
+                      {cat?.name || '-'}
                     </MenuItem>
                   ))}
                 </Select>
@@ -339,7 +349,7 @@ const MedicalServiceEdit = () => {
             </Grid>
 
             {/* Name */}
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 label="الاسم"
@@ -351,7 +361,6 @@ const MedicalServiceEdit = () => {
                 disabled={submitting}
               />
             </Grid>
-
 
             {/* Description */}
             <Grid item xs={12}>
@@ -368,7 +377,9 @@ const MedicalServiceEdit = () => {
           </Grid>
 
           {/* PRICING */}
-          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>التسعير</Typography>
+          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+            التسعير
+          </Typography>
           <Divider sx={{ mb: 3 }} />
 
           <Grid container spacing={3}>
@@ -387,15 +398,29 @@ const MedicalServiceEdit = () => {
           </Grid>
 
           {/* SETTINGS */}
-          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>الإعدادات</Typography>
+          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+            الإعدادات
+          </Typography>
           <Divider sx={{ mb: 3 }} />
 
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  p: 2,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
                 <Box>
                   <Typography variant="body1">تفعيل الخدمة</Typography>
-                  <Typography variant="caption" color="text.secondary">{form.active ? 'نشط' : 'غير نشط'}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {form.active ? 'نشط' : 'غير نشط'}
+                  </Typography>
                 </Box>
                 <Switch checked={form.active} onChange={handleChange('active')} disabled={submitting} />
               </Box>
@@ -404,8 +429,12 @@ const MedicalServiceEdit = () => {
 
           {/* ACTIONS */}
           <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button variant="outlined" onClick={handleBack} disabled={submitting}>إلغاء</Button>
-            <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={submitting}>حفظ التعديلات</Button>
+            <Button variant="outlined" onClick={handleBack} disabled={submitting}>
+              إلغاء
+            </Button>
+            <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={submitting}>
+              حفظ التعديلات
+            </Button>
           </Box>
         </Box>
       </MainCard>

@@ -36,6 +36,9 @@ public class MedicalCategory {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
+    /**
+     * Category name (unified - Arabic-only system)
+     */
     @Column(name = "name", nullable = false, length = 200)
     private String name;
 
@@ -51,7 +54,6 @@ public class MedicalCategory {
      * Soft delete flag
      */
     @Column(nullable = false)
-    @Builder.Default
     private boolean active = true;
 
     /**

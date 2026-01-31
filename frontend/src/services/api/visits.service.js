@@ -256,6 +256,39 @@ export const visitsService = {
     } catch (error) {
       throw handleVisitErrors(error);
     }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROVIDER PORTAL VISIT CONTEXT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get Visit Context (Decision Payload)
+   * 
+   * This is the CANONICAL way to determine what to show for a visit.
+   * Backend decides - Frontend just follows the decision.
+   * 
+   * CONTRACT: GET /api/provider/visits/{visitId}/context
+   * 
+   * @param {number} visitId - Visit ID
+   * @returns {Promise<VisitContextDto>} Decision payload with:
+   *   - hasClaim: boolean
+   *   - claimId: Long (if hasClaim)
+   *   - claimStatus: String (if hasClaim)
+   *   - hasPreAuthorization: boolean
+   *   - preAuthorizationId: Long (if hasPreAuthorization)
+   *   - preAuthorizationStatus: String (if hasPreAuthorization)
+   *   - eligibilityOnly: boolean (if neither claim nor preAuth exists)
+   */
+  getContext: async (visitId) => {
+    try {
+      if (!visitId) throw new Error('معرف الزيارة مطلوب');
+      const response = await axiosClient.get(`/api/provider/visits/${visitId}/context`);
+      return unwrap(response);
+    } catch (error) {
+      console.error('[VISITS] Error getting visit context:', error);
+      throw handleVisitErrors(error);
+    }
   }
 };
 

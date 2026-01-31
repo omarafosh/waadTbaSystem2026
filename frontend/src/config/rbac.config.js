@@ -1,0 +1,428 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🔐 RBAC CONFIGURATION - PROFESSIONAL SINGLE SOURCE OF TRUTH
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * ARCHITECTURE PRINCIPLES:
+ * ✅ Permission-Based Access Control (NOT role-based)
+ * ✅ Backend permissions === Frontend menu visibility
+ * ✅ NO hardcoded role checks (except SUPER_ADMIN bypass)
+ * ✅ Single source of truth for menu → permission mapping
+ * 
+ * VERSION: 3.0 - Professional RBAC (2026-01-29)
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+import { PERMISSIONS } from 'constants/permissions.constants';
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ROLE DEFINITIONS
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const ROLES = {
+  SYSTEM_ADMIN: 'SYSTEM_ADMIN',
+  SERVICE_PROVIDER: 'SERVICE_PROVIDER',
+  PARTNER_MANAGER: 'PARTNER_MANAGER',
+  MEDICAL_REVIEWER: 'MEDICAL_REVIEWER',
+  ACCOUNTANT: 'ACCOUNTANT',
+  EMPLOYER: 'EMPLOYER'
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ROLE PERMISSIONS MAPPING
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const ROLE_PERMISSIONS = {
+  [ROLES.SERVICE_PROVIDER]: [
+    'VISITS_VIEW', 'VISITS_CREATE', 'VISITS_UPDATE',
+    'CLAIMS_VIEW', 'CLAIMS_CREATE', 'CLAIMS_UPDATE',
+    'PREAUTH_VIEW', 'PREAUTH_CREATE', 'PREAUTH_UPDATE',
+    'MEMBERS_VIEW',
+    'DOCUMENTS_VIEW', 'DOCUMENTS_UPLOAD',
+    'PROVIDER_REPORTS', 'PROVIDER_SETTLEMENT'
+  ],
+
+  [ROLES.PARTNER_MANAGER]: [
+    'VISITS_VIEW',
+    'CLAIMS_VIEW',
+    'PREAUTH_VIEW',
+    'PARTNER_REPORTS'
+  ],
+
+  [ROLES.MEDICAL_REVIEWER]: [
+    'CLAIMS_VIEW', 'CLAIMS_REVIEW', 'CLAIMS_APPROVE', 'CLAIMS_REJECT',
+    'PREAUTH_VIEW', 'PREAUTH_REVIEW', 'PREAUTH_APPROVE', 'PREAUTH_REJECT',
+    'DOCUMENTS_VIEW',
+    'MEDICAL_REPORTS'
+  ],
+
+  [ROLES.ACCOUNTANT]: [
+    'FINANCIAL_REPORTS',
+    'PROVIDER_SETTLEMENT',
+    'PARTNER_FINANCIAL_REPORTS',
+    'CLAIMS_VIEW',
+    'DOCUMENTS_VIEW'
+  ],
+
+  [ROLES.SYSTEM_ADMIN]: ['ALL_PERMISSIONS']
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HELPER FUNCTIONS
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/**
+ * Filter menu items based on user permissions
+ * @param {Array} menuItems - Full menu structure
+ * @param {Object} user - User object with permissions
+ * @returns {Array} Filtered menu items
+ */
+export const filterMenuByPermissions = (menuItems, user) => {
+  if (!user || !user.permissions) {
+    return [];
+  }
+
+  const userPermissions = user.permissions || [];
+  const userRole = user.role;
+
+  // System Admin sees everything
+  if (userRole === 'SYSTEM_ADMIN' || userRole === 'ADMIN') {
+    return menuItems;
+  }
+
+  /**
+   * Check if user has permission for menu item
+   */
+  const hasPermission = (permission) => {
+    if (!permission) return true; // No permission required
+    return userPermissions.includes(permission);
+  };
+
+  /**
+   * Filter recursive menu items
+   */
+  const filterRecursive = (items) => {
+    return items
+      .map(item => {
+        // If item has children, filter them recursively
+        if (item.children) {
+          const filteredChildren = filterRecursive(item.children);
+
+          // If no children remain, hide the parent
+          if (filteredChildren.length === 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            children: filteredChildren
+          };
+        }
+
+        // Check permission for leaf item
+        if (item.permission && !hasPermission(item.permission)) {
+          return null;
+        }
+
+        return item;
+      })
+      .filter(item => item !== null);
+  };
+
+  return filterRecursive(menuItems);
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MENU PERMISSION MAP (CANONICAL)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Maps each menu item to required permission(s).
+ * If user has ANY of the permissions → menu item appears
+ * If user has NONE → menu item hidden
+ * 
+ * Format:
+ * 'menu-id': ['PERMISSION_1', 'PERMISSION_2'] // OR logic
+ * 'menu-id': 'PERMISSION_1' // Single permission
+ */
+export const MENU_PERMISSIONS = {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📊 DASHBOARD
+  // ═══════════════════════════════════════════════════════════════════════════
+  'dashboard': null, // Everyone can access dashboard (will show role-appropriate content)
+  'employer-dashboard': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👥 MEMBERS (المستفيدين)
+  // ═══════════════════════════════════════════════════════════════════════════
+  'members': [PERMISSIONS.VIEW_MEMBERS, PERMISSIONS.MANAGE_MEMBERS],
+  'members-list': [PERMISSIONS.VIEW_MEMBERS, PERMISSIONS.MANAGE_MEMBERS],
+  'eligibility-check': [PERMISSIONS.VIEW_MEMBERS], // Basic member lookup
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏢 EMPLOYERS (الشركاء)
+  // ═══════════════════════════════════════════════════════════════════════════
+  'employers': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
+  'employers-list': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏥 PROVIDERS (مقدمو الخدمة)
+  // ═══════════════════════════════════════════════════════════════════════════
+  'providers': [PERMISSIONS.VIEW_PROVIDERS, PERMISSIONS.MANAGE_PROVIDERS],
+  'providers-list': [PERMISSIONS.VIEW_PROVIDERS, PERMISSIONS.MANAGE_PROVIDERS],
+  'provider-contracts': [PERMISSIONS.VIEW_PROVIDER_CONTRACTS, PERMISSIONS.MANAGE_PROVIDER_CONTRACTS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💰 CLAIMS & APPROVALS
+  // ═══════════════════════════════════════════════════════════════════════════
+  'claims': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.CREATE_CLAIM, PERMISSIONS.MANAGE_CLAIMS],
+  'claims-history': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.MANAGE_CLAIMS],
+  'claims-inbox': [PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS], // Review only
+
+  'pre-approvals': [PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.CREATE_PRE_AUTH, PERMISSIONS.MANAGE_PREAUTH],
+  'pre-approvals-inbox': [PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH], // Review only
+
+  'settlement-inbox': [PERMISSIONS.SETTLE_CLAIMS, PERMISSIONS.MANAGE_CLAIMS],
+  'unified-approvals-dashboard': [
+    PERMISSIONS.APPROVE_CLAIMS,
+    PERMISSIONS.APPROVE_PRE_AUTH,
+    PERMISSIONS.REJECT_CLAIMS,
+    PERMISSIONS.REJECT_PRE_AUTH
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏥 VISITS
+  // ═══════════════════════════════════════════════════════════════════════════
+  'visits': [PERMISSIONS.VIEW_VISITS, PERMISSIONS.MANAGE_VISITS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📋 POLICIES & PACKAGES
+  // ═══════════════════════════════════════════════════════════════════════════
+  'benefit-policies': [PERMISSIONS.VIEW_BENEFIT_POLICIES, PERMISSIONS.MANAGE_BENEFIT_POLICIES],
+  'benefit-packages': [PERMISSIONS.VIEW_BENEFIT_PACKAGES, PERMISSIONS.MANAGE_BENEFIT_PACKAGES],
+
+  'medical-categories': [PERMISSIONS.VIEW_MEDICAL_CATEGORIES, PERMISSIONS.MANAGE_MEDICAL_CATEGORIES],
+  'medical-services': [PERMISSIONS.VIEW_MEDICAL_SERVICES, PERMISSIONS.MANAGE_MEDICAL_SERVICES],
+  'medical-packages': [PERMISSIONS.VIEW_MEDICAL_PACKAGES, PERMISSIONS.MANAGE_MEDICAL_PACKAGES],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📈 REPORTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  'reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.MANAGE_REPORTS],
+  'claims-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_CLAIMS],
+  'visits-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_VISITS],
+  'benefit-policy-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_BENEFIT_POLICIES],
+  'beneficiaries-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_MEMBERS],
+  'financial-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.SETTLE_CLAIMS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📂 DOCUMENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  'documents-center': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.VIEW_MEMBERS],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏥 PROVIDER PORTAL
+  // ═══════════════════════════════════════════════════════════════════════════
+  'provider-portal': [PERMISSIONS.MANAGE_VISITS], // Provider-specific
+  'provider-eligibility-check': [PERMISSIONS.VIEW_MEMBERS],
+  'provider-visit-log': [PERMISSIONS.MANAGE_VISITS],
+  'provider-documents': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚙️ SYSTEM SETTINGS & ADMIN
+  // ═══════════════════════════════════════════════════════════════════════════
+  'rbac': [PERMISSIONS.MANAGE_USERS, PERMISSIONS.MANAGE_ROLES],
+  'admin-users': [PERMISSIONS.MANAGE_USERS],
+  'settings': [PERMISSIONS.MANAGE_SETTINGS],
+  'audit': [PERMISSIONS.VIEW_AUDIT_LOG],
+  'system-settings': [PERMISSIONS.MANAGE_SYSTEM_SETTINGS]
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ROLE DEFAULT PERMISSIONS (FOR REFERENCE ONLY - NOT ENFORCED)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * This is DOCUMENTATION only. Actual permissions come from backend.
+ * Used only for:
+ * - Understanding expected role capabilities
+ * - Initial role setup in backend
+ * - Testing scenarios
+ */
+export const ROLE_PERMISSION_REFERENCE = {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 🔓 SUPER_ADMIN - All Permissions (Bypass)
+  // ───────────────────────────────────────────────────────────────────────────
+  SUPER_ADMIN: 'ALL_PERMISSIONS', // Bypass - sees everything
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 🏢 INSURANCE_ADMIN - Full Operational Access (No RBAC Management)
+  // ───────────────────────────────────────────────────────────────────────────
+  INSURANCE_ADMIN: [
+    PERMISSIONS.VIEW_EMPLOYERS,
+    PERMISSIONS.MANAGE_EMPLOYERS,
+    PERMISSIONS.VIEW_MEMBERS,
+    PERMISSIONS.MANAGE_MEMBERS,
+    PERMISSIONS.VIEW_PROVIDERS,
+    PERMISSIONS.MANAGE_PROVIDERS,
+    PERMISSIONS.VIEW_PROVIDER_CONTRACTS,
+    PERMISSIONS.MANAGE_PROVIDER_CONTRACTS,
+    PERMISSIONS.VIEW_CLAIMS,
+    PERMISSIONS.MANAGE_CLAIMS,
+    PERMISSIONS.APPROVE_CLAIMS,
+    PERMISSIONS.REJECT_CLAIMS,
+    PERMISSIONS.SETTLE_CLAIMS,
+    PERMISSIONS.VIEW_PRE_AUTH,
+    PERMISSIONS.MANAGE_PREAUTH,
+    PERMISSIONS.APPROVE_PRE_AUTH,
+    PERMISSIONS.REJECT_PRE_AUTH,
+    PERMISSIONS.VIEW_VISITS,
+    PERMISSIONS.MANAGE_VISITS,
+    PERMISSIONS.VIEW_BENEFIT_POLICIES,
+    PERMISSIONS.MANAGE_BENEFIT_POLICIES,
+    PERMISSIONS.VIEW_MEDICAL_SERVICES,
+    PERMISSIONS.MANAGE_MEDICAL_SERVICES,
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.MANAGE_REPORTS,
+    PERMISSIONS.MANAGE_SETTINGS
+  ],
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 👔 PARTNER_MANAGER (مدير الشريك) - Limited Operational View
+  // ───────────────────────────────────────────────────────────────────────────
+  PARTNER_MANAGER: [
+    PERMISSIONS.VIEW_MEMBERS, // ✅ Can view insured members
+    PERMISSIONS.VIEW_VISITS, // ✅ Can view visit logs
+    PERMISSIONS.VIEW_CLAIMS, // ✅ Can view claims (read-only)
+    PERMISSIONS.VIEW_BENEFIT_POLICIES, // ✅ Can view policies
+    PERMISSIONS.VIEW_REPORTS // ✅ Can view reports
+    // ❌ NO: MANAGE_*, APPROVE_*, SETTLE_*, RBAC, SETTINGS
+  ],
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 🩺 MEDICAL_REVIEWER (المراجع الطبي) - Review Only
+  // ───────────────────────────────────────────────────────────────────────────
+  MEDICAL_REVIEWER: [
+    PERMISSIONS.VIEW_CLAIMS, // ✅ View claims for review
+    PERMISSIONS.APPROVE_CLAIMS, // ✅ Approve claims
+    PERMISSIONS.REJECT_CLAIMS, // ✅ Reject claims
+    PERMISSIONS.VIEW_PRE_AUTH, // ✅ View pre-auth requests
+    PERMISSIONS.APPROVE_PRE_AUTH, // ✅ Approve pre-auth
+    PERMISSIONS.REJECT_PRE_AUTH, // ✅ Reject pre-auth
+    PERMISSIONS.VIEW_MEDICAL_SERVICES, // ✅ View services for reference
+    PERMISSIONS.VIEW_REPORTS // ✅ View review reports
+    // ❌ NO: VISITS, MEMBERS, EMPLOYERS, PROVIDERS, FINANCIAL, SETTINGS
+  ],
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 💰 ACCOUNTANT (المحاسب) - Financial & Reports Only
+  // ───────────────────────────────────────────────────────────────────────────
+  ACCOUNTANT: [
+    PERMISSIONS.VIEW_CLAIMS, // ✅ View claims for accounting
+    PERMISSIONS.SETTLE_CLAIMS, // ✅ Financial settlement
+    PERMISSIONS.VIEW_PROVIDERS, // ✅ View providers for settlement
+    PERMISSIONS.VIEW_PROVIDER_CONTRACTS, // ✅ View contracts for pricing
+    PERMISSIONS.VIEW_EMPLOYERS, // ✅ View employers for billing
+    PERMISSIONS.VIEW_REPORTS, // ✅ View financial reports
+    PERMISSIONS.MANAGE_REPORTS // ✅ Generate custom reports
+    // ❌ NO: MEMBERS, VISITS, PRE_AUTH, MEDICAL_REVIEW, SETTINGS
+  ],
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 🏥 PROVIDER (مقدم الخدمة) - Visit-Centric Only
+  // ───────────────────────────────────────────────────────────────────────────
+  PROVIDER: [
+    PERMISSIONS.VIEW_MEMBERS, // ✅ Eligibility check only
+    PERMISSIONS.MANAGE_VISITS, // ✅ Log visits (main functionality)
+    PERMISSIONS.CREATE_CLAIM, // ✅ Create claims from visits
+    PERMISSIONS.CREATE_PRE_AUTH, // ✅ Create pre-auth from visits
+    PERMISSIONS.VIEW_CLAIM_STATUS, // ✅ View status of submitted claims
+    PERMISSIONS.VIEW_PRE_AUTH // ✅ View status of submitted pre-auth
+    // ❌ NO: APPROVE_*, REJECT_*, SETTLE_*, REPORTS, SETTINGS, EMPLOYERS
+  ]
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CHECK IF USER HAS PERMISSION FOR MENU ITEM
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const hasMenuPermission = (user, menuId) => {
+  // SUPER_ADMIN bypass
+  if (user?.roles?.includes('SUPER_ADMIN')) {
+    return true;
+  }
+
+  // Get required permissions for this menu item
+  const requiredPermissions = MENU_PERMISSIONS[menuId];
+
+  // If no permissions required (null), everyone can access
+  if (!requiredPermissions) {
+    return true;
+  }
+
+  // If menu has no permission config, deny access (safe default)
+  const userPermissions = user?.permissions || [];
+
+  // Single permission (string)
+  if (typeof requiredPermissions === 'string') {
+    return userPermissions.includes(requiredPermissions);
+  }
+
+  // Multiple permissions (array) - OR logic (user needs ANY of them)
+  if (Array.isArray(requiredPermissions)) {
+    return requiredPermissions.some((perm) => userPermissions.includes(perm));
+  }
+
+  // Unknown format - deny access
+  return false;
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CHECK IF USER CAN ACCESS ROUTE
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const canAccessRoute = (user, path) => {
+  // SUPER_ADMIN bypass
+  if (user?.roles?.includes('SUPER_ADMIN')) {
+    return true;
+  }
+
+  // Map common routes to menu IDs
+  const routeToMenuMap = {
+    '/dashboard': 'dashboard',
+    '/members': 'members',
+    '/employers': 'employers',
+    '/providers': 'providers',
+    '/claims': 'claims',
+    '/claims/inbox': 'claims-inbox',
+    '/pre-approvals': 'pre-approvals',
+    '/pre-approvals/inbox': 'pre-approvals-inbox',
+    '/visits': 'visits',
+    '/reports': 'reports',
+    '/rbac': 'rbac',
+    '/settings': 'settings'
+  };
+
+  // Find matching menu ID
+  const menuId = routeToMenuMap[path];
+  if (!menuId) {
+    // Route not mapped - deny access by default
+    return false;
+  }
+
+  return hasMenuPermission(user, menuId);
+};
+
+export default {
+  MENU_PERMISSIONS,
+  ROLE_PERMISSION_REFERENCE,
+  hasMenuPermission,
+  filterMenuByPermissions,
+  canAccessRoute
+};

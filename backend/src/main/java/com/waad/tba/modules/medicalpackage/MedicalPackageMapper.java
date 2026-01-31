@@ -10,8 +10,7 @@ public class MedicalPackageMapper {
         return MedicalPackageSelectorDto.builder()
                 .id(entity.getId())
                 .code(entity.getCode())
-                .nameAr(entity.getNameAr())
-                .nameEn(entity.getNameEn())
+                .name(entity.getName())
                 .build();
     }
 }

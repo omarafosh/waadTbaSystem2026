@@ -61,10 +61,20 @@ public class ClaimLine {
     private String serviceName;
     
     /**
-     * Service category ID (denormalized for filtering)
+     * Medical Category ID (MANDATORY - ARCHITECTURAL LAW)
+     * 
+     * RULE: Coverage resolution requires BOTH category AND service.
+     * The same service can have different coverage in different categories.
+     * This field MUST be populated from the selected MedicalService.categoryId.
      */
-    @Column(name = "service_category_id")
+    @Column(name = "service_category_id", nullable = false)
     private Long serviceCategoryId;
+    
+    /**
+     * Medical Category Name (denormalized snapshot for reports)
+     */
+    @Column(name = "service_category_name", length = 200)
+    private String serviceCategoryName;
 
     // ==================== QUANTITY & PRICING ====================
 
@@ -95,6 +105,22 @@ public class ClaimLine {
     @Column(name = "requires_pa")
     @Builder.Default
     private Boolean requiresPA = false;
+    
+    // ==================== COVERAGE SNAPSHOT (FINANCIAL AUDIT TRAIL) ====================
+    
+    /**
+     * Coverage percentage at time of claim creation (snapshot from BenefitPolicyRule)
+     * IMPORTANT: This is stored as snapshot and should NOT be recalculated after creation
+     */
+    @Column(name = "coverage_percent_snapshot")
+    private Integer coveragePercentSnapshot;
+    
+    /**
+     * Patient copay percentage at time of claim creation (snapshot from BenefitPolicyRule)
+     * IMPORTANT: This is stored as snapshot and should NOT be recalculated after creation
+     */
+    @Column(name = "patient_copay_percent_snapshot")
+    private Integer patientCopayPercentSnapshot;
 
     // ==================== LIFECYCLE HOOKS ====================
 
@@ -138,6 +164,22 @@ public class ClaimLine {
         // RULE: MedicalService is MANDATORY
         if (medicalService == null) {
             throw new IllegalStateException("ARCHITECTURAL VIOLATION: ClaimLine MUST reference a MedicalService");
+        }
+        
+        // RULE: Category is MANDATORY (must come from service)
+        if (serviceCategoryId == null) {
+            throw new IllegalStateException(
+                "ARCHITECTURAL VIOLATION: ClaimLine MUST have a medical category. " +
+                "Service selection without category is not allowed.");
+        }
+        
+        // RULE: Service must belong to the selected category
+        if (medicalService.getCategoryId() != null && 
+            !medicalService.getCategoryId().equals(serviceCategoryId)) {
+            throw new IllegalStateException(
+                "ARCHITECTURAL VIOLATION: Medical service does not belong to the selected category. " +
+                "Service categoryId=" + medicalService.getCategoryId() + 
+                ", selected categoryId=" + serviceCategoryId);
         }
         
         // RULE: Unit price must be set (from contract)

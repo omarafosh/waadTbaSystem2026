@@ -129,7 +129,7 @@ const PreApprovalsReport = () => {
       // Prepare data for export
       const exportData = preApprovals.map((pa) => ({
         'رقم المرجع': pa.referenceNumber,
-        'اسم المؤمن عليه': pa.memberName,
+        'اسم المستفيد': pa.memberName,
         'الشريك': pa.employerName,
         'مقدم الخدمة': pa.providerName,
         'الخدمة الطبية': pa.serviceName,

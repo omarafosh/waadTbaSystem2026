@@ -239,7 +239,7 @@ const ClaimsInbox = () => {
     },
     {
       field: 'memberName',
-      headerName: 'اسم المؤمن عليه',
+      headerName: 'اسم المستفيد',
       flex: 1,
       minWidth: 150,
       valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'

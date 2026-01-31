@@ -1,8 +1,8 @@
 /**
  * Medical Categories List Page
- * 
+ *
  * Pattern: UnifiedPageHeader → External Filters → MainCard → GenericDataTable
- * 
+ *
  * Features:
  * - External parent category filter
  * - No column filters (clean table)
@@ -14,20 +14,8 @@
 
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Box,
-  Chip,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
-} from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
+import { Box, Chip, IconButton, Stack, Tooltip, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,13 +30,16 @@ import TableErrorBoundary from 'components/TableErrorBoundary';
 import PermissionGuard from 'components/PermissionGuard';
 import useTableState from 'hooks/useTableState';
 import { useTableRefresh } from 'contexts/TableRefreshContext';
-import {
-  getMedicalCategories,
-  deleteMedicalCategory,
-  getAllMedicalCategories
-} from 'services/api/medical-categories.service';
+import { getAllMedicalCategories } from 'services/api/medical-categories.service';
 import { exportMedicalCategoriesToExcel } from 'utils/excelExport';
 import { openSnackbar } from 'api/snackbar';
+
+// Standardized Hooks
+import {
+  useMedicalCategoriesList,
+  useAllMedicalCategories,
+  useDeleteMedicalCategory
+} from 'hooks/useMedicalCategories';
 
 const QUERY_KEY = 'medical-categories';
 
@@ -81,15 +72,11 @@ const MedicalCategoriesList = () => {
   // FETCH PARENT CATEGORIES (for filter dropdown)
   // ========================================
 
-  const { data: allCategories = [] } = useQuery({
-    queryKey: ['medical-categories-all'],
-    queryFn: getAllMedicalCategories,
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
-  });
+  const { data: allCategories = [] } = useAllMedicalCategories();
 
   // Get only parent categories (those without parentId or root level)
   const parentCategories = useMemo(() => {
-    return allCategories.filter(cat => !cat.parentId);
+    return allCategories.filter((cat) => !cat.parentId);
   }, [allCategories]);
 
   // ========================================
@@ -100,53 +87,58 @@ const MedicalCategoriesList = () => {
   const handleNavigateView = useCallback((id) => navigate(`/medical-categories/${id}`), [navigate]);
   const handleNavigateEdit = useCallback((id) => navigate(`/medical-categories/edit/${id}`), [navigate]);
 
-  const handleDelete = useCallback(async (id, name) => {
-    if (!window.confirm(`هل أنت متأكد من حذف التصنيف "${name}"؟`)) return;
-    try {
-      await deleteMedicalCategory(id);
-      openSnackbar({ message: 'تم حذف التصنيف بنجاح', variant: 'success' });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-    } catch (err) {
-      console.error('[MedicalCategories] Delete failed:', err);
-      const errorMsg = err?.response?.data?.message || 'فشل حذف التصنيف - قد يكون مرتبطاً بخدمات طبية';
-      openSnackbar({ message: errorMsg, variant: 'error' });
-    }
-  }, [queryClient]);
+  const { mutateAsync: deleteCategory } = useDeleteMedicalCategory();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, parentFilter],
-    queryFn: async () => {
-      const params = { page: tableState.page, size: tableState.pageSize };
-
-      // Add sorting
-      if (tableState.sorting.length > 0) {
-        const sort = tableState.sorting[0];
-        params.sort = `${sort.id},${sort.desc ? 'desc' : 'asc'}`;
+  const handleDelete = useCallback(
+    async (id, name) => {
+      if (!window.confirm(`هل أنت متأكد من حذف التصنيف "${name}"؟`)) return;
+      try {
+        await deleteCategory(id);
+        openSnackbar({ message: 'تم حذف التصنيف بنجاح', variant: 'success' });
+      } catch (err) {
+        console.error('[MedicalCategories] Delete failed:', err);
+        const errorMsg = err?.response?.data?.message || 'فشل حذف التصنيف - قد يكون مرتبطاً بخدمات طبية';
+        openSnackbar({ message: errorMsg, variant: 'error' });
       }
-
-      // Add parent filter
-      if (parentFilter) {
-        params.parentId = parentFilter;
-      }
-
-      return await getMedicalCategories(params);
     },
-    keepPreviousData: true
-  });
+    [deleteCategory]
+  );
 
-  // Listen to global refresh signal
+  // Prepare Query Params
+  const queryParams = useMemo(() => {
+    const params = { page: tableState.page, size: tableState.pageSize };
+
+    // Add sorting
+    if (tableState.sorting.length > 0) {
+      const sort = tableState.sorting[0];
+      params.sort = `${sort.id},${sort.desc ? 'desc' : 'asc'}`;
+    }
+
+    // Add parent filter
+    if (parentFilter) {
+      params.parentId = parentFilter;
+    }
+    return params;
+  }, [tableState.page, tableState.pageSize, tableState.sorting, parentFilter]);
+
+  const { data, isLoading, refetch } = useMedicalCategoriesList(queryParams);
+
+  // Listen to global refresh signal (optional as mutation invalidates cache automatically)
   useEffect(() => {
-    refetch();
+    if (refreshSignal) refetch();
   }, [refreshSignal, refetch]);
 
   // ========================================
   // EXCEL EXPORT - Export ALL data
   // ========================================
 
+  const { data: allDataForExport } = useAllMedicalCategories({ enabled: isExporting }); // Lazy fetch for export
+
   const handleExcelExport = useCallback(async () => {
     try {
       setIsExporting(true);
       // Fetch ALL categories for export (not just visible page)
+      // Note: In real app, we might trigger a specific export endpoint or await the lazy query
       const allCats = await getAllMedicalCategories();
       await exportMedicalCategoriesToExcel(allCats || []);
       openSnackbar({
@@ -168,84 +160,95 @@ const MedicalCategoriesList = () => {
   // COLUMN DEFINITIONS - No filters, just sorting
   // ========================================
 
-  const columns = useMemo(() => [
-    {
-      accessorKey: 'code',
-      header: 'الرمز',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 100,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'name',
-      header: 'الاسم',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 150,
-      align: 'right',
-      cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
-    },
-    {
-      accessorKey: 'parentName',
-      header: 'التصنيف الأب',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 150,
-      align: 'right',
-      cell: ({ getValue }) => (
-        <Typography variant="body2" color="text.secondary">
-          {getValue() || '-'}
-        </Typography>
-      )
-    },
-    {
-      accessorKey: 'active',
-      header: 'الحالة',
-      enableSorting: true,
-      enableColumnFilter: false,
-      minWidth: 100,
-      align: 'center',
-      cell: ({ row }) => (
-        <Chip
-          label={row.original?.active ? 'نشط' : 'غير نشط'}
-          color={row.original?.active ? 'success' : 'default'}
-          size="small"
-          variant="light"
-        />
-      )
-    },
-    {
-      id: 'actions',
-      header: 'الإجراءات',
-      enableSorting: false,
-      enableColumnFilter: false,
-      minWidth: 130,
-      align: 'center',
-      cell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} justifyContent="center">
-          <Tooltip title="عرض">
-            <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <PermissionGuard requires="medical-categories.delete">
-              <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id, row.original?.name || row.original?.code)}>
-                <DeleteIcon fontSize="small" />
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: 'code',
+        header: 'الرمز',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 100,
+        align: 'right',
+        cell: ({ getValue }) => (
+          <Typography variant="body2" fontWeight="medium">
+            {getValue() || '-'}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: 'name',
+        header: 'الاسم',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 180,
+        align: 'right',
+        cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
+      },
+      {
+        accessorKey: 'parentName',
+        header: 'التصنيف الأب',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 150,
+        align: 'right',
+        cell: ({ getValue }) => (
+          <Typography variant="body2" color="text.secondary">
+            {getValue() || '-'}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: 'active',
+        header: 'الحالة',
+        enableSorting: true,
+        enableColumnFilter: false,
+        minWidth: 100,
+        align: 'center',
+        cell: ({ row }) => (
+          <Chip
+            label={row.original?.active ? 'نشط' : 'غير نشط'}
+            color={row.original?.active ? 'success' : 'default'}
+            size="small"
+            variant="light"
+          />
+        )
+      },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        enableSorting: false,
+        enableColumnFilter: false,
+        minWidth: 130,
+        align: 'center',
+        cell: ({ row }) => (
+          <Stack direction="row" spacing={0.5} justifyContent="center">
+            <Tooltip title="عرض">
+              <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
+                <VisibilityIcon fontSize="small" />
               </IconButton>
-            </PermissionGuard>
-          </Tooltip>
-        </Stack>
-      )
-    }
-  ], [handleNavigateView, handleNavigateEdit, handleDelete]);
+            </Tooltip>
+            <Tooltip title="تعديل">
+              <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="حذف">
+              <PermissionGuard requires="medical-categories.delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDelete(row.original?.id, row.original?.name || row.original?.code)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </PermissionGuard>
+            </Tooltip>
+          </Stack>
+        )
+      }
+    ],
+    [handleNavigateView, handleNavigateEdit, handleDelete]
+  );
 
   // ========================================
   // RENDER
@@ -279,12 +282,7 @@ const MedicalCategoriesList = () => {
               </Tooltip>
 
               {/* Refresh Button */}
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => refetch()}
-                disabled={isLoading}
-              >
+              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => refetch()} disabled={isLoading}>
                 تحديث
               </Button>
             </Stack>
@@ -321,11 +319,7 @@ const MedicalCategoriesList = () => {
 
           {/* Stats Chips */}
           <Stack direction="row" spacing={1}>
-            <Chip
-              label={`الإجمالي: ${data?.total || 0}`}
-              size="small"
-              variant="outlined"
-            />
+            <Chip label={`الإجمالي: ${data?.total || 0}`} size="small" variant="outlined" />
           </Stack>
         </Stack>
       </MainCard>

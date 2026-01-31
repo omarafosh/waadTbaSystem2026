@@ -103,10 +103,6 @@ const CompanySettingsPage = () => {
     taxNumber: '',
     currency: 'SAR',
     cardNumberFormat: '[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]',
-    logoUrl: '',
-    fontFamily: 'Tajawal',
-    logoUrl: '',
-    fontFamily: 'Tajawal',
     fontSize: 12,
     barcodePrefix: 'WAAD'
   });
@@ -132,7 +128,6 @@ const CompanySettingsPage = () => {
         currency: companyData.currency || 'SAR',
         cardNumberFormat: companyData.cardNumberFormat || '[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]',
         logoUrl: companyData.logoUrl || '',
-        fontFamily: companyData.fontFamily || 'Tajawal',
         fontFamily: companyData.fontFamily || 'Tajawal',
         fontSize: companyData.fontSize || 12,
         barcodePrefix: companyData.barcodePrefix || 'WAAD'

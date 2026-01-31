@@ -95,8 +95,8 @@ export const uploadMedicalServicesExcel = async (file) => {
 
   const response = await axiosClient.post(`${BASE_URL}/import`, formData, {
     headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+      'Content-Type': 'multipart/form-data'
+    }
   });
 
   return unwrap(response);
@@ -184,15 +184,15 @@ export const searchMedicalServices = async (params = {}) => {
 
 /**
  * Unified lookup for medical service selection.
- * 
+ *
  * ARCHITECTURAL LAW: MedicalService MUST always be represented as:
  *   CODE + NAME + CATEGORY
- * 
+ *
  * Features:
- * - Search by: code, name, categoryNameAr
+ * - Search by: code, name, name, categoryNameAr, categoryNameEn
  * - Optional filter by categoryId
  * - Returns full context for display
- * 
+ *
  * @param {Object} params - Lookup parameters
  * @param {string} params.q - Search term (optional)
  * @param {number} params.categoryId - Filter by category (optional)

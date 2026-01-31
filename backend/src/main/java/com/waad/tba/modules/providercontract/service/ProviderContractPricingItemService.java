@@ -1,7 +1,9 @@
 package com.waad.tba.modules.providercontract.service;
 
 import com.waad.tba.common.exception.BusinessRuleException;
+import com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
+import com.waad.tba.modules.medicaltaxonomy.repository.MedicalCategoryRepository;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
 import com.waad.tba.modules.providercontract.dto.*;
 import com.waad.tba.modules.providercontract.entity.ProviderContract;
@@ -19,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -39,13 +41,14 @@ public class ProviderContractPricingItemService {
     private final ProviderContractPricingItemRepository pricingRepository;
     private final ProviderContractRepository contractRepository;
     private final MedicalServiceRepository medicalServiceRepository;
+    private final MedicalCategoryRepository medicalCategoryRepository;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // READ OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Get all pricing items for a contract
+     * Get all pricing items for a contract (with category resolution)
      */
     @Transactional(readOnly = true)
     public List<ProviderContractPricingItemResponseDto> findByContract(Long contractId) {
@@ -54,14 +57,18 @@ public class ProviderContractPricingItemService {
         // Verify contract exists
         verifyContractExists(contractId);
         
-        return pricingRepository.findByContractIdAndActiveTrue(contractId)
-                .stream()
-                .map(ProviderContractPricingItemResponseDto::fromEntity)
+        List<ProviderContractPricingItem> items = pricingRepository.findByContractIdAndActiveTrue(contractId);
+        
+        // Build category map for resolving service categories
+        Map<Long, MedicalCategory> categoryMap = buildCategoryMap(items);
+        
+        return items.stream()
+                .map(item -> ProviderContractPricingItemResponseDto.fromEntity(item, categoryMap))
                 .collect(Collectors.toList());
     }
 
     /**
-     * Get all pricing items for a contract (paginated)
+     * Get all pricing items for a contract (paginated, with category resolution)
      */
     @Transactional(readOnly = true)
     public Page<ProviderContractPricingItemResponseDto> findByContract(Long contractId, Pageable pageable) {
@@ -70,8 +77,31 @@ public class ProviderContractPricingItemService {
         // Verify contract exists
         verifyContractExists(contractId);
         
-        return pricingRepository.findByContractIdAndActiveTrue(contractId, pageable)
-                .map(ProviderContractPricingItemResponseDto::fromEntity);
+        Page<ProviderContractPricingItem> page = pricingRepository.findByContractIdAndActiveTrue(contractId, pageable);
+        
+        // Build category map for resolving service categories
+        Map<Long, MedicalCategory> categoryMap = buildCategoryMap(page.getContent());
+        
+        return page.map(item -> ProviderContractPricingItemResponseDto.fromEntity(item, categoryMap));
+    }
+    
+    /**
+     * Build a map of categoryId -> MedicalCategory for resolving service categories
+     */
+    private Map<Long, MedicalCategory> buildCategoryMap(List<ProviderContractPricingItem> items) {
+        // Collect all unique category IDs from services
+        Set<Long> categoryIds = items.stream()
+                .filter(item -> item.getMedicalService() != null && item.getMedicalService().getCategoryId() != null)
+                .map(item -> item.getMedicalService().getCategoryId())
+                .collect(Collectors.toSet());
+        
+        if (categoryIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        // Fetch all categories in one query
+        return medicalCategoryRepository.findAllById(categoryIds).stream()
+                .collect(Collectors.toMap(MedicalCategory::getId, cat -> cat));
     }
 
     /**
@@ -356,6 +386,77 @@ public class ProviderContractPricingItemService {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // CATEGORY AND SERVICE LOOKUPS BY PROVIDER (for claims/preauth creation)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Get distinct categories available in active contracts for a provider
+     * Used when creating claims/preauth to show only contracted categories
+     */
+    @Transactional(readOnly = true)
+    public List<ContractCategoryDto> findCategoriesByProvider(Long providerId) {
+        log.debug("Finding contracted categories for provider: {}", providerId);
+        
+        var categories = pricingRepository.findDistinctCategoriesByProvider(providerId);
+        return categories.stream()
+                .map(cat -> ContractCategoryDto.builder()
+                        .id(cat.getId())
+                        .code(cat.getCode())
+                        .name(cat.getName())
+                        .parentId(cat.getParentId())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get services available in active contracts for a provider filtered by category
+     * Used when creating claims/preauth to show only contracted services
+     */
+    @Transactional(readOnly = true)
+    public List<ContractServiceDto> findServicesByProviderAndCategory(Long providerId, Long categoryId) {
+        log.debug("Finding contracted services for provider: {}, category: {}", providerId, categoryId);
+        
+        var pricingItems = pricingRepository.findServicesByProviderAndCategory(providerId, categoryId);
+        return pricingItems.stream()
+                .filter(p -> p.getMedicalService() != null)
+                .map(p -> ContractServiceDto.builder()
+                        .id(p.getMedicalService().getId())
+                        .code(p.getMedicalService().getCode())
+                        .name(p.getMedicalService().getName())
+                        .categoryId(categoryId)
+                        .contractPrice(p.getContractPrice())
+                        .basePrice(p.getBasePrice())
+                        .discountPercent(p.getDiscountPercent())
+                        .requiresPreAuth(p.getMedicalService().isRequiresPA())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all services available in active contracts for a provider
+     */
+    @Transactional(readOnly = true)
+    public List<ContractServiceDto> findAllServicesByProvider(Long providerId) {
+        log.debug("Finding all contracted services for provider: {}", providerId);
+        
+        var pricingItems = pricingRepository.findAllServicesByProvider(providerId);
+        return pricingItems.stream()
+                .filter(p -> p.getMedicalService() != null)
+                .map(p -> ContractServiceDto.builder()
+                        .id(p.getMedicalService().getId())
+                        .code(p.getMedicalService().getCode())
+                        .name(p.getMedicalService().getName())
+                        .categoryId(p.getMedicalCategory() != null ? p.getMedicalCategory().getId() : null)
+                        .categoryName(p.getMedicalCategory() != null ? p.getMedicalCategory().getName() : p.getCategoryName())
+                        .contractPrice(p.getContractPrice())
+                        .basePrice(p.getBasePrice())
+                        .discountPercent(p.getDiscountPercent())
+                        .requiresPreAuth(p.getMedicalService().isRequiresPA())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // HELPER METHODS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -385,5 +486,38 @@ public class ProviderContractPricingItemService {
         private BigDecimal totalSavings;
         private BigDecimal totalStandardPrice;
         private BigDecimal totalContractedPrice;
+    }
+
+    /**
+     * DTO for contracted categories (used in claims/preauth creation)
+     */
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class ContractCategoryDto {
+        private Long id;
+        private String code;
+        private String name;
+        private Long parentId;
+    }
+
+    /**
+     * DTO for contracted services with pricing info (used in claims/preauth creation)
+     */
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class ContractServiceDto {
+        private Long id;
+        private String code;
+        private String name;
+        private Long categoryId;
+        private String categoryName;
+        private BigDecimal contractPrice;
+        private BigDecimal basePrice;
+        private BigDecimal discountPercent;
+        private Boolean requiresPreAuth;  // Flag to filter services that require pre-authorization
     }
 }

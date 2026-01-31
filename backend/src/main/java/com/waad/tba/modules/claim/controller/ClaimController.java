@@ -155,22 +155,29 @@ public class ClaimController {
     }
 
     /**
-     * Approve a claim with cost calculation.
-     * Transitions: SUBMITTED/UNDER_REVIEW → APPROVED
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * SPLIT-PHASE APPROVAL: Approve claim asynchronously (non-blocking)
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * 
+     * POST /api/claims/{id}/approve
+     * 
+     * Returns immediately with status APPROVAL_IN_PROGRESS.
+     * Heavy calculations execute in background.
+     * 
+     * Client should poll GET /api/claims/{id} to check for final status.
      * 
      * Validates:
      * - Coverage limits (via CoverageValidationService)
-     * - Financial snapshot equation: RequestedAmount = PatientCoPay +
-     * NetProviderAmount
+     * - Financial snapshot equation: RequestedAmount = PatientCoPay + NetProviderAmount
      */
     @PostMapping("/{id:\\d+}/approve")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('APPROVE_CLAIMS')")
-    @Operation(summary = "Approve claim", description = "Approve a claim with automatic cost calculation. Validates coverage limits and calculates patient co-pay.")
+    @Operation(summary = "Approve claim (async)", description = "Request claim approval. Returns immediately with APPROVAL_IN_PROGRESS status. Poll /api/claims/{id} for final result.")
     public ResponseEntity<ApiResponse<ClaimViewDto>> approveClaim(
             @PathVariable Long id,
             @Valid @RequestBody ClaimApproveDto dto) {
-        ClaimViewDto claim = claimService.approveClaim(id, dto);
-        return ResponseEntity.ok(ApiResponse.success("تمت الموافقة على المطالبة بنجاح", claim));
+        ClaimViewDto claim = claimService.requestApproval(id, dto);
+        return ResponseEntity.ok(ApiResponse.success("جاري معالجة الموافقة...", claim));
     }
 
     /**

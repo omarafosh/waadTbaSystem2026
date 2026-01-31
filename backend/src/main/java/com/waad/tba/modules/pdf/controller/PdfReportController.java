@@ -22,11 +22,15 @@ import java.util.*;
  * using Thymeleaf templates and Flying Saucer.
  * 
  * @since 2026-01-11
+ * @deprecated PDF export disabled. Excel is the official reporting format.
+ *             All endpoints in this controller are disabled.
+ *             Kept for potential legal/compliance reports in the future.
  */
 @Slf4j
-@RestController
-@RequestMapping("/api/pdf/reports")
+// @RestController  // DISABLED - PDF export not active, Excel is official format
+// @RequestMapping("/api/pdf/reports")
 @RequiredArgsConstructor
+@Deprecated(since = "2026-01", forRemoval = false)
 public class PdfReportController {
     
     private final PdfTemplateService templateService;

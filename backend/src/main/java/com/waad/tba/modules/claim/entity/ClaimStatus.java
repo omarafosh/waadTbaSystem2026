@@ -69,6 +69,12 @@ public enum ClaimStatus {
     RETURNED_FOR_INFO("إعادة للاستكمال", false, false),
     
     /**
+     * Approval in progress - async processing.
+     * Financial calculations and validations are being executed in background.
+     */
+    APPROVAL_IN_PROGRESS("جاري معالجة الموافقة", false, false),
+    
+    /**
      * Claim approved for payment.
      * May be full or partial approval (see approvedAmount).
      */
@@ -127,8 +133,9 @@ public enum ClaimStatus {
         return switch (this) {
             case DRAFT -> Set.of(SUBMITTED);
             case SUBMITTED -> Set.of(UNDER_REVIEW);
-            case UNDER_REVIEW -> Set.of(APPROVED, REJECTED, RETURNED_FOR_INFO);
+            case UNDER_REVIEW -> Set.of(APPROVAL_IN_PROGRESS, REJECTED, RETURNED_FOR_INFO);
             case RETURNED_FOR_INFO -> Set.of(SUBMITTED);
+            case APPROVAL_IN_PROGRESS -> Set.of(APPROVED, REJECTED); // Async result
             case APPROVED -> Set.of(SETTLED);
             case REJECTED, SETTLED -> Collections.emptySet(); // Terminal
         };

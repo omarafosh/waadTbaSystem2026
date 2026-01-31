@@ -71,7 +71,7 @@ const formatFileSize = (bytes) => {
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
 /**
@@ -263,9 +263,7 @@ const ExcelUploadButton = ({
                 {formatFileSize(selectedFile.size)}
               </Typography>
             </Box>
-            {validationErrors.length === 0 && (
-              <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28 }} />
-            )}
+            {validationErrors.length === 0 && <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28 }} />}
           </Stack>
 
           {/* File Type */}
@@ -342,13 +340,7 @@ const ExcelUploadButton = ({
       </Tooltip>
 
       {/* Hidden File Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={ALLOWED_EXTENSIONS.join(',')}
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
+      <input ref={fileInputRef} type="file" accept={ALLOWED_EXTENSIONS.join(',')} onChange={handleFileChange} style={{ display: 'none' }} />
 
       {/* Upload Preview Dialog */}
       <Dialog
@@ -412,11 +404,7 @@ const ExcelUploadButton = ({
             )}
 
             {/* File Info or Drag-Drop Area */}
-            {!uploading && !uploadSuccess && (
-              <>
-                {selectedFile ? renderFileInfo() : renderDragDropArea()}
-              </>
-            )}
+            {!uploading && !uploadSuccess && <>{selectedFile ? renderFileInfo() : renderDragDropArea()}</>}
           </Stack>
         </DialogContent>
 

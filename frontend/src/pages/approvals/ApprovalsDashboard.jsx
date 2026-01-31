@@ -69,8 +69,8 @@ const ApprovalsDashboard = () => {
       // 2. Fetch Pending Pre-Authorizations (PENDING)
       // Using Canonical /api/pre-authorizations endpoint
       const preAuthPromise = preApprovalsService.getPending({
-          page: 1,
-          size: 10
+        page: 1,
+        size: 10
       });
 
       const [claimsRes, preAuthRes] = await Promise.allSettled([
@@ -83,7 +83,7 @@ const ApprovalsDashboard = () => {
 
       setClaims(loadedClaims);
       setPreApprovals(loadedPreAuths);
-      
+
       setStats({
         pendingClaims: claimsRes.status === 'fulfilled' ? labelsCount(claimsRes.value) : 0,
         pendingPreAuths: preAuthRes.status === 'fulfilled' ? (preAuthRes.value.total || preAuthRes.value.totalElements || 0) : 0,
@@ -106,47 +106,47 @@ const ApprovalsDashboard = () => {
 
   // Columns for Pre-Approvals
   const preAuthColumns = [
-    { 
-      field: 'id', 
-      headerName: 'رقم الطلب', 
+    {
+      field: 'id',
+      headerName: 'رقم الطلب',
       width: 100,
       valueGetter: (value, row) => row?.referenceNumber || `PA-${row?.id}` || row?.id || '-'
     },
-    { 
-      field: 'memberName', 
-      headerName: 'المؤمن عليه', 
+    {
+      field: 'memberName',
+      headerName: 'المستفيد',
       width: 200,
       valueGetter: (value, row) => row?.memberName || row?.member?.name || '-'
     },
-    { 
-      field: 'providerName', 
-      headerName: 'مقدم الخدمة', 
+    {
+      field: 'providerName',
+      headerName: 'مقدم الخدمة',
       width: 200,
       valueGetter: (value, row) => row?.providerName || row?.provider?.name || '-'
     },
-    { 
-      field: 'serviceName', 
-      headerName: 'الخدمة', 
+    {
+      field: 'serviceName',
+      headerName: 'الخدمة',
       width: 180,
       valueGetter: (value, row) => row?.serviceName || row?.serviceCode || '-'
     },
-    { 
-      field: 'serviceDate', 
-      headerName: 'تاريخ الخدمة', 
+    {
+      field: 'serviceDate',
+      headerName: 'تاريخ الخدمة',
       width: 120,
       valueGetter: (value, row) => row?.requestDate || row?.visitDate || row?.serviceDate || '-'
     },
-    { 
-       field: 'status', 
-       headerName: 'الحالة', 
-       width: 150,
-       renderCell: (params) => (
-         <Chip 
-           label={params?.value === 'PENDING' ? 'معلق' : params?.value || '-'} 
-           color={params?.value === 'PENDING' ? 'warning' : params?.value === 'APPROVED' ? 'success' : 'default'} 
-           size="small" 
-         />
-       )
+    {
+      field: 'status',
+      headerName: 'الحالة',
+      width: 150,
+      renderCell: (params) => (
+        <Chip
+          label={params?.value === 'PENDING' ? 'معلق' : params?.value || '-'}
+          color={params?.value === 'PENDING' ? 'warning' : params?.value === 'APPROVED' ? 'success' : 'default'}
+          size="small"
+        />
+      )
     },
     {
       field: 'actions',
@@ -154,8 +154,8 @@ const ApprovalsDashboard = () => {
       width: 150,
       renderCell: (params) => params?.row?.id ? (
         <Tooltip title="المراجعة">
-          <IconButton 
-            color="primary" 
+          <IconButton
+            color="primary"
             onClick={() => navigate(`/pre-approvals/${params.row.id}`)}
           >
             <ViewIcon />
@@ -167,56 +167,56 @@ const ApprovalsDashboard = () => {
 
   // Columns for Claims
   const claimColumns = [
-    { 
-      field: 'claimNumber', 
-      headerName: 'رقم المطالبة', 
+    {
+      field: 'claimNumber',
+      headerName: 'رقم المطالبة',
       width: 150,
       valueGetter: (value, row) => row?.claimNumber || `CLM-${row?.id}` || '-'
     },
-    { 
-      field: 'memberName', 
-      headerName: 'المؤمن عليه', 
+    {
+      field: 'memberName',
+      headerName: 'المستفيد',
       width: 200,
       valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'
     },
-    { 
-      field: 'providerName', 
-      headerName: 'مقدم الخدمة', 
+    {
+      field: 'providerName',
+      headerName: 'مقدم الخدمة',
       width: 200,
       valueGetter: (value, row) => row?.providerName || '-'
     },
-    { 
-      field: 'doctorName', 
-      headerName: 'الطبيب', 
+    {
+      field: 'doctorName',
+      headerName: 'الطبيب',
       width: 150,
       valueGetter: (value, row) => row?.doctorName || '-'
     },
-    { 
-      field: 'totalAmount', 
-      headerName: 'المبلغ', 
+    {
+      field: 'totalAmount',
+      headerName: 'المبلغ',
       width: 120,
       valueGetter: (value, row) => {
         const amount = row?.totalAmount || row?.requestedAmount;
         return amount ? `${Number(amount).toLocaleString()} د.ل` : '-';
       }
     },
-    { 
-      field: 'serviceDate', 
-      headerName: 'التاريخ', 
+    {
+      field: 'serviceDate',
+      headerName: 'التاريخ',
       width: 120,
       valueGetter: (value, row) => row?.serviceDate || row?.visitDate || '-'
     },
-    { 
-       field: 'status', 
-       headerName: 'الحالة', 
-       width: 150,
-       renderCell: (params) => (
-         <Chip 
-           label={params?.row?.statusLabel || params?.value || '-'} 
-           color={params?.value === 'SUBMITTED' ? 'info' : params?.value === 'UNDER_REVIEW' ? 'warning' : 'default'} 
-           size="small" 
-         />
-       )
+    {
+      field: 'status',
+      headerName: 'الحالة',
+      width: 150,
+      renderCell: (params) => (
+        <Chip
+          label={params?.row?.statusLabel || params?.value || '-'}
+          color={params?.value === 'SUBMITTED' ? 'info' : params?.value === 'UNDER_REVIEW' ? 'warning' : 'default'}
+          size="small"
+        />
+      )
     },
     {
       field: 'actions',
@@ -224,8 +224,8 @@ const ApprovalsDashboard = () => {
       width: 150,
       renderCell: (params) => params?.row?.id ? (
         <Tooltip title="المراجعة">
-          <IconButton 
-            color="primary" 
+          <IconButton
+            color="primary"
             onClick={() => navigate(`/claims/${params.row.id}`)}
           >
             <ViewIcon />
@@ -264,8 +264,8 @@ const ApprovalsDashboard = () => {
                   <Typography variant="h3" fontWeight="bold">
                     {stats.pendingPreAuths}
                   </Typography>
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     endIcon={<PreApprovalIcon />}
                     onClick={() => navigate('/pre-approvals/inbox')}
                     sx={{ mt: 1 }}
@@ -277,7 +277,7 @@ const ApprovalsDashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-          
+
           {/* Claims Stats */}
           <Grid item xs={12} md={6}>
             <Card sx={{ bgcolor: 'info.lighter', border: '1px solid', borderColor: 'info.main' }}>
@@ -289,8 +289,8 @@ const ApprovalsDashboard = () => {
                   <Typography variant="h3" fontWeight="bold">
                     {stats.pendingClaims}
                   </Typography>
-                   <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     endIcon={<ClaimIcon />}
                     onClick={() => navigate('/claims/inbox')}
                     sx={{ mt: 1 }}
@@ -325,7 +325,7 @@ const ApprovalsDashboard = () => {
               />
             </Box>
           </Box>
-          
+
           <Divider />
 
           {/* Section 2: Claims */}
@@ -335,7 +335,7 @@ const ApprovalsDashboard = () => {
               <Typography variant="h5">آخر المطالبات الواردة</Typography>
             </Stack>
             <Box sx={{ height: 350, width: '100%' }}>
-               <DataGrid
+              <DataGrid
                 rows={claims}
                 columns={claimColumns}
                 loading={loading}

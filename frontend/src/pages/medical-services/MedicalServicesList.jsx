@@ -1,10 +1,10 @@
 /**
  * Medical Services List Page - UNIFIED REFERENCE IMPLEMENTATION
- * 
+ *
  * ⭐ This is the GOLDEN REFERENCE for all List Pages
- * 
+ *
  * Pattern: UnifiedPageHeader → MainCard → GenericDataTable
- * 
+ *
  * Architecture Rules:
  * ✅ GenericDataTable = UI-only component
  * ✅ Excel export button for data export
@@ -12,7 +12,7 @@
  * ❌ NO PDF export (not working with Arabic)
  * ❌ NO frontend PDF generation
  * ❌ NO html2canvas/jsPDF
- * 
+ *
  * Features:
  * - Multi-column sorting
  * - Sticky headers
@@ -387,11 +387,9 @@ const MedicalServicesList = () => {
         header: 'الاسم',
         enableSorting: true,
         enableColumnFilter: false,
-        minWidth: 180,
+        minWidth: 200,
         align: 'right',
-        cell: ({ getValue }) => (
-          <Typography variant="body2">{getValue() || '-'}</Typography>
-        )
+        cell: ({ getValue }) => <Typography variant="body2">{getValue() || '-'}</Typography>
       },
 
       // Category Column - INLINE EDITABLE
@@ -466,12 +464,7 @@ const MedicalServicesList = () => {
         minWidth: 100,
         align: 'center',
         cell: ({ getValue }) => (
-          <Chip
-            label={getValue() ? 'نشط' : 'غير نشط'}
-            color={getValue() ? 'success' : 'default'}
-            size="small"
-            variant="light"
-          />
+          <Chip label={getValue() ? 'نشط' : 'غير نشط'} color={getValue() ? 'success' : 'default'} size="small" variant="light" />
         )
       },
 
@@ -547,7 +540,6 @@ const MedicalServicesList = () => {
         subtitle="إدارة الخدمات الطبية في النظام"
         icon={MedicalServicesIcon}
         breadcrumbs={[{ label: 'الرئيسية', path: '/' }, { label: 'الخدمات الطبية' }]}
-
         // Add Button
         showAddButton={true}
         addButtonLabel="إضافة خدمة جديدة"
@@ -569,14 +561,11 @@ const MedicalServicesList = () => {
             </Tooltip>
 
             <PermissionGuard requires="medical-services.add">
-              <ExcelImportButton
-                module="medical-services"
-                onImportComplete={triggerRefresh}
-              />
+              <ExcelImportButton module="medical-services" onImportComplete={triggerRefresh} />
             </PermissionGuard>
 
             {/* Bulk Activate Button */}
-            <PermissionGuard requires={["SUPER_ADMIN", "INSURANCE_ADMIN"]}>
+            <PermissionGuard requires={['SUPER_ADMIN', 'INSURANCE_ADMIN']}>
               <Tooltip title="تنشيط جميع الخدمات">
                 <Button
                   variant="outlined"
@@ -592,7 +581,7 @@ const MedicalServicesList = () => {
             </PermissionGuard>
 
             {/* Bulk Deactivate Button */}
-            <PermissionGuard requires={["SUPER_ADMIN", "INSURANCE_ADMIN"]}>
+            <PermissionGuard requires={['SUPER_ADMIN', 'INSURANCE_ADMIN']}>
               <Tooltip title="إلغاء تنشيط جميع الخدمات">
                 <Button
                   variant="outlined"
@@ -608,7 +597,7 @@ const MedicalServicesList = () => {
             </PermissionGuard>
 
             {/* Bulk Permanent Delete Button */}
-            <PermissionGuard requires={["SUPER_ADMIN", "INSURANCE_ADMIN"]}>
+            <PermissionGuard requires={['SUPER_ADMIN', 'INSURANCE_ADMIN']}>
               <Tooltip title="⚠️ حذف جميع الخدمات نهائياً">
                 <Button
                   variant="contained"
@@ -646,9 +635,7 @@ const MedicalServicesList = () => {
                 tableState.setPage(0);
               }}
             >
-              <MenuItem value="all">
-                الكل {stats?.total ? `(${stats.total})` : ''}
-              </MenuItem>
+              <MenuItem value="all">الكل {stats?.total ? `(${stats.total})` : ''}</MenuItem>
               <MenuItem value="active">
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CheckCircleIcon fontSize="small" color="success" />
@@ -666,23 +653,9 @@ const MedicalServicesList = () => {
 
           {/* Status Summary Chips */}
           <Stack direction="row" spacing={1}>
-            <Chip
-              label={`الإجمالي: ${stats?.total || 0}`}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={`نشط: ${stats?.active || 0}`}
-              size="small"
-              color="success"
-              variant="light"
-            />
-            <Chip
-              label={`غير نشط: ${stats?.inactive || 0}`}
-              size="small"
-              color="default"
-              variant="light"
-            />
+            <Chip label={`الإجمالي: ${stats?.total || 0}`} size="small" variant="outlined" />
+            <Chip label={`نشط: ${stats?.active || 0}`} size="small" color="success" variant="light" />
+            <Chip label={`غير نشط: ${stats?.inactive || 0}`} size="small" color="default" variant="light" />
           </Stack>
         </Stack>
       </MainCard>
@@ -710,15 +683,8 @@ const MedicalServicesList = () => {
       </MainCard>
 
       {/* ====== DELETE ALL CONFIRMATION DIALOG ====== */}
-      <Dialog
-        open={deleteAllDialogOpen}
-        onClose={() => setDeleteAllDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: 'error.main' }}>
-          🚨 تأكيد الحذف النهائي لجميع الخدمات الطبية
-        </DialogTitle>
+      <Dialog open={deleteAllDialogOpen} onClose={() => setDeleteAllDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: 'error.main' }}>🚨 تأكيد الحذف النهائي لجميع الخدمات الطبية</DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
             <strong>تحذير!</strong> هذا الإجراء لا يمكن التراجع عنه!
@@ -727,16 +693,13 @@ const MedicalServicesList = () => {
           </Alert>
           <DialogContentText>
             سيتم حذف جميع الخدمات الطبية بشكل دائم ولا يمكن استرجاعها.
-            <br /><br />
+            <br />
+            <br />
             <strong style={{ color: 'red' }}>⚠️ هل أنت متأكد تماماً من المتابعة؟</strong>
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setDeleteAllDialogOpen(false)}
-            color="inherit"
-            disabled={deleteAllMutation.isPending}
-          >
+          <Button onClick={() => setDeleteAllDialogOpen(false)} color="inherit" disabled={deleteAllMutation.isPending}>
             إلغاء
           </Button>
           <Button
@@ -752,32 +715,21 @@ const MedicalServicesList = () => {
       </Dialog>
 
       {/* ====== DEACTIVATE ALL CONFIRMATION DIALOG ====== */}
-      <Dialog
-        open={deactivateAllDialogOpen}
-        onClose={() => setDeactivateAllDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: 'warning.main' }}>
-          تأكيد إلغاء تنشيط جميع الخدمات الطبية
-        </DialogTitle>
+      <Dialog open={deactivateAllDialogOpen} onClose={() => setDeactivateAllDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: 'warning.main' }}>تأكيد إلغاء تنشيط جميع الخدمات الطبية</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
             سيتم إلغاء تنشيط ({stats?.active || 0}) خدمة طبية نشطة.
           </Alert>
           <DialogContentText>
-            سيتم وضع علامة "غير نشط" على جميع الخدمات الطبية النشطة.
-            يمكنك إعادة تنشيطها لاحقاً باستخدام زر "تنشيط الكل".
-            <br /><br />
+            سيتم وضع علامة "غير نشط" على جميع الخدمات الطبية النشطة. يمكنك إعادة تنشيطها لاحقاً باستخدام زر "تنشيط الكل".
+            <br />
+            <br />
             <strong>هل أنت متأكد من المتابعة؟</strong>
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setDeactivateAllDialogOpen(false)}
-            color="inherit"
-            disabled={deactivateAllMutation.isPending}
-          >
+          <Button onClick={() => setDeactivateAllDialogOpen(false)} color="inherit" disabled={deactivateAllMutation.isPending}>
             إلغاء
           </Button>
           <Button
@@ -793,31 +745,21 @@ const MedicalServicesList = () => {
       </Dialog>
 
       {/* ====== ACTIVATE ALL CONFIRMATION DIALOG ====== */}
-      <Dialog
-        open={activateAllDialogOpen}
-        onClose={() => setActivateAllDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: 'success.main' }}>
-          تأكيد تنشيط جميع الخدمات الطبية
-        </DialogTitle>
+      <Dialog open={activateAllDialogOpen} onClose={() => setActivateAllDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: 'success.main' }}>تأكيد تنشيط جميع الخدمات الطبية</DialogTitle>
         <DialogContent>
           <Alert severity="success" sx={{ mb: 2 }}>
             سيتم تنشيط ({stats?.inactive || 0}) خدمة طبية غير نشطة.
           </Alert>
           <DialogContentText>
             سيتم وضع علامة "نشط" على جميع الخدمات الطبية غير النشطة.
-            <br /><br />
+            <br />
+            <br />
             <strong>هل أنت متأكد من المتابعة؟</strong>
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setActivateAllDialogOpen(false)}
-            color="inherit"
-            disabled={activateAllMutation.isPending}
-          >
+          <Button onClick={() => setActivateAllDialogOpen(false)} color="inherit" disabled={activateAllMutation.isPending}>
             إلغاء
           </Button>
           <Button

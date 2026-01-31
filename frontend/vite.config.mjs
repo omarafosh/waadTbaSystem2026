@@ -42,10 +42,25 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (id.includes('node_modules')) {
               if (id.includes('exceljs')) return 'vendor-excel';
-              if (id.includes('@mui')) return 'vendor-mui';
+
+              // Split MUI into smaller chunks
+              if (id.includes('@mui/x-date-pickers')) return 'vendor-mui-date';
+              if (id.includes('@mui/x-data-grid')) return 'vendor-mui-grid';
+              if (id.includes('@mui/icons-material')) return 'vendor-mui-icons';
+              if (id.includes('@mui/material')) return 'vendor-mui-core';
+
+              // Charts
               if (id.includes('chart') || id.includes('apexcharts') || id.includes('recharts')) return 'vendor-charts';
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
-              if (id.includes('lodash') || id.includes('axios') || id.includes('date-fns') || id.includes('dayjs') || id.includes('yup') || id.includes('formik')) return 'vendor-utils';
+
+              // React Core
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) return 'vendor-react';
+
+              // Utils
+              if (id.includes('axios')) return 'vendor-axios';
+              if (id.includes('date-fns') || id.includes('dayjs') || id.includes('moment')) return 'vendor-dates';
+              if (id.includes('lodash') || id.includes('formik') || id.includes('yup')) return 'vendor-utils';
+
+              // Other Libs
               if (id.includes('jspdf') || id.includes('html5-qrcode') || id.includes('zxcvbn')) return 'vendor-libs';
             }
           }

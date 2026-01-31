@@ -1,7 +1,6 @@
 package com.waad.tba.modules.providercontract.entity;
 
 import com.waad.tba.modules.provider.entity.Provider;
-import com.waad.tba.modules.employer.entity.Employer;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -15,8 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Provider Contract Entity - represents a pricing agreement with a healthcare
- * provider.
+ * Provider Contract Entity - represents a pricing agreement with a healthcare provider.
  * 
  * Business Rules:
  * - Only ONE active contract per provider at any time
@@ -31,12 +29,11 @@ import java.util.List;
  */
 @Entity(name = "ModernProviderContract")
 @Table(name = "provider_contracts", indexes = {
-        @Index(name = "idx_contracts_provider_id", columnList = "provider_id"),
-        @Index(name = "idx_contracts_employer_id", columnList = "employer_id"),
-        @Index(name = "idx_contracts_status", columnList = "status"),
-        @Index(name = "idx_contracts_contract_code", columnList = "contract_code"),
-        @Index(name = "idx_contracts_start_date", columnList = "start_date"),
-        @Index(name = "idx_contracts_end_date", columnList = "end_date")
+    @Index(name = "idx_contracts_provider_id", columnList = "provider_id"),
+    @Index(name = "idx_contracts_status", columnList = "status"),
+    @Index(name = "idx_contracts_contract_code", columnList = "contract_code"),
+    @Index(name = "idx_contracts_start_date", columnList = "start_date"),
+    @Index(name = "idx_contracts_end_date", columnList = "end_date")
 })
 @Getter
 @Setter
@@ -72,15 +69,6 @@ public class ProviderContract {
     private Provider provider;
 
     /**
-     * The payer/employer this contract is with.
-     * If null, it can be interpreted as a "Standard Network" contract (but usually
-     * explicit is better).
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employer_id")
-    private Employer employer;
-
-    /**
      * Contract status
      */
     @NotNull
@@ -111,9 +99,8 @@ public class ProviderContract {
      * [DEPRECATED] Legacy field - discount rate
      * 
      * @deprecated Use ProviderContractPricingItem.discountPercent instead.
-     *             This field is kept for backward compatibility but should not be
-     *             used
-     *             for new implementations.
+     * This field is kept for backward compatibility but should not be used
+     * for new implementations.
      */
     @Deprecated(since = "2026-01-22", forRemoval = false)
     @Column(name = "discount_rate", precision = 5, scale = 2)
@@ -142,8 +129,7 @@ public class ProviderContract {
      * [DEPRECATED] Total estimated contract value
      * 
      * @deprecated This field is not used in any calculations.
-     *             Contract value should be calculated from sum of pricing items if
-     *             needed.
+     * Contract value should be calculated from sum of pricing items if needed.
      */
     @Deprecated(since = "2026-01-22", forRemoval = false)
     @DecimalMin(value = "0.00", message = "Total value must be >= 0")
@@ -243,21 +229,21 @@ public class ProviderContract {
      * Contract status enum
      */
     public enum ContractStatus {
-        DRAFT, // مسودة - Contract is being prepared
-        ACTIVE, // نشط - Contract is currently active
-        SUSPENDED, // موقوف - Contract temporarily suspended
-        EXPIRED, // منتهي - Contract has expired
-        TERMINATED // ملغي - Contract was terminated early
+        DRAFT,      // مسودة - Contract is being prepared
+        ACTIVE,     // نشط - Contract is currently active
+        SUSPENDED,  // موقوف - Contract temporarily suspended
+        EXPIRED,    // منتهي - Contract has expired
+        TERMINATED  // ملغي - Contract was terminated early
     }
 
     /**
      * Pricing model enum
      */
     public enum PricingModel {
-        FIXED, // سعر ثابت - Fixed price per service
-        DISCOUNT, // نسبة خصم - Percentage discount from list price
-        TIERED, // تسعير متدرج - Volume-based pricing tiers
-        NEGOTIATED // سعر تفاوضي - Individually negotiated prices
+        FIXED,      // سعر ثابت - Fixed price per service
+        DISCOUNT,   // نسبة خصم - Percentage discount from list price
+        TIERED,     // تسعير متدرج - Volume-based pricing tiers
+        NEGOTIATED  // سعر تفاوضي - Individually negotiated prices
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -270,7 +256,7 @@ public class ProviderContract {
     public boolean isCurrentlyEffective() {
         LocalDate today = LocalDate.now();
         return startDate != null && !startDate.isAfter(today) &&
-                (endDate == null || !endDate.isBefore(today));
+               (endDate == null || !endDate.isBefore(today));
     }
 
     /**

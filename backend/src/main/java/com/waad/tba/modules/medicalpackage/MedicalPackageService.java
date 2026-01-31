@@ -65,8 +65,7 @@ public class MedicalPackageService {
 
         MedicalPackage medicalPackage = MedicalPackage.builder()
             .code(dto.getCode())
-            .nameAr(dto.getNameAr())
-            .nameEn(dto.getNameEn())
+            .name(dto.getName())
             .description(dto.getDescription())
             .totalCoverageLimit(dto.getTotalCoverageLimit())
             .active(dto.getActive() != null ? dto.getActive() : true)
@@ -95,8 +94,7 @@ public class MedicalPackageService {
         }
 
         existingPackage.setCode(dto.getCode());
-        existingPackage.setNameAr(dto.getNameAr());
-        existingPackage.setNameEn(dto.getNameEn());
+        existingPackage.setName(dto.getName());
         existingPackage.setDescription(dto.getDescription());
         existingPackage.setTotalCoverageLimit(dto.getTotalCoverageLimit());
         existingPackage.setActive(dto.getActive() != null ? dto.getActive() : true);

@@ -19,7 +19,7 @@ const PreApprovalsTable = ({ preApprovals, loading, totalCount, page, rowsPerPag
     },
     {
       field: 'memberName',
-      headerName: 'المؤمن عليه',
+      headerName: 'المستفيد',
       width: 200
     },
     {

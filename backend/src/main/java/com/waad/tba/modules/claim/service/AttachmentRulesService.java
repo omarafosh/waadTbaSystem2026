@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.waad.tba.modules.claim.entity.Claim;
 import com.waad.tba.modules.claim.entity.ClaimAttachment;
+import com.waad.tba.modules.claim.entity.ClaimAttachmentType;
 import com.waad.tba.modules.claim.entity.ClaimStatus;
 import com.waad.tba.modules.claim.entity.ClaimType;
 import com.waad.tba.modules.claim.entity.ClaimType.AttachmentCategory;
@@ -125,14 +126,24 @@ public class AttachmentRulesService {
     }
     
     /**
-     * Categorize an attachment based on its file name and type.
-     * Uses pattern matching to infer category from file name.
+     * Categorize an attachment based on its explicit type or file name.
+     * Priority: 1) Explicit attachmentType set by user, 2) Filename pattern matching
      * 
      * @param attachment The attachment to categorize
-     * @return Inferred AttachmentCategory, or OTHER if unknown
+     * @return AttachmentCategory based on explicit type or inferred from filename
      */
     public AttachmentCategory categorizeAttachment(ClaimAttachment attachment) {
-        if (attachment == null || attachment.getFileName() == null) {
+        if (attachment == null) {
+            return AttachmentCategory.OTHER;
+        }
+        
+        // PRIORITY 1: Use explicit attachmentType if set by user
+        if (attachment.getAttachmentType() != null) {
+            return mapExplicitTypeToCategory(attachment.getAttachmentType());
+        }
+        
+        // PRIORITY 2: Fallback to filename pattern matching
+        if (attachment.getFileName() == null) {
             return AttachmentCategory.OTHER;
         }
         
@@ -183,6 +194,24 @@ public class AttachmentRulesService {
         }
         
         return AttachmentCategory.OTHER;
+    }
+    
+    /**
+     * Map explicit ClaimAttachmentType to AttachmentCategory.
+     * This ensures user-selected attachment types are properly recognized.
+     * 
+     * @param type The explicit attachment type set by user
+     * @return Corresponding AttachmentCategory
+     */
+    private AttachmentCategory mapExplicitTypeToCategory(ClaimAttachmentType type) {
+        return switch (type) {
+            case MEDICAL_REPORT -> AttachmentCategory.MEDICAL_REPORT;
+            case INVOICE -> AttachmentCategory.ITEMIZED_BILL;
+            case PRESCRIPTION -> AttachmentCategory.PRESCRIPTION;
+            case LAB_RESULT -> AttachmentCategory.LAB_RESULTS;
+            case XRAY -> AttachmentCategory.RADIOLOGY_REPORT;
+            case OTHER -> AttachmentCategory.OTHER;
+        };
     }
     
     /**
