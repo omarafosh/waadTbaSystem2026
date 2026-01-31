@@ -1,8 +1,11 @@
 // ==============================|| DEFAULT THEME - TYPOGRAPHY ||============================== //
 
 export default function Typography(fontFamily, fontSize = 12) {
-  // Construct font family string with Cairo and Tajawal as priorities if selected
-  const activeFont = fontFamily === 'Cairo' ? `'Cairo', sans-serif` : `'Tajawal', sans-serif`;
+  // Tajawal Font - Primary font for Arabic-only system
+  // Falls back to system Arabic fonts if Tajawal fails to load
+  const activeFont = fontFamily === 'Cairo'
+    ? `'Cairo', 'Segoe UI Arabic', sans-serif`
+    : `'Tajawal', 'Segoe UI Arabic', sans-serif`;
 
   // Base Header Size (User requested Titles to be +2 from Base)
   const baseHeaderSize = fontSize + 2;

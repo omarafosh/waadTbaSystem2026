@@ -1,3 +1,5 @@
+// Tajawal font loaded via Google Fonts CDN in index.html
+
 import PropTypes from 'prop-types';
 import { useMemo } from 'react';
 
