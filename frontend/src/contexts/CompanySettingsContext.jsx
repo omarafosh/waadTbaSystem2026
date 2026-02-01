@@ -20,7 +20,7 @@
  * @created 2026-01-24
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { companyService } from 'services/api/company.service';
 
@@ -151,7 +151,7 @@ export function CompanySettingsProvider({ children }) {
     return name.charAt(0).toUpperCase();
   }, [settings.companyName, settings.companyNameEn]);
 
-  const value = {
+  const value = useMemo(() => ({
     // Settings data
     settings,
     loading,
@@ -171,7 +171,7 @@ export function CompanySettingsProvider({ children }) {
     companyNameEn: settings.companyNameEn,
     logoUrl: settings.logoUrl,
     primaryColor: settings.primaryColor,
-  };
+  }), [settings, loading, error, updateSettings, refreshSettings, getLogoSrc, hasLogo, getInitials]);
 
   return (
     <CompanySettingsContext.Provider value={value}>

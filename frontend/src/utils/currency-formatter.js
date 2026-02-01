@@ -15,7 +15,7 @@
  * formatCurrency(1500.50) // "1,500.50 د.ل"
  * formatCurrency(1500) // "1,500.00 د.ل"
  */
-export const formatCurrency = (amount, locale = 'en-US') => {
+export const formatCurrency = (amount, locale = 'ar-SA') => {
   if (amount === null || amount === undefined || isNaN(amount)) {
     return '0.00 د.ل';
   }
@@ -37,7 +37,7 @@ export const formatCurrency = (amount, locale = 'en-US') => {
  * @example
  * formatNumber(1500.50) // "1,500.500"
  */
-export const formatNumber = (amount, locale = 'en-US') => {
+export const formatNumber = (amount, locale = 'ar-SA') => {
   if (amount === null || amount === undefined || isNaN(amount)) {
     return '0.000';
   }

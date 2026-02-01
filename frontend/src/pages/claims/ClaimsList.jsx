@@ -86,7 +86,7 @@ const CLAIM_STATUS_MAP = {
  */
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '-';
-  return `${Number(value).toLocaleString('en-US')} د.ل`;
+  return `${Number(value).toLocaleString('ar-SA')} د.ل`;
 };
 
 /**
@@ -94,7 +94,7 @@ const formatCurrency = (value) => {
  */
 const formatDate = (date) => {
   if (!date) return '-';
-  return new Date(date).toLocaleDateString('en-US');
+  return new Date(date).toLocaleDateString('ar-SA');
 };
 
 // ============================================================================

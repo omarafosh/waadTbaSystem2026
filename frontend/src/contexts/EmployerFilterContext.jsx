@@ -27,7 +27,7 @@
  * ```
  */
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 
 // ============================================================================
@@ -37,8 +37,8 @@ import PropTypes from 'prop-types';
 const EmployerFilterContext = createContext({
   selectedEmployerId: null,
   selectedEmployer: null,
-  setEmployer: () => {},
-  clearFilter: () => {},
+  setEmployer: () => { },
+  clearFilter: () => { },
   isFilterActive: false
 });
 
@@ -49,7 +49,7 @@ const EmployerFilterContext = createContext({
 export const EmployerFilterProvider = ({ children }) => {
   // State: selected employer ID
   const [selectedEmployerId, setSelectedEmployerId] = useState(null);
-  
+
   // State: selected employer details (name, etc.)
   const [selectedEmployer, setSelectedEmployer] = useState(null);
 
@@ -113,7 +113,7 @@ export const EmployerFilterProvider = ({ children }) => {
       // Try new key first
       let savedId = localStorage.getItem('tba_selected_partner_id');
       let savedData = localStorage.getItem('tba_selected_partner');
-      
+
       // Fallback to legacy keys for backward compatibility
       if (!savedId) {
         savedId = localStorage.getItem('tba_selected_employer_id');
@@ -139,13 +139,13 @@ export const EmployerFilterProvider = ({ children }) => {
   const isFilterActive = selectedEmployerId !== null;
 
   // Context value
-  const value = {
+  const value = useMemo(() => ({
     selectedEmployerId,
     selectedEmployer,
     setEmployer,
     clearFilter,
     isFilterActive
-  };
+  }), [selectedEmployerId, selectedEmployer, setEmployer, clearFilter, isFilterActive]);
 
   return <EmployerFilterContext.Provider value={value}>{children}</EmployerFilterContext.Provider>;
 };

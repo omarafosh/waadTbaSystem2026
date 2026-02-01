@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { format, addYears, differenceInMonths } from 'date-fns';
+import dayjs from 'dayjs';
 
 // MUI Components
 import {
@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -86,8 +86,8 @@ const ProviderContractCreate = () => {
   const [formData, setFormData] = useState({
     providerId: '',
     contractCode: '',
-    startDate: new Date(),
-    endDate: addYears(new Date(), 1),
+    startDate: dayjs(),
+    endDate: dayjs().add(1, 'year'),
     pricingModel: 'DISCOUNT',
     discountRate: 10.0,
     notes: ''
@@ -141,11 +141,11 @@ const ProviderContractCreate = () => {
   console.log('=== PROVIDERS DEBUG ===');
   console.log('1. Raw providersResponse:', providersResponse);
   console.log('2. Is Array?', Array.isArray(providersResponse));
-  
-  const providers = Array.isArray(providersResponse) 
-    ? providersResponse 
+
+  const providers = Array.isArray(providersResponse)
+    ? providersResponse
     : providersResponse?.data || [];
-  
+
   console.log('3. Final extracted providers:', providers);
   console.log('4. Providers count:', providers.length);
   if (providers.length > 0) {
@@ -165,8 +165,8 @@ const ProviderContractCreate = () => {
         .slice(0, 2)
         .map((word) => word[0])
         .join('');
-      const year = format(formData.startDate, 'yyyy');
-      const month = format(formData.startDate, 'MM');
+      const year = dayjs(formData.startDate).format('YYYY');
+      const month = dayjs(formData.startDate).format('MM');
       const timestamp = Date.now().toString().slice(-3);
       setAutoContractCode(`PC-${providerInitials || 'XX'}-${year}${month}-${timestamp}`);
     } else {
@@ -177,7 +177,7 @@ const ProviderContractCreate = () => {
   // Calculate contract duration
   useEffect(() => {
     if (formData.startDate && formData.endDate) {
-      const months = differenceInMonths(formData.endDate, formData.startDate);
+      const months = dayjs(formData.endDate).diff(dayjs(formData.startDate), 'month');
       setContractDuration(months > 0 ? months : 0);
     }
   }, [formData.startDate, formData.endDate]);
@@ -252,8 +252,8 @@ const ProviderContractCreate = () => {
     const payload = {
       providerId: formData.providerId,
       contractCode: autoContractCode, // Use auto-generated code
-      startDate: format(formData.startDate, 'yyyy-MM-dd'),
-      endDate: format(formData.endDate, 'yyyy-MM-dd'),
+      startDate: dayjs(formData.startDate).format('YYYY-MM-DD'),
+      endDate: dayjs(formData.endDate).format('YYYY-MM-DD'),
       pricingModel: formData.pricingModel,
       discountRate: formData.pricingModel === 'DISCOUNT' ? parseFloat(formData.discountRate) : null,
       notes: formData.notes || null
@@ -375,7 +375,7 @@ const ProviderContractCreate = () => {
                             <Chip label={option.city} size="small" variant="outlined" sx={{ height: 18 }} />
                           )}
                           {option.providerType && (
-                            <Chip 
+                            <Chip
                               label={{
                                 HOSPITAL: 'مستشفى',
                                 CLINIC: 'عيادة',
@@ -383,10 +383,10 @@ const ProviderContractCreate = () => {
                                 PHARMACY: 'صيدلية',
                                 RADIOLOGY: 'أشعة'
                               }[option.providerType] || option.providerType}
-                              size="small" 
+                              size="small"
                               color="primary"
-                              variant="outlined" 
-                              sx={{ height: 18 }} 
+                              variant="outlined"
+                              sx={{ height: 18 }}
                             />
                           )}
                         </Box>
@@ -434,7 +434,7 @@ const ProviderContractCreate = () => {
 
                   {/* Start Date */}
                   <Grid item xs={12} md={6}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
                       <DatePicker
                         label="تاريخ بداية العقد *"
                         value={formData.startDate}
@@ -453,7 +453,7 @@ const ProviderContractCreate = () => {
 
                   {/* End Date */}
                   <Grid item xs={12} md={6}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
                       <DatePicker
                         label="تاريخ انتهاء العقد *"
                         value={formData.endDate}

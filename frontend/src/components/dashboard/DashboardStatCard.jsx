@@ -19,7 +19,7 @@ const DashboardStatCard = ({ title, value, change, icon: Icon, color = 'primary'
                 {title}
               </Typography>
               <Typography variant="h4" fontWeight="bold">
-                {value?.toLocaleString('en-US') || 0}
+                {value?.toLocaleString('ar-SA') || 0}
               </Typography>
             </Box>
             {Icon && (

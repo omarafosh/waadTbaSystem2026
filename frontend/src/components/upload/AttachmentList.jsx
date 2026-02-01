@@ -25,8 +25,8 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ar';
 
 /**
  * AttachmentList Component
@@ -48,7 +48,7 @@ const AttachmentList = ({
 
   const getFileIcon = (fileType) => {
     if (!fileType) return <FileIcon />;
-    
+
     if (fileType.includes('pdf')) {
       return <PdfIcon sx={{ color: '#f44336' }} />;
     }
@@ -68,7 +68,7 @@ const AttachmentList = ({
   const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ar });
+      return dayjs(dateString).locale('ar').format('DD/MM/YYYY HH:mm');
     } catch (err) {
       return dateString;
     }
@@ -76,10 +76,10 @@ const AttachmentList = ({
 
   const handleDownload = async (attachment) => {
     if (!onDownload) return;
-    
+
     try {
       const blob = await onDownload(attachment.id);
-      
+
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -120,7 +120,7 @@ const AttachmentList = ({
 
   const handleDelete = async (attachmentId) => {
     if (!onDelete) return;
-    
+
     const confirmed = window.confirm('هل أنت متأكد من حذف هذا المرفق؟');
     if (!confirmed) return;
 
@@ -133,7 +133,7 @@ const AttachmentList = ({
 
   const getTypeLabel = (attachment) => {
     if (!attachment.attachmentType) return '';
-    
+
     // Map attachment types to Arabic labels
     const typeLabels = {
       INVOICE: 'فاتورة',

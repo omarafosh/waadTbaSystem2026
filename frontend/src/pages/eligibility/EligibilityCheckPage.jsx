@@ -479,7 +479,7 @@ const EligibilityCheckPage = () => {
                         الحد السنوي
                       </Typography>
                       <Typography variant="h6" color="primary">
-                        {result.coverageLimit.toLocaleString('en-US')} د.ل
+                        {result.coverageLimit.toLocaleString('ar-SA')} د.ل
                       </Typography>
                     </Box>
                   )}

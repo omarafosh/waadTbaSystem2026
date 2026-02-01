@@ -35,7 +35,7 @@ const ProgressWithLabel = ({ value, max, label, color = 'primary' }) => {
           {label}
         </Typography>
         <Typography variant="body2" fontWeight={600} color={`${color}.main`}>
-          {value.toLocaleString('en-US')}
+          {value.toLocaleString('ar-SA')}
         </Typography>
       </Box>
       <LinearProgress variant="determinate" value={Math.min(percentage, 100)} color={color} sx={{ height: 6, borderRadius: 3 }} />

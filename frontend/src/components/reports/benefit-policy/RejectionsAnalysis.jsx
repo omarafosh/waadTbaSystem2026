@@ -223,7 +223,7 @@ const RejectionsAnalysis = ({ rejectionsAnalysis = {}, loading = false }) => {
         <Grid item xs={12} sm={4}>
           <KPICard
             title="إجمالي المطالبات المرفوضة"
-            value={kpis.totalRejectedClaims?.toLocaleString('en-US') || '0'}
+            value={kpis.totalRejectedClaims?.toLocaleString('ar-SA') || '0'}
             subtitle="عدد المطالبات بحالة REJECTED"
             icon={RejectedIcon}
             color="error"

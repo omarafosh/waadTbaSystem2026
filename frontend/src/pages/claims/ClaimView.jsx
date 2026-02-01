@@ -714,7 +714,7 @@ const ClaimView = () => {
                       <InfoRow label="التشخيص" value={claim?.diagnosis} />
                       <InfoRow
                         label="تاريخ الزيارة"
-                        value={claim?.visitDate ? new Date(claim.visitDate).toLocaleDateString('en-US') : '-'}
+                        value={claim?.visitDate ? new Date(claim.visitDate).toLocaleDateString('ar-SA') : '-'}
                       />
                     </CardContent>
                   </Card>
@@ -806,13 +806,13 @@ const ClaimView = () => {
                                   <TableCell align="center">{line?.quantity ?? 1}</TableCell>
                                   <TableCell align="right">
                                     {typeof line?.unitPrice === 'number'
-                                      ? line.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })
+                                      ? line.unitPrice.toLocaleString('ar-SA', { minimumFractionDigits: 2 })
                                       : '-'}
                                   </TableCell>
                                   <TableCell align="right">
                                     <Typography fontWeight={500}>
                                       {typeof line?.totalPrice === 'number'
-                                        ? line.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })
+                                        ? line.totalPrice.toLocaleString('ar-SA', { minimumFractionDigits: 2 })
                                         : '-'}
                                     </Typography>
                                   </TableCell>

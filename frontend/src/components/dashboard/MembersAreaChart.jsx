@@ -63,14 +63,14 @@ const MembersAreaChart = ({ data, loading }) => {
           colors: theme.palette.text.secondary,
           fontFamily: fontFamily
         },
-        formatter: (val) => val.toLocaleString('en-US')
+        formatter: (val) => val.toLocaleString('ar-SA')
       }
     },
     colors: [theme.palette.success.main],
     tooltip: {
       theme: colorScheme === ThemeMode.DARK ? 'dark' : 'light',
       y: {
-        formatter: (val) => val.toLocaleString('en-US')
+        formatter: (val) => val.toLocaleString('ar-SA')
       }
     },
     legend: {

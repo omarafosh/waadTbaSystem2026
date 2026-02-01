@@ -693,7 +693,7 @@ const BenefitPolicyRulesTab = ({ policyId, policyStatus }) => {
 
                     {/* Amount Limit */}
                     <TableCell align="center">
-                      {rule.amountLimit ? `${Number(rule.amountLimit).toLocaleString('en-US')} د.ل` : '-'}
+                      {rule.amountLimit ? `${Number(rule.amountLimit).toLocaleString('ar-SA')} د.ل` : '-'}
                     </TableCell>
 
                     {/* Times Limit */}

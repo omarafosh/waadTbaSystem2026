@@ -61,7 +61,7 @@ const SummaryCard = ({ title, value, subLabel, subValue, icon: Icon, color = 'pr
                 <Skeleton variant="text" width={80} height={40} />
               ) : (
                 <Typography variant="h3" fontWeight={700} color="text.primary">
-                  {typeof value === 'number' ? value.toLocaleString('en-US') : value ?? '—'}
+                  {typeof value === 'number' ? value.toLocaleString('ar-SA') : value ?? '—'}
                 </Typography>
               )}
             </Box>

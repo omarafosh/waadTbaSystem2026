@@ -35,7 +35,7 @@ const CostsBarChart = ({ data, loading }) => {
     },
     dataLabels: {
       enabled: true,
-      formatter: (val) => val.toLocaleString('en-US'),
+      formatter: (val) => val.toLocaleString('ar-SA'),
       style: {
         colors: [theme.palette.text.primary],
         fontFamily: fontFamily
@@ -52,7 +52,7 @@ const CostsBarChart = ({ data, loading }) => {
           colors: theme.palette.text.secondary,
           fontFamily: fontFamily
         },
-        formatter: (val) => val.toLocaleString('en-US')
+        formatter: (val) => val.toLocaleString('ar-SA')
       }
     },
     yaxis: {
@@ -67,7 +67,7 @@ const CostsBarChart = ({ data, loading }) => {
     tooltip: {
       theme: colorScheme === ThemeMode.DARK ? 'dark' : 'light',
       y: {
-        formatter: (val) => val.toLocaleString('en-US') + ' ر.س'
+        formatter: (val) => val.toLocaleString('ar-SA') + ' ر.س'
       }
     }
   });

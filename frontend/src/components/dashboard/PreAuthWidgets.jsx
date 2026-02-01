@@ -14,9 +14,8 @@ import {
   Tooltip
 } from '@mui/material';
 import { TrendingUp, TrendingDown, CheckCircle, Cancel, Pending, Warning, Schedule, Visibility, Edit, Delete } from '@mui/icons-material';
-import { PieChart } from '@mui/x-charts/PieChart';
-import { LineChart } from '@mui/x-charts/LineChart';
-import { BarChart } from '@mui/x-charts/BarChart';
+import ReactApexChart from 'react-apexcharts';
+import { useTheme } from '@mui/material/styles';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/ar';
@@ -41,7 +40,7 @@ export const StatsCard = ({ title, value, change, icon: Icon, color = 'primary',
               </Typography>
               <Typography variant="h4" fontWeight="bold">
                 {prefix}
-                {value?.toLocaleString('en-US') || 0}
+                {value?.toLocaleString('ar-SA') || 0}
                 {suffix}
               </Typography>
             </Box>
@@ -105,56 +104,47 @@ export const StatusDistributionChart = ({ data, loading }) => {
     );
   }
 
-  // Status colors mapping
-  const statusColors = {
-    PENDING: '#ff9800',
-    REQUESTED: '#2196f3',
-    APPROVED: '#4caf50',
-    REJECTED: '#f44336',
-    CANCELLED: '#9e9e9e',
-    EXPIRED: '#795548',
-    USED: '#607d8b'
+  // ApexCharts Options
+  const theme = useTheme();
+  const chartOptions = {
+    chart: {
+      type: 'pie',
+      fontFamily: theme.typography.fontFamily
+    },
+    labels: data.map(item => statusLabels[item.status] || item.status),
+    colors: data.map(item => statusColors[item.status] || '#757575'),
+    legend: {
+      position: 'bottom',
+      fontFamily: theme.typography.fontFamily
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: function (val) {
+        return val.toFixed(1) + "%"
+      }
+    },
+    tooltip: {
+      y: {
+        formatter: function (val) {
+          return val + " طلب"
+        }
+      }
+    }
   };
 
-  // Status labels in Arabic
-  const statusLabels = {
-    PENDING: 'قيد الانتظار',
-    REQUESTED: 'مطلوبة',
-    APPROVED: 'معتمدة',
-    REJECTED: 'مرفوضة',
-    CANCELLED: 'ملغاة',
-    EXPIRED: 'منتهية',
-    USED: 'مستخدمة'
-  };
-
-  const chartData = data.map((item, index) => ({
-    id: index,
-    value: item.count || 0,
-    label: statusLabels[item.status] || item.status,
-    color: statusColors[item.status] || '#757575'
-  }));
+  const chartSeries = data.map(item => item.count || 0);
 
   return (
     <Card>
       <CardHeader title="توزيع الحالات" />
       <CardContent>
-        <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <PieChart
-            series={[
-              {
-                data: chartData,
-                highlightScope: { faded: 'global', highlighted: 'item' },
-                faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' }
-              }
-            ]}
+        <Box sx={{ height: 350, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <ReactApexChart
+            options={chartOptions}
+            series={chartSeries}
+            type="pie"
             height={300}
-            slotProps={{
-              legend: {
-                direction: 'column',
-                position: { vertical: 'middle', horizontal: 'right' },
-                padding: 0
-              }
-            }}
+            width="100%"
           />
         </Box>
       </CardContent>
@@ -234,7 +224,7 @@ export const HighPriorityQueue = ({ data, loading, onView, onEdit, onDelete }) =
                       </td>
                       <td style={{ padding: '12px 8px' }}>
                         <Typography variant="body2">
-                          {row.requestedAmount?.toLocaleString('en-US')} ر.س
+                          {row.requestedAmount?.toLocaleString('ar-SA')} ر.س
                         </Typography>
                       </td>
                       <td style={{ padding: '12px 8px' }}>
@@ -378,30 +368,48 @@ export const TrendsChart = ({ data, loading, days = 30 }) => {
   }
 
   // Transform data for chart
+  const theme = useTheme();
   const xLabels = data.map((item) => dayjs(item.date).format('MM/DD'));
-
   const requestedData = data.map((item) => item.requestedCount || 0);
   const approvedData = data.map((item) => item.approvedCount || 0);
+
+  const chartOptions = {
+    chart: {
+      type: 'line',
+      fontFamily: theme.typography.fontFamily,
+      toolbar: { show: false }
+    },
+    xaxis: {
+      categories: xLabels
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 3
+    },
+    colors: ['#2196f3', '#4caf50'],
+    legend: {
+      position: 'top'
+    },
+    grid: {
+      borderColor: '#f1f1f1'
+    }
+  };
+
+  const chartSeries = [
+    { name: 'المطلوبة', data: requestedData },
+    { name: 'المعتمدة', data: approvedData }
+  ];
 
   return (
     <Card>
       <CardHeader title={`اتجاهات الطلبات (آخر ${days} يوم)`} />
       <CardContent>
-        <Box sx={{ height: 300 }}>
-          <LineChart
-            series={[
-              { data: requestedData, label: 'المطلوبة', color: '#2196f3' },
-              { data: approvedData, label: 'المعتمدة', color: '#4caf50' }
-            ]}
-            xAxis={[{ scaleType: 'point', data: xLabels }]}
+        <Box sx={{ height: 320 }}>
+          <ReactApexChart
+            options={chartOptions}
+            series={chartSeries}
+            type="line"
             height={300}
-            margin={{ left: 50, right: 20, top: 20, bottom: 30 }}
-            slotProps={{
-              legend: {
-                direction: 'row',
-                position: { vertical: 'top', horizontal: 'right' }
-              }
-            }}
           />
         </Box>
       </CardContent>
@@ -437,39 +445,58 @@ export const TopProvidersChart = ({ data, loading, limit = 10 }) => {
     );
   }
 
+  const theme = useTheme();
   const xLabels = data.map((item) => item.providerName || 'غير محدد');
   const requestsData = data.map((item) => item.totalRequests || 0);
   const approvalRateData = data.map((item) => item.approvalRate || 0);
+
+  const chartOptions = {
+    chart: {
+      type: 'bar',
+      fontFamily: theme.typography.fontFamily,
+      toolbar: { show: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '55%',
+        endingShape: 'rounded'
+      },
+    },
+    dataLabels: {
+      enabled: false
+    },
+    xaxis: {
+      categories: xLabels,
+      labels: {
+        rotate: -45,
+        style: {
+          fontSize: '10px'
+        }
+      }
+    },
+    colors: ['#2196f3', '#4caf50'],
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right'
+    }
+  };
+
+  const chartSeries = [
+    { name: 'عدد الطلبات', data: requestsData },
+    { name: 'نسبة الموافقة %', data: approvalRateData }
+  ];
 
   return (
     <Card>
       <CardHeader title={`أكثر ${limit} مقدمي خدمات`} subheader="حسب عدد الطلبات ونسبة الموافقة" />
       <CardContent>
         <Box sx={{ height: 350 }}>
-          <BarChart
-            series={[
-              { data: requestsData, label: 'عدد الطلبات', stack: 'A', color: '#2196f3' },
-              { data: approvalRateData, label: 'نسبة الموافقة %', stack: 'B', color: '#4caf50' }
-            ]}
-            xAxis={[
-              {
-                scaleType: 'band',
-                data: xLabels,
-                tickLabelStyle: {
-                  angle: -45,
-                  textAnchor: 'end',
-                  fontSize: 10
-                }
-              }
-            ]}
+          <ReactApexChart
+            options={chartOptions}
+            series={chartSeries}
+            type="bar"
             height={350}
-            margin={{ left: 50, right: 20, top: 20, bottom: 100 }}
-            slotProps={{
-              legend: {
-                direction: 'row',
-                position: { vertical: 'top', horizontal: 'right' }
-              }
-            }}
           />
         </Box>
       </CardContent>

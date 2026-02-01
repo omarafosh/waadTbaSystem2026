@@ -6,19 +6,19 @@
  * Standardized formatters for the entire application.
  * 
  * CRITICAL RULES:
- * - All numbers: English digits (1234567890)
- * - All dates: English format (DD/MM/YYYY)
- * - All currency: Libyan Dinar (د.ل or LYD)
- * - Locale: 'en-US' for all formatters
+ * - All numbers: Arabic-context digits (Intl default)
+ * - All dates: Arabic format (Intl default)
+ * - All currency: Libyan Dinar (د.ل)
+ * - Locale: 'ar-SA' for all formatters
  * 
- * @created 2026-01-03
+ * @updated 2026-01-31 (Arabic support request)
  */
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-export const LOCALE = 'en-US';
+export const LOCALE = 'ar-SA';
 export const CURRENCY_CODE = 'LYD';
 export const CURRENCY_SYMBOL = 'د.ل';
 
@@ -44,12 +44,12 @@ export const formatNumber = (value) => {
  */
 export const formatCurrency = (value, showSymbol = true) => {
   if (value === null || value === undefined || isNaN(value)) return '-';
-  
+
   const formatted = new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(value);
-  
+
   return showSymbol ? `${formatted} ${CURRENCY_SYMBOL}` : formatted;
 };
 
@@ -75,11 +75,11 @@ export const formatPercentage = (value, decimals = 1) => {
  */
 export const formatDate = (date) => {
   if (!date) return '-';
-  
+
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '-';
-    
+
     // Strict YYYY-MM-DD format as requested
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -104,11 +104,11 @@ export const formatCurrencyLYD = (value) => formatCurrency(value);
  */
 export const formatDateTime = (date) => {
   if (!date) return '-';
-  
+
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '-';
-    
+
     return new Intl.DateTimeFormat(LOCALE, {
       day: '2-digit',
       month: '2-digit',
@@ -130,11 +130,11 @@ export const formatDateTime = (date) => {
  */
 export const formatDateLong = (date) => {
   if (!date) return '-';
-  
+
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '-';
-    
+
     return new Intl.DateTimeFormat(LOCALE, {
       dateStyle: 'long'
     }).format(d);
@@ -151,11 +151,11 @@ export const formatDateLong = (date) => {
  */
 export const formatTime = (date) => {
   if (!date) return '-';
-  
+
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '-';
-    
+
     return new Intl.DateTimeFormat(LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
@@ -178,11 +178,11 @@ export const formatTime = (date) => {
  */
 export const formatFileSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
-  
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 

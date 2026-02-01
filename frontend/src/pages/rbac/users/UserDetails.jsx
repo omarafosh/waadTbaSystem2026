@@ -552,7 +552,7 @@ const UserDetails = () => {
               آخر دخول
             </Typography>
             <Typography variant="body2">
-              {user?.lastLogin ? new Date(user.lastLogin).toLocaleDateString('en-US') : 'لم يسجل الدخول'}
+              {user?.lastLogin ? new Date(user.lastLogin).toLocaleDateString('ar-SA') : 'لم يسجل الدخول'}
             </Typography>
           </Box>
         </Stack>

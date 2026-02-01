@@ -9,9 +9,8 @@ import com.waad.tba.modules.member.dto.MemberFinancialSummaryDto;
 import com.waad.tba.modules.member.dto.MemberUpdateDto;
 import com.waad.tba.modules.member.dto.MemberViewDto;
 import com.waad.tba.modules.member.service.MemberFinancialSummaryService;
+import com.waad.tba.modules.member.service.MemberPdfExportService;
 import com.waad.tba.modules.member.service.UnifiedMemberService;
-import com.waad.tba.services.pdf.HtmlToPdfService;
-import com.waad.tba.services.pdf.PdfTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -96,8 +95,7 @@ public class UnifiedMemberController {
     private final MemberFinancialSummaryService financialSummaryService;
     private final MemberDocumentService memberDocumentService;
     private final FileStorageService fileStorageService;
-    private final PdfTemplateService pdfTemplateService;
-    private final HtmlToPdfService htmlToPdfService;
+    private final MemberPdfExportService memberPdfExportService;
 
     // ==================== CREATE OPERATIONS ====================
 
@@ -721,61 +719,73 @@ public class UnifiedMemberController {
         
         log.info("Generating PDF report for members: orgId={}, status={}, type={}", organizationId, status, type);
         
-        // 1. Fetch Data (Reuse search logic but get larger page or all)
-        // Note: For reporting, we might want a limit, e.g., 1000 records
+        // 1. Fetch Data
         Pageable pageable = PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "id"));
-        
         String searchTerm = (nameAr != null && !nameAr.trim().isEmpty()) ? nameAr : nameEn;
         
         Page<MemberViewDto> membersPage = unifiedMemberService.searchMembers(
             searchTerm, civilId, barcode, cardNumber, 
             organizationId, benefitPolicyId, status, type, false, pageable);
         
-        List<MemberViewDto> members = membersPage.getContent();
-        
-        // 2. Prepare Template Data
-        Map<String, Object> data = new HashMap<>();
-        String reportDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        
-        data.put("reportDate", reportDate);
-        data.put("members", members);
-        
-        // Calculate Summary
-        data.put("totalMembers", membersPage.getTotalElements());
-        data.put("activeMembers", members.stream().filter(m -> 
-            (m.getStatus() != null && "ACTIVE".equals(m.getStatus().name())) || 
-            (m.getCardStatus() != null && "ACTIVE".equals(m.getCardStatus().name()))
-        ).count());
-        
-        long familiesCount = members.stream().filter(m -> 
-            m.getType() != null && "PRINCIPAL".equals(m.getType())
-        ).count();
-        data.put("familiesCount", familiesCount);
-        
-        // Describe filters
+        // 2. Prepare Filter Description
         StringBuilder filterDesc = new StringBuilder();
         if (organizationId != null) filterDesc.append("Company ID: ").append(organizationId).append(", ");
         if (status != null) filterDesc.append("Status: ").append(status).append(", ");
         if (type != null) filterDesc.append("Type: ").append(type).append(", ");
-        if (filterDesc.length() > 0) data.put("filterDescription", filterDesc.toString());
-        else data.put("filterDescription", "الكل");
-
-        // 3. Process Template
-        String html = pdfTemplateService.processTemplate("pdf/beneficiaries-report", data);
         
-        // 4. Convert to PDF
-        byte[] pdfBytes = htmlToPdfService.convertHtmlToPdf(html);
+        // 3. Generate PDF using dedicated service
+        byte[] pdfBytes = memberPdfExportService.generateMembersPdf(
+            membersPage.getContent(), 
+            filterDesc.length() > 0 ? filterDesc.toString() : "الكل"
+        );
         
-        // 5. Response
+        // 4. Response
+        String reportDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String filename = "beneficiaries-report-" + reportDate + ".pdf";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", filename);
-        headers.setContentLength(pdfBytes.length);
         
         return ResponseEntity.ok()
-            .headers(headers)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+            .contentType(MediaType.APPLICATION_PDF)
             .body(pdfBytes);
+    }
+
+    /**
+     * Export Members to Excel based on filters.
+     */
+    @GetMapping("/export/excel")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER', 'BROKER')")
+    @Operation(summary = "Export Members to Excel", description = "Generates and downloads an Excel file of members matching the specified filters.")
+    public ResponseEntity<byte[]> exportMembersExcel(
+            @RequestParam(required = false) String fullName,
+            @RequestParam(required = false) String nameAr,
+            @RequestParam(required = false) String nameEn,
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(required = false) String civilId,
+            @RequestParam(required = false) String barcode,
+            @RequestParam(required = false) String cardNumber,
+            @RequestParam(required = false) Long organizationId,
+            @RequestParam(required = false) Long benefitPolicyId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "false") boolean deleted) throws IOException {
+        
+        log.info("Generating Excel export for members: orgId={}, status={}, type={}", organizationId, status, type);
+        
+        String actualSearchTerm = (searchTerm != null && !searchTerm.trim().isEmpty()) ? searchTerm :
+                           ((fullName != null && !fullName.trim().isEmpty()) ? fullName : 
+                           ((nameAr != null && !nameAr.trim().isEmpty()) ? nameAr : nameEn));
+        
+        byte[] excelBytes = unifiedMemberService.exportMembersToExcel(
+            actualSearchTerm, civilId, barcode, cardNumber, 
+            organizationId, benefitPolicyId, status, type, deleted);
+        
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String filename = "members-export-" + date + ".xlsx";
+        
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .body(excelBytes);
     }
     
     /**
@@ -783,38 +793,20 @@ public class UnifiedMemberController {
      */
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER', 'BROKER', 'PROVIDER')")
-    public ResponseEntity<byte[]> downloadMemberPdf(@PathVariable Long id) throws IOException {
-         // Logic to print single member details... reusing beneficiaries report for now for single item, 
-         // OR we could make a specific 'member-card.html' later.
-         // For now, let's just use the list report filtered by this ID or similar, 
-         // BUT user asked for "Preview PDF" button for single member in previous turn.
-         // Let's implement a simple single page report.
+    public ResponseEntity<byte[]> downloadMemberPdf(@PathVariable Long id) {
+         log.info("Generating PDF card for member: id={}", id);
          
          MemberViewDto member = unifiedMemberService.getMemberWithDependents(id);
+         byte[] pdfBytes = memberPdfExportService.generateMemberCardPdf(member);
          
-         Map<String, Object> data = new HashMap<>();
-         data.put("reportDate", LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-         data.put("members", List.of(member)); // Wrap single member in list
-         data.put("totalMembers", 1);
-         boolean isActive = (member.getStatus() != null && "ACTIVE".equals(member.getStatus().name())) ||
-                            (member.getCardStatus() != null && "ACTIVE".equals(member.getCardStatus().name()));
-         data.put("activeMembers", isActive ? 1 : 0);
+         String filename = "member-card-" + member.getCardNumber() + ".pdf";
          
-         boolean isPrincipal = member.getType() != null && "PRINCIPAL".equals(member.getType());
-         data.put("familiesCount", isPrincipal ? 1 : 0);
-         data.put("filterDescription", "تفاصيل منتفع فردي: " + member.getFullName());
-         
-         String html = pdfTemplateService.processTemplate("pdf/beneficiaries-report", data);
-         byte[] pdfBytes = htmlToPdfService.convertHtmlToPdf(html);
-         
-         String filename = "member-" + member.getCardNumber() + ".pdf";
-         HttpHeaders headers = new HttpHeaders();
-         headers.setContentType(MediaType.APPLICATION_PDF);
-         headers.setContentDispositionFormData("inline", filename); // Inline for preview
-         headers.setContentLength(pdfBytes.length);
-         
-         return ResponseEntity.ok().headers(headers).body(pdfBytes);
+         return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(pdfBytes);
     }
+
 
 
     // ==================== UPDATE OPERATIONS ====================

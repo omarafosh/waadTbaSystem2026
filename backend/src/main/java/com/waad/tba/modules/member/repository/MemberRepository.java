@@ -10,13 +10,15 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 import com.waad.tba.modules.member.entity.Member;
 
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecificationExecutor<Member> {
     
-    @Query("SELECT m FROM Member m WHERE m.civilId = :civilId AND m.active = true ORDER BY m.id DESC")
+    @Query("SELECT m FROM Member m WHERE m.nationalNumber = :civilId AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCivilId(@Param("civilId") String civilId);
     
     @Query("SELECT m FROM Member m WHERE m.nationalNumber = :nationalNumber AND m.active = true ORDER BY m.id DESC")
@@ -41,37 +43,48 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"employerOrganization", "benefitPolicy"})
     @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCardNumberWithDetails(@Param("cardNumber") String cardNumber);
+
+    /**
+     * Finds a member by ID and acquires a pessimistic lock.
+     * Used for atomic financial operations (e.g., deductible calculations).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM Member m WHERE m.id = :id")
+    Optional<Member> findByIdForFinancialUpdate(@Param("id") Long id);
     
-    // Removed deprecated findByQrCodeValue to fix startup error (property qrCodeValue doesn't exist)
+
     
-    @Deprecated
-    List<Member> findByEmployerId(Long employerId);
-    
-    @Deprecated
-    Long countByEmployerId(Long employerId);
-    
-    // findByBenefitPolicyId is declared at the bottom of this interface
     
     List<Member> findByStatus(Member.MemberStatus status);
+
+    /**
+     * Find all active members.
+     * Used for efficient bulk operations/pre-loading.
+     */
+    List<Member> findByActiveTrue();
     
-    @Deprecated
-    @Query("SELECT m FROM Member m WHERE m.employer.id = :employerId AND m.status = :status")
-    List<Member> findByEmployerIdAndStatus(@Param("employerId") Long employerId, 
-                                           @Param("status") Member.MemberStatus status);
+
     
-    boolean existsByCivilId(String civilId);
+    
+    boolean existsByNationalNumber(String nationalNumber);
+    // Deprecated alias for backward compatibility
+    default boolean existsByCivilId(String civilId) {
+        return existsByNationalNumber(civilId);
+    }
+
     boolean existsByCardNumber(String cardNumber);
-    boolean existsByCivilIdAndIdNot(String civilId, Long id);
-    boolean existsByCardNumberAndIdNot(String cardNumber, Long id);
+    
+    boolean existsByNationalNumberAndIdNot(String nationalNumber, Long id);
+    // Deprecated alias for backward compatibility
+    default boolean existsByCivilIdAndIdNot(String civilId, Long id) {
+        return existsByNationalNumberAndIdNot(civilId, id);
+    }
     
     /**
      * 🔒 CRITICAL: Check if barcode exists (for collision prevention with FamilyMember)
      * Used by BarcodeGeneratorService.generateUniqueBarcodeForFamilyMember()
      */
     boolean existsByBarcode(String barcode);
-    
-    @Deprecated
-    Page<Member> findByEmployerId(Long employerId, Pageable pageable);
     
     // Duplicates removed (searchPagedByEmployerOrganizationId, findByEmployerOrganizationId) - see Canoncial Model section below
 
@@ -90,7 +103,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     
     @Query("SELECT m FROM Member m LEFT JOIN FETCH m.employerOrganization LEFT JOIN FETCH m.benefitPolicy WHERE " +
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(m.civilId) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(m.cardNumber) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Member> search(@Param("query") String query);
     
@@ -146,7 +159,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      */
     @Query("SELECT m FROM Member m WHERE m.employerOrganization.id = :employerOrgId AND (" +
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(m.civilId) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(m.cardNumber) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<Member> searchByEmployerOrganizationId(@Param("query") String query, @Param("employerOrgId") Long employerOrgId);
 
@@ -211,21 +224,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Member> findByFullNameContainingIgnoreCase(@Param("name") String name);
     
-    /**
-     * @deprecated Use findByFullNameContainingIgnoreCase for clarity
-     */
-    @Deprecated
-    default List<Member> findByNameContainingIgnoreCase(String name) {
-        return findByFullNameContainingIgnoreCase(name);
-    }
-    
-    /**
-     * @deprecated Use findByFullNameContainingIgnoreCase for clarity
-     */
-    @Deprecated
-    @Query("SELECT m FROM Member m WHERE " +
-           "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :name, '%'))")
-    List<Member> findByNameContaining(@Param("name") String name);
+
 
     /**
      * Find members by name and employer organization ID - CASE INSENSITIVE
@@ -246,7 +245,10 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     /**
      * Find member by civil ID and employer organization ID
      */
-    @Query("SELECT m FROM Member m WHERE m.civilId = :civilId AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    /**
+     * Find member by civil ID and employer organization ID
+     */
+    @Query("SELECT m FROM Member m WHERE m.nationalNumber = :civilId AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCivilIdAndEmployerOrganizationId(@Param("civilId") String civilId, @Param("employerOrgId") Long employerOrgId);
 
     /**
@@ -263,6 +265,24 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      */
     @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCardNumberAndEmployerOrganizationId(@Param("cardNumber") String cardNumber, @Param("employerOrgId") Long employerOrgId);
+
+    /**
+     * Find member by national number and employer organization ID
+     */
+    @Query("SELECT m FROM Member m WHERE m.nationalNumber = :nationalNumber AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByNationalNumberAndEmployerOrganizationId(@Param("nationalNumber") String nationalNumber, @Param("employerOrgId") Long employerOrgId);
+
+    /**
+     * Find member by employee number and employer organization ID
+     */
+    @Query("SELECT m FROM Member m WHERE m.employeeNumber = :employeeNumber AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByEmployeeNumberAndEmployerOrganizationId(@Param("employeeNumber") String employeeNumber, @Param("employerOrgId") Long employerOrgId);
+
+    /**
+     * Find member by full name and employer organization ID (active only)
+     */
+    @Query("SELECT m FROM Member m WHERE LOWER(m.fullName) = LOWER(:fullName) AND m.employerOrganization.id = :employerOrgId AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByFullNameAndEmployerOrganizationIdAndActiveTrue(@Param("fullName") String fullName, @Param("employerOrgId") Long employerOrgId);
 
     /**
      * Find members by phone containing search term

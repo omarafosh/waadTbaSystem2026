@@ -122,7 +122,7 @@ const KpiCard = memo(({ title, value, icon: Icon, color = 'primary', sparklineDa
 
           {/* Value */}
           <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-            {value?.toLocaleString('en-US') || 0}
+            {value?.toLocaleString('ar-SA') || 0}
           </Typography>
 
           {/* Mini Sparkline Chart */}

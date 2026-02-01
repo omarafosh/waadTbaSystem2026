@@ -159,7 +159,7 @@ const ContractPriceDisplay = ({ loading, price, hasContract, error }) => {
   return (
     <Chip
       icon={<ContractIcon />}
-      label={`${price?.toLocaleString('en-US')} د.ل`}
+      label={`${price?.toLocaleString('ar-SA')} د.ل`}
       color="success"
       size="small"
       variant="filled"
@@ -1005,7 +1005,7 @@ const ClaimCreate = () => {
                               <TableCell align="center">
                                 {line.hasContract && (
                                   <Typography variant="body2" fontWeight="bold">
-                                    {(line.unitPrice * line.quantity).toLocaleString('en-US')} د.ل
+                                    {(line.unitPrice * line.quantity).toLocaleString('ar-SA')} د.ل
                                   </Typography>
                                 )}
                               </TableCell>
@@ -1053,7 +1053,7 @@ const ClaimCreate = () => {
                         />
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="success.dark">
-                        {calculateTotal().toLocaleString('en-US')} د.ل
+                        {calculateTotal().toLocaleString('ar-SA')} د.ل
                       </Typography>
                     </Box>
                   )}

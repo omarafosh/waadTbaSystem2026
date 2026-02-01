@@ -77,6 +77,13 @@ public class Member {
     private List<Member> dependents = new ArrayList<>();
 
     /**
+     * Count of dependents for this member.
+     * Calculated using a subquery to avoid N+1 problem during list retrieval.
+     */
+    @org.hibernate.annotations.Formula("(SELECT COUNT(*) FROM members m WHERE m.parent_id = id)")
+    private Integer dependentsCount;
+
+    /**
      * Relationship type - ONLY for dependents (where parent != null).
      * NULL for principal members.
      * Examples: WIFE, HUSBAND, SON, DAUGHTER, FATHER, MOTHER, BROTHER, SISTER
@@ -170,14 +177,23 @@ public class Member {
     @Column(nullable = false, length = 200, name = "full_name")
     private String fullName;
 
-    // Phase 1 Enterprise Fix: Civil ID is Optional (DEPRECATED - use nationalNumber)
-    @Deprecated
-    @Column(length = 50, name = "civil_id")
-    private String civilId;
-
-    // National Number (الرقم الوطني) - OPTIONAL, replaces civilId
+    // National Number (الرقم الوطني) - The ONLY authorized field for ID
     @Column(length = 50, name = "national_number")
     private String nationalNumber;
+
+    // DEPRECATED COMPATIBILITY LAYER
+    // Phase 1 Enterprise Fix: Civil ID is now migrated to National Number
+    // These methods ensure backward compatibility with code expecting "civilId"
+    @Transient
+    @Deprecated
+    public String getCivilId() {
+        return this.nationalNumber;
+    }
+
+    @Deprecated
+    public void setCivilId(String civilId) {
+        this.nationalNumber = civilId;
+    }
 
     // ==================== UNIFIED IDENTIFICATION SYSTEM ====================
     

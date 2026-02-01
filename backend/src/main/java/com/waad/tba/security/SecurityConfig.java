@@ -18,6 +18,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,6 +44,9 @@ public class SecurityConfig {
     private final SessionAuthenticationFilter sessionAuthenticationFilter; // Phase B: Session support
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder; // Injected from PasswordEncoderConfig
+    
+    @Value("${app.frontend.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -47,18 +54,16 @@ public class SecurityConfig {
                 // ENTERPRISE FIX: Disable CSRF for REST API
                 // ========================================
                 // Reasoning for disabling CSRF in this enterprise system:
-                // 1. API uses session-based auth with HttpOnly cookies (JSESSIONID)
-                // 2. CORS is strictly configured (localhost:3000, localhost:5173 only)
-                // 3. withCredentials: true in axios ensures cookies are sent
-                // 4. All endpoints require authentication (no anonymous access)
-                // 5. System runs in VPN-protected internal network
-                // 
-                // CSRF protection is primarily for browser form submissions.
-                // Modern SPA + REST API architecture with strict CORS provides 
-                // equivalent protection against cross-origin attacks.
-                // 
-                // If stronger protection is needed, implement custom token header approach.
-                .csrf(AbstractHttpConfigurer::disable)
+                // ENTERPRISE SECURITY: Enable CSRF Protection
+                // ========================================
+                // Using CookieCsrfTokenRepository with HttpOnly=false allows the frontend (React/Axios)
+                // to read the XSRF-TOKEN cookie and send it back in the X-XSRF-TOKEN header.
+                // The Session cookie (JSESSIONID) remains HttpOnly for security.
+                .csrf(csrf -> csrf
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                    .ignoringRequestMatchers("/api/auth/**", "/api/unified-members/import/**", "/api/diagnostic/**") // Allow login and import without CSRF token
+                )
 
                 // CORS configuration with credentials support (required for session cookies)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -67,6 +72,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints - Authentication & Branding
                         .requestMatchers("/api/auth/**", "/api/companies/default").permitAll()
+                        // Diagnostic Endpoint (Temporary)
+                        .requestMatchers("/api/diagnostic/**").permitAll()
                         // Swagger / OpenAPI endpoints
                         .requestMatchers(
                                 "/v3/api-docs/**",
@@ -108,12 +115,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Allow all common frontend development ports
-        configuration.setAllowedOrigins(List.of(
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:5173",
-            "http://localhost:5174"
-        ));
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         // AUDIT FIX: Expose CSRF token cookie to frontend

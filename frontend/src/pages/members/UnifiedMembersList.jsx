@@ -40,7 +40,12 @@ import {
   TableHead,
   TableRow,
   TableCell,
-  TableBody
+  TableBody,
+  Drawer,
+  LinearProgress,
+  RadioGroup,
+  FormControlLabel,
+  Radio
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -52,12 +57,15 @@ import {
   FilterList as FilterListIcon,
   UploadFile as UploadFileIcon,
   Download as DownloadIcon,
+  FileDownload as FileDownloadIcon,
   Undo as UndoIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 
 import MainCard from 'components/MainCard';
 import { GenericDataTable, ModernPageHeader, MemberAvatar } from 'components/tba';
+import DataImportWizard from 'components/ExcelImport/DataImportWizard';
+import DataExportWizard from 'components/tba/DataExportWizard';
 import { useTableState } from 'hooks/useTableState';
 import {
   getAllMembers,
@@ -66,7 +74,9 @@ import {
   detectColumns,
   previewImport,
   executeImport,
+  getImportStatus,
   downloadTemplate,
+  exportMembers,
   deleteMember,
   restoreMember,
   hardDeleteMember,
@@ -88,8 +98,9 @@ const UnifiedMembersList = () => {
 
   // Table State Management
   const tableState = useTableState({
-    initialPageSize: 15,
-    defaultSort: DEFAULT_SORT
+    initialPageSize: 8, // Default to 8 records as requested
+    defaultSort: DEFAULT_SORT,
+    storageKey: 'members_table_page_size' // Per-table persistence to avoid conflicts
   });
 
   const {
@@ -107,30 +118,27 @@ const UnifiedMembersList = () => {
   // Filters
   const [showDeleted, setShowDeleted] = useState(false);
   const [filters, setFilters] = useState({
+    searchTerm: '',
     organizationId: '',
-    status: '',
     type: '',
-    searchTerm: ''
+    status: ''
   });
   const [localSearchTerm, setLocalSearchTerm] = useState('');
 
-  // Import Dialog State
+  // Drawer State
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedDependent, setSelectedDependent] = useState(null);
+
+  // Export/Import Dialog States
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
-  const [importFile, setImportFile] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [importErrors, setImportErrors] = useState(null);
-  const [detectionResults, setDetectionResults] = useState(null);
-  const [previewData, setPreviewData] = useState(null);
-  const [executionResult, setExecutionResult] = useState(null);
-  const [customMappings, setCustomMappings] = useState({});
+  const [exportWizardOpen, setExportWizardOpen] = useState(false);
 
   // Confirmation Dialog State
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     title: '',
     content: '',
-    html: false, // flag to render HTML content
+    html: false,
     onConfirm: null,
     confirmText: 'نعم',
     cancelText: 'إلغاء',
@@ -139,6 +147,43 @@ const UnifiedMembersList = () => {
 
   // Lookup Data
   const [employers, setEmployers] = useState([]);
+
+  // Common Header Button Style
+  const headerButtonStyle = (type) => {
+    const isExcel = type === 'excel';
+    const isDelete = type === 'delete';
+    const color = isExcel ? '#1b5e20' : (isDelete ? '#d32f2f' : undefined);
+
+    return {
+      minWidth: '155px',
+      color: color || (type === 'add' ? '#fff' : 'primary.main'), // Fix color for contained button
+      borderColor: color || 'primary.main',
+      '&:hover': {
+        backgroundColor: color ? `${color}10` : (type === 'add' ? '#144316' : undefined),
+        borderColor: color || 'primary.main',
+        color: isDelete && showDeleted ? '#fff' : (color || (type === 'add' ? '#fff' : 'primary.main'))
+      },
+      '&.MuiButton-contained': {
+        color: '#fff' // Force white text for contained buttons
+      },
+      '& .MuiButton-startIcon': {
+        '& .MuiSvgIcon-root': {
+          fontSize: '22px'
+        }
+      },
+      fontSize: '11px',
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      px: 1.5,
+      height: '40px'
+    };
+  };
+
+  // EXPORT HANDLERS
+  // ========================================
+  const performExport = async (params) => {
+    return await exportMembers(params);
+  };
 
   // ========================================
   // CONFIRMATION HANDLERS
@@ -171,8 +216,8 @@ const UnifiedMembersList = () => {
       confirmText: 'نعم، احذفه',
       onConfirm: () => handleConfirmAction(
         () => deleteMember(member.id),
-        'تم حذف المنتفع بنجاح',
-        'خطأ في حذف المنتفع'
+        'تم حذف المستفيد بنجاح',
+        'خطأ في حذف المستفيد'
       )
     });
   };
@@ -180,14 +225,14 @@ const UnifiedMembersList = () => {
   const handleRestoreClick = (member) => {
     setConfirmDialog({
       open: true,
-      title: 'استعادة المنتفع؟',
-      content: `سيتم استعادة المنتفع ${member.fullName} وإعادته للقائمة النشطة.`,
+      title: 'استعادة المستفيد؟',
+      content: `سيتم استعادة المستفيد ${member.fullName} وإعادته للقائمة النشطة.`,
       severity: 'success',
       confirmText: 'نعم، استعده',
       onConfirm: () => handleConfirmAction(
         () => restoreMember(member.id),
-        'تم استعادة المنتفع بنجاح',
-        'خطأ في استعادة المنتفع'
+        'تم استعادة المستفيد بنجاح',
+        'خطأ في استعادة المستفيد'
       )
     });
   };
@@ -196,13 +241,13 @@ const UnifiedMembersList = () => {
     setConfirmDialog({
       open: true,
       title: 'حذف نهائي؟',
-      content: `سيتم حذف المنتفع ${member.fullName} نهائياً من قاعدة البيانات. هذا الإجراء لا يمكن التراجع عنه!`,
+      content: `سيتم حذف المستفيد ${member.fullName} نهائياً من قاعدة البيانات. هذا الإجراء لا يمكن التراجع عنه!`,
       severity: 'error',
       confirmText: 'نعم، احذفه نهائياً',
       onConfirm: () => handleConfirmAction(
         () => hardDeleteMember(member.id),
-        'تم حذف المنتفع نهائياً',
-        'خطأ في الحذف النهائي للمنتفع'
+        'تم حذف المستفيد نهائياً',
+        'خطأ في الحذف النهائي للمستفيد'
       )
     });
   };
@@ -235,7 +280,8 @@ const UnifiedMembersList = () => {
       accessorKey: 'fullName',
       header: 'الاسم',
       size: 200,
-      align: 'right'
+      headerAlign: 'center', // Header title in the center
+      align: 'right'        // Content to the right
     },
     {
       accessorKey: 'type',
@@ -275,30 +321,45 @@ const UnifiedMembersList = () => {
           {showDeleted ? (
             <>
               <Tooltip title="استعادة">
-                <IconButton size="small" color="success" onClick={() => handleRestoreClick(row.original)}>
+                <IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleRestoreClick(row.original); }}>
                   <UndoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="حذف نهائي">
-                <IconButton size="small" color="error" onClick={() => handleHardDeleteClick(row.original)}>
+                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleHardDeleteClick(row.original); }}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </>
           ) : (
             <>
+              {row.original.type === MEMBER_TYPES.DEPENDENT && (
+                <Tooltip title="بيانات التابع">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDependent(row.original);
+                      setDrawerOpen(true);
+                    }}
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title="عرض التفاصيل">
-                <IconButton size="small" color="info" onClick={() => navigate(`/members/${row.original.id}`)}>
+                <IconButton size="small" color="info" onClick={(e) => { e.stopPropagation(); navigate(`/members/${row.original.id}`); }}>
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="تعديل">
-                <IconButton size="small" color="primary" onClick={() => navigate(`/members/${row.original.id}/edit`)}>
+                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); navigate(`/members/${row.original.id}/edit`); }}>
                   <EditIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="حذف">
-                <IconButton size="small" color="error" onClick={() => handleDeleteClick(row.original)}>
+                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDeleteClick(row.original); }}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -351,8 +412,7 @@ const UnifiedMembersList = () => {
       const displayOrgId = filters.organizationId || undefined;
 
       if (filters.searchTerm && filters.searchTerm.trim()) {
-        // Use search API with fullName parameter
-        // Note: search API does not currently support sorting params in controller
+        // Use search API with combined filters
         response = await searchMembers({
           fullName: filters.searchTerm.trim(),
           barcode: filters.searchTerm.trim(),
@@ -365,7 +425,7 @@ const UnifiedMembersList = () => {
           size: pageSize
         });
       } else {
-        // Use getAllMembers API
+        // Use getAllMembers API with combined filters
         response = await getAllMembers({
           page: page,
           size: pageSize,
@@ -389,7 +449,7 @@ const UnifiedMembersList = () => {
       setTotalElements(total);
     } catch (error) {
       console.error('Error fetching members:', error);
-      enqueueSnackbar('خطأ في جلب المنتفعين', { variant: 'error' });
+      enqueueSnackbar('خطأ في جلب المستفيدين', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -414,11 +474,12 @@ const UnifiedMembersList = () => {
 
   const handleResetFilters = () => {
     setFilters({
+      searchTerm: '',
       organizationId: '',
-      status: '',
       type: '',
-      searchTerm: ''
+      status: ''
     });
+    setLocalSearchTerm('');
     tableState.setPage(0);
   };
 
@@ -441,106 +502,11 @@ const UnifiedMembersList = () => {
 
   const handleImportClick = () => {
     setImportDialogOpen(true);
-    setImportFile(null);
   };
 
   const handleCloseImportDialog = () => {
     setImportDialogOpen(false);
-    setImportFile(null);
-    setImportErrors(null);
-    setActiveStep(0);
-    setDetectionResults(null);
-    setPreviewData(null);
-    setExecutionResult(null);
-  };
-
-  const handleFileChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      setImportFile(event.target.files[0]);
-      setImportErrors(null); // Clear previous errors when selecting new file
-    }
-  };
-
-  const handleNextStep = async () => {
-    setImportErrors(null);
-    if (activeStep === 0) {
-      if (!importFile) return;
-      setImporting(true);
-      try {
-        const result = await detectColumns(importFile);
-        setDetectionResults(result.data);
-        // Automatically move to preview with the detected header row
-        const previewResult = await previewImport(importFile, customMappings, result.data.headerRowNumber);
-        setPreviewData(previewResult.data);
-        setActiveStep(2); // Skip step 1 (detection review) if it looks good, or just keep flow?
-        // Actually, let's keep the steps but ensure preview is correct
-      } catch (error) {
-        console.error('Detection failed:', error);
-        enqueueSnackbar('فشل تحليل الملف. تأكد أنه ملف Excel صالح.', { variant: 'error' });
-      } finally {
-        setImporting(false);
-      }
-    } else if (activeStep === 1) {
-      setImporting(true);
-      try {
-        // Use the detection results' headerRowNumber
-        const result = await previewImport(importFile, customMappings, detectionResults?.headerRowNumber);
-        setPreviewData(result.data);
-        setActiveStep(2);
-      } catch (error) {
-        console.error('Preview failed:', error);
-        enqueueSnackbar('فشل معاينة البيانات.', { variant: 'error' });
-      } finally {
-        setImporting(false);
-      }
-    } else if (activeStep === 2) {
-      handleImportSubmit();
-    }
-  };
-
-  const handlePrevStep = () => {
-    setImportErrors(null);
-    setActiveStep((prev) => prev - 1);
-  };
-
-  const handleImportSubmit = async () => {
-    if (!importFile) return;
-
-    setImporting(true);
-    try {
-      // Execute the actual import
-      // Note: In a real scenario, we might let the user select employerOrg from a list if it wasn't matched
-      // For now, we assume the employer is pre-selected or matched in the file.
-      // If the file doesn't have employer, we might need an extra step.
-
-      setImportErrors(null);
-
-      const params = {
-        employerId: filters.organizationId || previewData?.availableEmployers?.[0]?.id,
-        batchId: previewData?.batchId,
-        headerRowNumber: detectionResults?.headerRowNumber
-      };
-
-      if (!params.employerId) {
-        throw new Error('يرجى اختيار جهة العمل من القائمة الجانبية أو التأكد من وجود جهات عمل فعالة قبل البدء.');
-      }
-
-      const result = await executeImport(importFile, params);
-      setExecutionResult(result.data);
-      setActiveStep(3);
-
-      // Refresh table
-      fetchMembers();
-
-      enqueueSnackbar('تمت عملية الاستيراد بنجاح', { variant: 'success' });
-    } catch (error) {
-      console.error('Import execution failed:', error);
-      const errorMessage = error.response?.data?.message || 'فشل تنفيذ الاستيراد.';
-      setImportErrors(errorMessage);
-      enqueueSnackbar(errorMessage, { variant: 'error' });
-    } finally {
-      setImporting(false);
-    }
+    fetchMembers(); // Refresh in case import finished instantly
   };
 
   const getMemberTypeChip = (type) => {
@@ -576,55 +542,74 @@ const UnifiedMembersList = () => {
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.VIEW_MEMBERS]}>
       <ModernPageHeader
-        title="قائمة المنتفعين"
+        title="قائمة المستفيدين"
         icon={<FilterListIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
-          { label: 'المنتفعين' }
+          { label: 'المستفيدين' }
         ]}
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant={showDeleted ? "contained" : "outlined"}
-              color={showDeleted ? "warning" : "primary"}
-              startIcon={showDeleted ? <VisibilityIcon /> : <DeleteIcon />}
-              onClick={() => setShowDeleted(!showDeleted)}
-              sx={{ fontSize: '12px' }}
-            >
-              {showDeleted ? 'العودة للقائمة النشطة' : 'المحذوفات'}
-            </Button>
+          <Stack direction="row" spacing={1} sx={{ '& .MuiButton-root': { transition: 'all 0.2s' } }}>
+            {/* Excel Group */}
             <Button
               variant="outlined"
-              startIcon={<DownloadIcon />}
               onClick={handleDownloadTemplate}
-              sx={{ fontSize: '12px' }}
+              startIcon={<DownloadIcon />}
+              sx={headerButtonStyle('excel')}
             >
               تحميل القالب
             </Button>
             <Button
               variant="outlined"
-              startIcon={<UploadFileIcon />}
               onClick={handleImportClick}
-              sx={{ fontSize: '12px' }}
+              startIcon={<UploadFileIcon />}
+              sx={headerButtonStyle('excel')}
             >
               استيراد من إكسل
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExportWizardOpen(true)}
+              startIcon={<FileDownloadIcon />}
+              sx={headerButtonStyle('excel')}
+            >
+              تصدير لإكسل
+            </Button>
+
+            {/* View/Action Group */}
+            <Button
+              variant={showDeleted ? "contained" : "outlined"}
+              startIcon={showDeleted ? <VisibilityIcon /> : <DeleteIcon />}
+              onClick={() => setShowDeleted(!showDeleted)}
+              sx={{
+                ...headerButtonStyle('delete'),
+                backgroundColor: showDeleted ? '#d32f2f' : 'transparent',
+                color: showDeleted ? '#fff' : '#d32f2f',
+                '&:hover': {
+                  backgroundColor: showDeleted ? '#b71c1c' : '#d32f2f10',
+                  color: showDeleted ? '#fff' : '#d32f2f',
+                }
+              }}
+            >
+              {showDeleted ? 'العودة للقائمة النشطة' : 'المحذوفات'}
             </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => navigate('/members/add')}
-              sx={{ fontSize: '12px' }}
+              sx={headerButtonStyle('add')}
             >
-              إنشاء منتفع رئيسي
+              إضافة مستفيد
             </Button>
           </Stack>
         }
+        sx={{ mb: 0.5 }} // Overrides default mb: 3 in ModernPageHeader
       />
 
-      <Stack spacing={2}>
+      <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: 'hidden', height: '100%' }}>
         {/* Filters - Top Bar */}
-        <MainCard sx={{ p: 1.5 }}>
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+        <MainCard sx={{ p: 1, flexShrink: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField
               size="small"
               label="بحث السريع"
@@ -692,121 +677,63 @@ const UnifiedMembersList = () => {
               </IconButton>
             </Tooltip>
           </Stack>
-        </MainCard>
+        </MainCard >
 
-        {/* Data Table */}
-        <MainCard content={false}>
-          <GenericDataTable
-            columns={columns}
-            data={members}
-            totalCount={totalElements}
-            isLoading={loading}
-            tableState={tableState}
-            onRowClick={(row) => navigate(`/members/${row.id}`)}
-          />
-        </MainCard>
-      </Stack>
+        {/* Data Table with Flexible Height */}
+        < MainCard content={false} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+              height: '100%',
+              overflow: 'hidden'
+            }}
+          >
+            <GenericDataTable
+              columns={columns}
+              data={members}
+              totalCount={totalElements}
+              isLoading={loading}
+              tableState={tableState}
+              cellPadding="dense"
+              enableFiltering={false} // Disable internal column filters
+              onRowClick={(row) => navigate(`/members/${row.id}`)}
+              rowsPerPageOptions={[8, 16, 24, 32]}
+            />
+          </Box>
+        </MainCard >
+      </Stack >
 
-      {/* Import Dialog */}
-      <Dialog
-        open={importDialogOpen}
-        onClose={handleCloseImportDialog}
-        maxWidth="md"
-        fullWidth
+      < Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        PaperProps={{ sx: { width: 350, p: 3 } }}
       >
-        <DialogTitle>استيراد المنتفعين</DialogTitle>
-        <DialogContent>
-          <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3, mt: 1 }}>
-            <Step><StepLabel>اختيار الملف</StepLabel></Step>
-            <Step><StepLabel>تحليل الأعمدة</StepLabel></Step>
-            <Step><StepLabel>معاينة البيانات</StepLabel></Step>
-            <Step><StepLabel>النتيجة</StepLabel></Step>
-          </Stepper>
-
-          {activeStep === 0 && (
-            <Box textAlign="center" py={3}>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<UploadFileIcon />}
-                size="large"
-              >
-                اختيار ملف Excel
-                <input
-                  type="file"
-                  hidden
-                  accept=".xlsx, .xls"
-                  onChange={handleFileChange}
-                />
-              </Button>
-              {importFile && (
-                <Typography sx={{ mt: 2 }} variant="subtitle1">
-                  تم اختيار: {importFile.name}
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {activeStep === 1 && importFile && (
+        {selectedDependent && (
+          <Stack spacing={3}>
+            <Typography variant="h5" fontWeight="bold">بيانات المستفيد</Typography>
             <Box>
-              <Typography>جاري تحليل الملف {importFile.name}...</Typography>
-              <CircularProgress size={24} sx={{ mt: 2 }} />
+              <Typography variant="caption" color="textSecondary">اسم الأصيل</Typography>
+              <Typography variant="body1" fontWeight="medium">{selectedDependent.principalName || '-'}</Typography>
             </Box>
-          )}
-
-          {activeStep === 2 && previewData && (
             <Box>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                تم العثور على {previewData.totalRows} صفوف. سيتم الاستيراد إلى جهة العمل المختارة.
-              </Alert>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {previewData.headers?.slice(0, 5).map((h, i) => <TableCell key={i}>{h}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {previewData.sampleRows?.slice(0, 3).map((row, i) => (
-                    <TableRow key={i}>
-                      {row.values?.slice(0, 5).map((val, j) => <TableCell key={j}>{val}</TableCell>)}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <Typography variant="caption" color="textSecondary">الحالة الاجتماعية</Typography>
+              <Typography variant="body1" fontWeight="medium">{selectedDependent.maritalStatus || '-'}</Typography>
             </Box>
-          )}
-
-          {activeStep === 3 && executionResult && (
-            <Box textAlign="center">
-              <Typography variant="h6" color="success.main" gutterBottom>
-                تم الاستيراد بنجاح!
-              </Typography>
-              <Typography>
-                تم استيراد {executionResult.importedCount} منتفع.
-              </Typography>
+            <Box>
+              <Typography variant="caption" color="textSecondary">الجنسية</Typography>
+              <Typography variant="body1" fontWeight="medium">{selectedDependent.nationality || '-'}</Typography>
             </Box>
-          )}
+            <Button variant="outlined" onClick={() => setDrawerOpen(false)}>إغلاق</Button>
+          </Stack>
+        )}
+      </Drawer >
 
-          {importErrors && (
-            <Alert severity="error" sx={{ mt: 2 }}>{importErrors}</Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseImportDialog}>إغلاق</Button>
-          {(activeStep === 0 || activeStep === 1 || activeStep === 2) && (
-            <Button
-              onClick={handleNextStep}
-              variant="contained"
-              disabled={activeStep === 0 && !importFile || importing}
-            >
-              {activeStep === 2 ? 'بدء الاستيراد' : 'التالي'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+      {/* Import Wizard */}
+      < DataImportWizard open={importDialogOpen} onClose={handleCloseImportDialog} />
 
       {/* Confirmation Dialog */}
-      <Dialog
+      < Dialog
         open={confirmDialog.open}
         onClose={closeDialog}
       >
@@ -820,9 +747,23 @@ const UnifiedMembersList = () => {
             {confirmDialog.confirmText}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
-    </RBACGuard>
+      <DataExportWizard
+        open={exportWizardOpen}
+        onClose={() => setExportWizardOpen(false)}
+        onExport={performExport}
+        title="تصدير بيانات المستفيدين"
+        fileName={`members-export-${new Date().toISOString().split('T')[0]}.xlsx`}
+        params={{
+          searchTerm: filters.searchTerm,
+          organizationId: filters.organizationId || undefined,
+          status: filters.status || undefined,
+          type: filters.type || undefined,
+          deleted: showDeleted
+        }}
+      />
+    </RBACGuard >
   );
 };
 

@@ -106,7 +106,7 @@ import { useSnackbar } from 'notistack';
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   try {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString('ar-SA', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -121,7 +121,7 @@ const formatDate = (dateStr) => {
  */
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '-';
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ar-SA', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(value) + ' د.ل';

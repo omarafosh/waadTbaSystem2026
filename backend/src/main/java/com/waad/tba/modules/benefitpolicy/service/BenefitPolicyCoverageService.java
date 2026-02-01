@@ -830,6 +830,30 @@ public class BenefitPolicyCoverageService {
     }
 
     /**
+     * Batch get coverage percentages for multiple services.
+     * 
+     * @param member The member
+     * @param serviceIds List of service IDs
+     * @param encounterType The visit/encounter type
+     * @return Map of ServiceId -> CoveragePercent
+     */
+    public java.util.Map<Long, Integer> batchGetCoveragePercents(
+            Member member, 
+            List<Long> serviceIds, 
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        java.util.Map<Long, Integer> result = new java.util.HashMap<>();
+        if (serviceIds == null || serviceIds.isEmpty()) {
+            return result;
+        }
+        
+        for (Long serviceId : serviceIds) {
+            // Using existing single-item method (could be optimized with "IN" query later)
+            result.put(serviceId, getEffectiveCoveragePercent(member, serviceId, encounterType));
+        }
+        return result;
+    }
+
+    /**
      * Resolved coverage result from the canonical algorithm
      */
     @Data

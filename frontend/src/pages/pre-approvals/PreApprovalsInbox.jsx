@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -37,7 +37,8 @@ import MainCard from 'components/MainCard';
 import { ModernPageHeader } from 'components/tba';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import { DataGrid } from '@mui/x-data-grid';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import { preApprovalsService } from 'services/api';
 
 /**
@@ -52,9 +53,13 @@ const PreApprovalsInbox = () => {
   const [preApprovals, setPreApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'createdAt', direction: 'asc' }
+  });
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -76,10 +81,10 @@ const PreApprovalsInbox = () => {
       setLoading(true);
       setError(null);
       const response = await preApprovalsService.getPending({
-        page: page + 1,
-        size: pageSize,
-        sortBy: 'createdAt',
-        sortDir: 'asc' // FIFO - الأقدم أولاً
+        page: tableState.page + 1,
+        size: tableState.pageSize,
+        sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+        sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'desc' : 'asc') : 'asc'
       });
       setPreApprovals(response.items || []);
       setTotalRows(response.total || 0);
@@ -89,7 +94,7 @@ const PreApprovalsInbox = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [tableState.page, tableState.pageSize, tableState.sorting]);
 
   useEffect(() => {
     fetchPreApprovals();
@@ -201,84 +206,82 @@ const PreApprovalsInbox = () => {
     return null;
   };
 
-  // DataGrid columns (CANONICAL - follows Backend DTO exactly)
-  const columns = [
+  // GenericDataTable columns (CANONICAL - follows Backend DTO exactly)
+  const columns = useMemo(() => [
     {
-      field: 'id',
-      headerName: '#',
-      width: 100,
-      valueGetter: (value, row) => row.referenceNumber || `-`
+      accessorKey: 'id',
+      header: '#',
+      size: 100,
+      cell: ({ row }) => row.original.referenceNumber || `-`
     },
     {
-      field: 'memberName',
-      headerName: 'اسم المستفيد',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => row.memberName || '-'
+      accessorKey: 'memberName',
+      header: 'اسم المستفيد',
+      size: 180,
+      cell: ({ row }) => row.original.memberName || '-'
     },
     {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => row.providerName || '-'
+      accessorKey: 'providerName',
+      header: 'مقدم الخدمة',
+      size: 180,
+      cell: ({ row }) => row.original.providerName || '-'
     },
     {
-      field: 'serviceName',
-      headerName: 'الخدمة',
-      width: 150,
-      valueGetter: (value, row) => row.serviceName || '-'
+      accessorKey: 'serviceName',
+      header: 'الخدمة',
+      size: 150,
+      cell: ({ row }) => row.original.serviceName || '-'
     },
     {
-      field: 'contractPrice',
-      headerName: 'المبلغ',
-      width: 120,
-      valueGetter: (value, row) => {
-        return row.contractPrice
-          ? `${Number(row.contractPrice).toFixed(2)} ${row.currency || 'د.ل'}`
+      accessorKey: 'contractPrice',
+      header: 'المبلغ',
+      size: 120,
+      cell: ({ row }) => {
+        return row.original.contractPrice
+          ? `${Number(row.original.contractPrice).toFixed(2)} ${row.original.currency || 'د.ل'}`
           : '-';
       }
     },
     {
-      field: 'priority',
-      headerName: 'الأولوية',
-      width: 100,
-      renderCell: (params) => getUrgencyBadge(params.row.priority)
+      accessorKey: 'priority',
+      header: 'الأولوية',
+      size: 100,
+      cell: ({ row }) => getUrgencyBadge(row.original.priority)
     },
     {
-      field: 'requestDate',
-      headerName: 'تاريخ الطلب',
-      width: 130,
-      valueGetter: (value, row) => {
-        return row.requestDate
-          ? new Date(row.requestDate).toLocaleDateString('ar-LY')
+      accessorKey: 'requestDate',
+      header: 'تاريخ الطلب',
+      size: 130,
+      cell: ({ row }) => {
+        return row.original.requestDate
+          ? new Date(row.original.requestDate).toLocaleDateString('ar-LY')
           : '-';
       }
     },
     {
-      field: 'expiryDate',
-      headerName: 'تاريخ الانتهاء',
-      width: 130,
-      valueGetter: (value, row) => {
-        const date = row?.expiryDate || row?.expiresAt;
-        return date ? new Date(date).toLocaleDateString('en-US') : '-';
+      accessorKey: 'expiryDate',
+      header: 'تاريخ الانتهاء',
+      size: 130,
+      cell: ({ row }) => {
+        const date = row.original.expiryDate || row.original.expiresAt;
+        return date ? new Date(date).toLocaleDateString('ar-SA') : '-';
       }
     },
     {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 120,
-      renderCell: (params) => getStatusChip(params.value)
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 120,
+      cell: ({ row }) => getStatusChip(row.original.status)
     },
     {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 200,
-      sortable: false,
-      renderCell: (params) => (
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 200,
+      enableSorting: false,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={1}>
           <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" color="primary" onClick={() => navigate(`/pre-approvals/${params.row.id}`)} disabled={actionLoading}>
+            <IconButton size="small" color="primary" onClick={() => navigate(`/pre-approvals/${row.original.id}`)} disabled={actionLoading}>
               <ViewIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -286,11 +289,11 @@ const PreApprovalsInbox = () => {
           {/* PENDING → Start Review (transition to UNDER_REVIEW)
               CANONICAL 2026-01-26: PreAuth workflow starts at PENDING, not SUBMITTED
               PENDING means newly created and awaiting initial review */}
-          {params.row.status === 'PENDING' && (
+          {row.original.status === 'PENDING' && (
             <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
               <Tooltip title="بدء المراجعة">
                 <span>
-                  <IconButton size="small" color="info" onClick={() => handleStartReview(params.row)} disabled={actionLoading}>
+                  <IconButton size="small" color="info" onClick={() => handleStartReview(row.original)} disabled={actionLoading}>
                     <StartReviewIcon fontSize="small" />
                   </IconButton>
                 </span>
@@ -300,18 +303,18 @@ const PreApprovalsInbox = () => {
 
           {/* PENDING/UNDER_REVIEW → Approve/Reject
               CANONICAL: Both states allow approval/rejection actions */}
-          {(params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW') && (
+          {(row.original.status === 'PENDING' || row.original.status === 'UNDER_REVIEW') && (
             <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
               <Tooltip title="موافقة">
                 <span>
-                  <IconButton size="small" color="success" onClick={() => handleOpenApprove(params.row)} disabled={actionLoading}>
+                  <IconButton size="small" color="success" onClick={() => handleOpenApprove(row.original)} disabled={actionLoading}>
                     <ApproveIcon fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
               <Tooltip title="رفض">
                 <span>
-                  <IconButton size="small" color="error" onClick={() => handleOpenReject(params.row)} disabled={actionLoading}>
+                  <IconButton size="small" color="error" onClick={() => handleOpenReject(row.original)} disabled={actionLoading}>
                     <RejectIcon fontSize="small" />
                   </IconButton>
                 </span>
@@ -321,7 +324,7 @@ const PreApprovalsInbox = () => {
         </Stack>
       )
     }
-  ];
+  ], [actionLoading, navigate]);
 
   return (
     <>
@@ -349,33 +352,15 @@ const PreApprovalsInbox = () => {
       )}
 
       <MainCard>
-        <Box sx={{ minHeight: 400, width: '100%' }}>
-          <DataGrid
-            autoHeight
-            rows={preApprovals}
+        <Box sx={{ width: '100%' }}>
+          <GenericDataTable
+            data={preApprovals}
             columns={columns}
-            loading={loading}
-            paginationMode="server"
-            rowCount={totalRows}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            totalCount={totalRows}
+            tableState={tableState}
+            isLoading={loading}
+            emptyMessage="لا توجد طلبات موافقة مسبقة معلقة"
             rowsPerPageOptions={[10, 20, 50]}
-            disableSelectionOnClick
-            localeText={{
-              noRowsLabel: 'لا توجد طلبات موافقة مسبقة معلقة',
-              MuiTablePagination: {
-                labelRowsPerPage: 'عدد الصفوف:'
-              }
-            }}
-            sx={{
-              '& .MuiDataGrid-row': {
-                '&:hover': {
-                  backgroundColor: 'action.hover'
-                }
-              }
-            }}
           />
         </Box>
       </MainCard>

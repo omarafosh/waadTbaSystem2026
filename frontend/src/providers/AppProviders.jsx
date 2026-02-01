@@ -19,6 +19,7 @@ import { SystemErrorBoundary } from 'components/ErrorBoundary';
 import { AuthProvider } from 'contexts/AuthContext';
 import { EmployerFilterProvider } from 'contexts/EmployerFilterContext';
 import { CompanySettingsProvider } from 'contexts/CompanySettingsContext';
+import { GlobalImportProgressProvider } from 'contexts/GlobalImportProgressContext';
 
 const AppProviders = ({ children }) => {
     return (
@@ -31,9 +32,11 @@ const AppProviders = ({ children }) => {
                                 <ScrollTop>
                                     <AuthProvider>
                                         <EmployerFilterProvider>
-                                            <Notistack>
-                                                {children}
-                                            </Notistack>
+                                            <GlobalImportProgressProvider>
+                                                <Notistack>
+                                                    {children}
+                                                </Notistack>
+                                            </GlobalImportProgressProvider>
                                         </EmployerFilterProvider>
                                     </AuthProvider>
                                 </ScrollTop>

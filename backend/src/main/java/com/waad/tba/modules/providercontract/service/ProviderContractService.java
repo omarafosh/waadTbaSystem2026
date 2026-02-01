@@ -8,6 +8,14 @@ import com.waad.tba.modules.providercontract.entity.ProviderContract;
 import com.waad.tba.modules.providercontract.entity.ProviderContract.ContractStatus;
 import com.waad.tba.modules.providercontract.entity.ProviderContract.PricingModel;
 import com.waad.tba.modules.providercontract.repository.ProviderContractRepository;
+import com.waad.tba.modules.provider.dto.EffectivePriceResponseDto;
+import com.waad.tba.modules.provider.dto.ProviderServiceDto;
+import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
+import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
+import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.member.repository.MemberRepository;
+import com.waad.tba.modules.benefitpolicy.service.BenefitPolicyRuleService;
+import com.waad.tba.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -41,6 +49,10 @@ public class ProviderContractService {
 
     private final ProviderContractRepository contractRepository;
     private final ProviderRepository providerRepository;
+    private final ProviderContractPricingItemService pricingItemService;
+    private final MedicalServiceRepository medicalServiceRepository;
+    private final MemberRepository memberRepository;
+    private final BenefitPolicyRuleService benefitPolicyRuleService;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // READ OPERATIONS
@@ -155,6 +167,184 @@ public class ProviderContractService {
         
         return contractRepository.searchByCodeOrProviderName(query, pageable)
                 .map(ProviderContractResponseDto::fromEntity);
+    }
+
+    /**
+     * Get all contracts for a provider (paginated)
+     */
+    @Transactional(readOnly = true)
+    public Page<ProviderContractResponseDto> getProviderContracts(Long providerId, boolean activeOnly, Pageable pageable) {
+        log.debug("Getting contracts for provider: {}, activeOnly={}", providerId, activeOnly);
+        if (activeOnly) {
+            return contractRepository.findByProviderIdAndStatusAndActiveTrue(providerId, ContractStatus.ACTIVE, pageable)
+                    .map(ProviderContractResponseDto::fromEntity);
+        }
+        return contractRepository.findByProviderIdAndActiveTrue(providerId, pageable)
+                .map(ProviderContractResponseDto::fromEntity);
+    }
+
+    /**
+     * Create a new contract for a specific provider
+     */
+    @Transactional
+    public ProviderContractResponseDto createContract(Long providerId, ProviderContractCreateDto dto) {
+        dto.setProviderId(providerId);
+        return create(dto);
+    }
+
+    /**
+     * Update a specific contract for a provider
+     */
+    @Transactional
+    public ProviderContractResponseDto updateContract(Long providerId, Long contractId, ProviderContractUpdateDto dto) {
+        // Verify contract belongs to provider
+        ProviderContract contract = contractRepository.findById(contractId)
+                .filter(c -> c.getProvider().getId().equals(providerId))
+                .orElseThrow(() -> new BusinessRuleException("Contract not found for this provider"));
+        
+        return update(contractId, dto);
+    }
+
+    /**
+     * Delete a specific contract for a provider
+     */
+    @Transactional
+    public void deleteContract(Long providerId, Long contractId) {
+        // Verify contract belongs to provider
+        ProviderContract contract = contractRepository.findById(contractId)
+                .filter(c -> c.getProvider().getId().equals(providerId))
+                .orElseThrow(() -> new BusinessRuleException("Contract not found for this provider"));
+        
+        delete(contractId);
+    }
+
+    /**
+     * Get contract by ID for a specific provider
+     */
+    @Transactional(readOnly = true)
+    public ProviderContractResponseDto getContractById(Long providerId, Long contractId) {
+        ProviderContract contract = contractRepository.findById(contractId)
+                .filter(c -> c.getProvider().getId().equals(providerId))
+                .filter(c -> Boolean.TRUE.equals(c.getActive()))
+                .orElseThrow(() -> new BusinessRuleException("Contract not found for this provider"));
+        
+        return ProviderContractResponseDto.fromEntity(contract);
+    }
+
+    /**
+     * Get currently effective contracts for a provider
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderContractResponseDto> getCurrentlyEffectiveContracts(Long providerId) {
+        log.debug("Finding currently effective contracts for provider: {}", providerId);
+        return contractRepository.findActiveContractByProvider(providerId).stream()
+                .map(ProviderContractResponseDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get count of active contracts for a provider
+     */
+    @Transactional(readOnly = true)
+    public long countActiveContracts(Long providerId) {
+        return contractRepository.countByProviderIdAndStatusAndActiveTrue(providerId, ContractStatus.ACTIVE);
+    }
+
+    /**
+     * Get effective price for a service on a specific date (CANONICAL)
+     */
+    @Transactional(readOnly = true)
+    public EffectivePriceResponseDto getEffectivePrice(Long providerId, String serviceCode, LocalDate date) {
+        log.info("Resolving effective price: provider={}, service={}, date={}", providerId, serviceCode, date);
+        
+        if (date == null) date = LocalDate.now();
+        
+        Provider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found: " + providerId));
+        
+        MedicalService service = medicalServiceRepository.findByCode(serviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Medical Service not found: " + serviceCode));
+        
+        // Find active contract
+        ProviderContract contract = contractRepository.findActiveContractByProvider(providerId)
+                .orElse(null);
+        
+        if (contract == null) {
+            return EffectivePriceResponseDto.builder()
+                    .providerId(providerId)
+                    .providerName(provider.getName())
+                    .serviceCode(serviceCode)
+                    .serviceName(service.getName())
+                    .hasContract(false)
+                    .message("No active contract found for provider")
+                    .build();
+        }
+        
+        // Find pricing item
+        var pricingItem = pricingItemService.findEffectivePricing(providerId, service.getId());
+        
+        if (pricingItem == null) {
+            return EffectivePriceResponseDto.builder()
+                    .providerId(providerId)
+                    .providerName(provider.getName())
+                    .serviceCode(serviceCode)
+                    .serviceName(service.getName())
+                    .contractId(contract.getId())
+                    .hasContract(false)
+                    .message("Service not found in provider contract")
+                    .build();
+        }
+        
+        return EffectivePriceResponseDto.builder()
+                .providerId(providerId)
+                .providerName(provider.getName())
+                .serviceCode(serviceCode)
+                .serviceName(service.getName())
+                .contractId(contract.getId())
+                .contractPrice(pricingItem.getContractPrice())
+                .basePrice(pricingItem.getBasePrice())
+                .currency(contract.getCurrency())
+                .effectiveDate(date)
+                .effectiveFrom(pricingItem.getEffectiveFrom())
+                .effectiveTo(pricingItem.getEffectiveTo())
+                .hasContract(true)
+                .message("Price resolved from contract")
+                .build();
+    }
+
+    /**
+     * Get services requiring pre-approval for a member from provider's active contract.
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderServiceDto> getServicesRequiringPreAuth(Long providerId, Long memberId) {
+        log.info("Fetching services requiring pre-auth: provider={}, member={}", providerId, memberId);
+        
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + memberId));
+        
+        if (member.getBenefitPolicy() == null) {
+            log.warn("Member {} has no benefit policy assigned", memberId);
+            return List.of();
+        }
+        
+        Long policyId = member.getBenefitPolicy().getId();
+        
+        // Get all contracted services
+        List<ProviderContractPricingItemService.ContractServiceDto> contractedServices = 
+                pricingItemService.findAllServicesByProvider(providerId);
+        
+        // Filter by pre-approval requirement from policy rules
+        return contractedServices.stream()
+                .filter(s -> benefitPolicyRuleService.requiresPreApproval(policyId, s.getId(), null))
+                .map(s -> ProviderServiceDto.builder()
+                        .serviceId(s.getId())
+                        .serviceCode(s.getCode())
+                        .serviceName(s.getName())
+                        .categoryName(s.getCategoryName())
+                        .contractPrice(s.getContractPrice())
+                        .requiresPA(true)
+                        .build())
+                .collect(Collectors.toList());
     }
 
     /**

@@ -58,7 +58,7 @@ const ServicesDonutChart = ({ data, loading }) => {
               label: 'إجمالي',
               formatter: () => {
                 const total = data?.reduce((sum, item) => sum + (item.count || item.value || 0), 0) || 0;
-                return total.toLocaleString('en-US');
+                return total.toLocaleString('ar-SA');
               },
               fontFamily: fontFamily
             }
@@ -69,7 +69,7 @@ const ServicesDonutChart = ({ data, loading }) => {
     tooltip: {
       theme: colorScheme === ThemeMode.DARK ? 'dark' : 'light',
       y: {
-        formatter: (val) => val.toLocaleString('en-US')
+        formatter: (val) => val.toLocaleString('ar-SA')
       }
     }
   });

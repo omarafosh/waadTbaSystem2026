@@ -36,7 +36,8 @@ export const useTableState = (config = {}) => {
   const {
     initialPageSize = 10,
     defaultSort = null,
-    initialFilters = {}
+    initialFilters = {},
+    storageKey = 'table_page_size' // Default generic key, but can be overridden
   } = config;
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -46,17 +47,18 @@ export const useTableState = (config = {}) => {
   // ========================================
 
   const page = parseInt(searchParams.get('page') || '0', 10);
-  
+
   // Size Priority: URL -> localStorage -> Config
   const pageSize = useMemo(() => {
     const fromUrl = searchParams.get('size');
     if (fromUrl) return parseInt(fromUrl, 10);
-    
-    const fromStorage = localStorage.getItem('table_page_size');
+
+    // Only verify localStorage if storageKey is provided
+    const fromStorage = localStorage.getItem(storageKey);
     if (fromStorage) return parseInt(fromStorage, 10);
-    
+
     return initialPageSize;
-  }, [searchParams, initialPageSize]);
+  }, [searchParams, initialPageSize, storageKey]);
 
   const setPage = useCallback((newPage) => {
     setSearchParams(prev => {
@@ -71,14 +73,14 @@ export const useTableState = (config = {}) => {
   }, [setSearchParams]);
 
   const setPageSize = useCallback((newPageSize) => {
-    localStorage.setItem('table_page_size', newPageSize.toString());
+    localStorage.setItem(storageKey, newPageSize.toString());
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.set('size', newPageSize.toString());
       newParams.delete('page'); // Reset to first page
       return newParams;
     });
-  }, [setSearchParams]);
+  }, [setSearchParams, storageKey]);
 
   // ========================================
   // SORTING STATE (Synced with URL)
@@ -99,15 +101,15 @@ export const useTableState = (config = {}) => {
   const setSorting = useCallback((updater) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
-      
+
       // Calculate new sorting value based on updater
       const currentSortParam = newParams.get('sort');
       let currentSort = [];
       if (currentSortParam) {
-          const [id, dir] = currentSortParam.split(',');
-          currentSort = [{ id, desc: dir === 'desc' }];
+        const [id, dir] = currentSortParam.split(',');
+        currentSort = [{ id, desc: dir === 'desc' }];
       } else if (defaultSort) {
-          currentSort = [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
+        currentSort = [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
       }
 
       const nextSorting = typeof updater === 'function' ? updater(currentSort) : updater;
@@ -130,8 +132,8 @@ export const useTableState = (config = {}) => {
 
   const handleFilterChange = useCallback((columnId, value) => {
     setColumnFilters((prev) => {
-       // ... logic same as before
-       if (value === '' || value === null || value === undefined) {
+      // ... logic same as before
+      if (value === '' || value === null || value === undefined) {
         const newFilters = { ...prev };
         delete newFilters[columnId];
         return newFilters;
@@ -167,14 +169,14 @@ export const useTableState = (config = {}) => {
   const resetTableState = useCallback(() => {
     setColumnFilters(initialFilters);
     setRowSelection({});
-    
+
     // Clear URL Params for state
     setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev);
-        newParams.delete('page');
-        newParams.delete('size');
-        newParams.delete('sort');
-        return newParams;
+      const newParams = new URLSearchParams(prev);
+      newParams.delete('page');
+      newParams.delete('size');
+      newParams.delete('sort');
+      return newParams;
     });
   }, [initialFilters, setSearchParams]);
 

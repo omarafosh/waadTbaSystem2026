@@ -48,15 +48,25 @@ public class ExcelParserService {
             return WorkbookFactory.create(inputStream);
         }
     }
+
+    /**
+     * Open workbook from local file
+     */
+    public Workbook openWorkbook(java.io.File file) throws IOException {
+        if (file == null || !file.exists()) {
+            throw new IOException("Excel file does not exist on disk");
+        }
+        return WorkbookFactory.create(file);
+    }
     
     /**
      * Get first data sheet (skip metadata sheet, lookup sheets, etc.)
      * Searches for: "Data", "Members", "الأعضاء", "المنتفعين", "Sheet1" (case-insensitive)
      */
     public Sheet getDataSheet(Workbook workbook) {
-        // 1. Explicitly look for "Data" sheet first as requested by user
+        // 1. Explicitly look for "Data" sheet first (Trimmed)
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            String sheetName = workbook.getSheetName(i);
+            String sheetName = workbook.getSheetName(i).trim();
             if (sheetName.equalsIgnoreCase("Data")) {
                 log.info("[ExcelParser] Found requested data sheet: {}", sheetName);
                 return workbook.getSheetAt(i);

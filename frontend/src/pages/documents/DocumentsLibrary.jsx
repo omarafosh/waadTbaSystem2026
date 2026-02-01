@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,14 +15,6 @@ import {
   Stack,
   Divider,
   Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Table,
   TableBody,
   TableRow,
@@ -32,7 +24,11 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Description as DocumentIcon,
@@ -41,7 +37,6 @@ import {
   Visibility as ViewIcon,
   Close as CloseIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
   Upload as UploadIcon,
   AttachFile as AttachFileIcon,
   Receipt as ClaimIcon,
@@ -50,7 +45,9 @@ import {
   PictureAsPdf as PdfIcon,
   Article as ArticleIcon
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
+import { orderBy } from 'lodash-es';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import MainCard from 'components/MainCard';
 import { ModernPageHeader } from 'components/tba';
 import RBACGuard from 'components/tba/RBACGuard';
@@ -64,17 +61,6 @@ import { useAuth } from 'contexts/AuthContext';
  * واجهة موحدة لعرض وإدارة جميع المستندات المرفقة مع:
  * - Claims (المطالبات)
  * - Pre-Approvals (الموافقات المسبقة)
- * 
- * Features:
- * - View all documents in unified table
- * - Filter by type, entity, date
- * - Download documents
- * - Delete documents (RBAC)
- * - Document details drawer
- * 
- * Permissions:
- * - VIEW_CLAIMS, VIEW_PRE_APPROVALS (to view documents)
- * - MANAGE_CLAIMS, MANAGE_PRE_APPROVALS (to delete)
  */
 const DocumentsLibrary = () => {
   const navigate = useNavigate();
@@ -84,26 +70,53 @@ const DocumentsLibrary = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  
+
   // Documents
   const [documents, setDocuments] = useState([]);
   const [filteredDocuments, setFilteredDocuments] = useState([]);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [entityTypeFilter, setEntityTypeFilter] = useState('ALL'); // ALL, CLAIM, PRE_APPROVAL
-  const [fileTypeFilter, setFileTypeFilter] = useState('ALL'); // ALL, PDF, IMAGE, DOCUMENT
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, SUBMITTED, UNDER_REVIEW, APPROVED, etc.
-  
+  const [entityTypeFilter, setEntityTypeFilter] = useState('ALL');
+  const [fileTypeFilter, setFileTypeFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
   // Document drawer
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 10,
+    defaultSort: { field: 'uploadedAt', direction: 'desc' }
+  });
+
+  // Client-side Sort and Pagination Logic
+  const processedData = useMemo(() => {
+    let data = [...filteredDocuments];
+
+    // Sorting
+    if (tableState.sorting.length > 0) {
+      const { id, desc } = tableState.sorting[0];
+      data = orderBy(data, [item => {
+        const val = item[id];
+        return typeof val === 'string' ? val.toLowerCase() : val;
+      }], [desc ? 'desc' : 'asc']);
+    }
+
+    return data;
+  }, [filteredDocuments, tableState.sorting]);
+
+  const paginatedData = useMemo(() => {
+    const start = tableState.page * tableState.pageSize;
+    return processedData.slice(start, start + tableState.pageSize);
+  }, [processedData, tableState.page, tableState.pageSize]);
+
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   // Statistics
   const [stats, setStats] = useState({
     total: 0,
@@ -125,265 +138,6 @@ const DocumentsLibrary = () => {
     applyFilters();
   }, [documents, searchTerm, entityTypeFilter, fileTypeFilter, statusFilter]);
 
-  const fetchAllDocuments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const allDocs = [];
-      
-      // Fetch claims documents (if user has permission)
-      if (canViewClaims()) {
-        try {
-          // Fetch ALL claims with larger size to get documents from Provider Portal
-          // Include all statuses: DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, SETTLED
-          const claimsResponse = await claimsService.getAll({ page: 1, size: 500 });
-          const claims = claimsResponse.items || claimsResponse.data?.items || [];
-          
-          console.log(`📄 Fetching documents for ${claims.length} claims...`);
-          
-          // Fetch attachments for each claim
-          for (const claim of claims) {
-            try {
-              const attachments = await claimsService.getAttachments(claim.id);
-              const attachmentsArray = attachments.data || attachments || [];
-              
-              if (attachmentsArray.length > 0) {
-                console.log(`✅ Found ${attachmentsArray.length} attachments for claim ${claim.id}`);
-              }
-              
-              attachmentsArray.forEach(att => {
-                allDocs.push({
-                  id: `CLAIM-${claim.id}-${att.id}`,
-                  originalId: att.id,
-                  fileName: att.fileName || att.originalFileName || `Document ${att.id}`,
-                  fileType: att.fileType || att.mimeType || 'Unknown',
-                  fileSize: att.fileSize || 0,
-                  uploadedAt: att.uploadedAt || att.createdAt || new Date().toISOString(),
-                  entityType: 'CLAIM',
-                  entityId: claim.id,
-                  entityReference: claim.claimNumber || `CLM-${claim.id}`,
-                  memberName: claim.memberFullNameArabic || claim.memberName,
-                  providerName: claim.providerName,
-                  status: claim.status,
-                  amount: claim.requestedAmount || claim.approvedAmount
-                });
-              });
-            } catch (err) {
-              console.error(`❌ Error fetching attachments for claim ${claim.id}:`, err);
-            }
-          }
-        } catch (err) {
-          console.error('❌ Error fetching claims documents:', err);
-        }
-      }
-      
-      // Fetch pre-approvals documents (if user has permission)
-      if (canViewPreApprovals()) {
-        try {
-          // Fetch ALL pre-approvals with larger size to get documents from Provider Portal
-          // Include all statuses: REQUESTED, UNDER_REVIEW, APPROVED, REJECTED
-          const preApprovalsResponse = await preApprovalsService.getAll({ page: 1, size: 500 });
-          const preApprovals = preApprovalsResponse.items || preApprovalsResponse.data?.items || [];
-          
-          console.log(`📄 Fetching documents for ${preApprovals.length} pre-approvals...`);
-          
-          // Fetch attachments for each pre-approval
-          for (const preApproval of preApprovals) {
-            try {
-              const attachments = await preApprovalsService.getAttachments(preApproval.id);
-              const attachmentsArray = attachments.data || attachments || [];
-              
-              if (attachmentsArray.length > 0) {
-                console.log(`✅ Found ${attachmentsArray.length} attachments for pre-approval ${preApproval.id}`);
-              }
-              
-              attachmentsArray.forEach(att => {
-                allDocs.push({
-                  id: `PREAPPROVAL-${preApproval.id}-${att.id}`,
-                  originalId: att.id,
-                  fileName: att.fileName || att.originalFileName || `Document ${att.id}`,
-                  fileType: att.fileType || att.mimeType || 'Unknown',
-                  fileSize: att.fileSize || 0,
-                  uploadedAt: att.uploadedAt || att.createdAt || new Date().toISOString(),
-                  entityType: 'PRE_APPROVAL',
-                  entityId: preApproval.id,
-                  entityReference: `PA-${preApproval.id}`,
-                  memberName: preApproval.memberFullNameArabic || preApproval.memberName,
-                  providerName: preApproval.providerName,
-                  status: preApproval.status,
-                  amount: preApproval.requestedAmount || preApproval.approvedAmount
-                });
-              });
-            } catch (err) {
-              console.error(`❌ Error fetching attachments for pre-approval ${preApproval.id}:`, err);
-            }
-          }
-        } catch (err) {
-          console.error('❌ Error fetching pre-approvals documents:', err);
-        }
-      }
-      
-      setDocuments(allDocs);
-      calculateStats(allDocs);
-      
-      console.log(`✅ Total documents loaded: ${allDocs.length}`);
-      console.log(`📊 Claims: ${allDocs.filter(d => d.entityType === 'CLAIM').length}`);
-      console.log(`📊 Pre-Approvals: ${allDocs.filter(d => d.entityType === 'PRE_APPROVAL').length}`);
-      
-    } catch (err) {
-      console.error('❌ Error fetching documents:', err);
-      setError('فشل في تحميل المستندات');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateStats = (docs) => {
-    // Count documents from provider portal (SUBMITTED status means from provider)
-    const providerDocs = docs.filter(d => 
-      d.status === 'SUBMITTED' || 
-      d.status === 'REQUESTED' ||
-      d.status === 'UNDER_REVIEW'
-    );
-    
-    const stats = {
-      total: docs.length,
-      claims: docs.filter(d => d.entityType === 'CLAIM').length,
-      preApprovals: docs.filter(d => d.entityType === 'PRE_APPROVAL').length,
-      fromProvider: providerDocs.length,
-      pdfs: docs.filter(d => d.fileType?.toLowerCase().includes('pdf')).length,
-      images: docs.filter(d => d.fileType?.toLowerCase().includes('image') || 
-                              d.fileType?.toLowerCase().includes('jpeg') ||
-                              d.fileType?.toLowerCase().includes('jpg') ||
-                              d.fileType?.toLowerCase().includes('png')).length,
-      documents: docs.filter(d => !d.fileType?.toLowerCase().includes('pdf') && 
-                                 !d.fileType?.toLowerCase().includes('image')).length
-    };
-    setStats(stats);
-  };
-
-  const applyFilters = () => {
-    let filtered = [...documents];
-    
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(doc => 
-        doc.fileName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.entityReference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.memberName?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Entity type filter
-    if (entityTypeFilter !== 'ALL') {
-      filtered = filtered.filter(doc => doc.entityType === entityTypeFilter);
-    }
-    
-    // File type filter
-    if (fileTypeFilter !== 'ALL') {
-      if (fileTypeFilter === 'PDF') {
-        filtered = filtered.filter(doc => doc.fileType?.toLowerCase().includes('pdf'));
-      } else if (fileTypeFilter === 'IMAGE') {
-        filtered = filtered.filter(doc => 
-          doc.fileType?.toLowerCase().includes('image') ||
-          doc.fileType?.toLowerCase().includes('jpeg') ||
-          doc.fileType?.toLowerCase().includes('jpg') ||
-          doc.fileType?.toLowerCase().includes('png')
-        );
-      } else if (fileTypeFilter === 'DOCUMENT') {
-        filtered = filtered.filter(doc => 
-          !doc.fileType?.toLowerCase().includes('pdf') &&
-          !doc.fileType?.toLowerCase().includes('image')
-        );
-      }
-    }
-    
-    // Status filter
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter(doc => doc.status === statusFilter);
-    }
-    
-    setFilteredDocuments(filtered);
-  };
-
-  const handleOpenDrawer = (document) => {
-    setSelectedDocument(document);
-    setDrawerOpen(true);
-  };
-
-  const handleDownload = async (document) => {
-    try {
-      setError(null);
-      
-      let blob;
-      if (document.entityType === 'CLAIM') {
-        blob = await claimsService.downloadAttachment(document.entityId, document.originalId);
-      } else {
-        blob = await preApprovalsService.downloadAttachment(document.entityId, document.originalId);
-      }
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = document.fileName || `document-${document.originalId}`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      
-      setSuccessMessage(`تم تحميل ${document.fileName} بنجاح`);
-    } catch (err) {
-      console.error('Download error:', err);
-      
-      let errorMessage = 'فشل في تحميل المستند';
-      if (err.response?.status === 403) {
-        errorMessage = '⚠️ ليس لديك صلاحية تحميل هذا المستند';
-      } else if (err.response?.status === 404) {
-        errorMessage = '❌ المستند غير موجود';
-      } else if (err.response?.status >= 500) {
-        errorMessage = '❌ خطأ في الخادم، يرجى المحاولة لاحقاً';
-      }
-      
-      setError(errorMessage);
-    }
-  };
-
-  const handleOpenDeleteDialog = (document) => {
-    setDocumentToDelete(document);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDelete = async () => {
-    if (!documentToDelete) return;
-    
-    try {
-      setDeleteLoading(true);
-      setError(null);
-      
-      // Backend would need DELETE endpoint
-      // For now, show success and remove from UI
-      
-      setDocuments(prev => prev.filter(d => d.id !== documentToDelete.id));
-      setSuccessMessage(`تم حذف ${documentToDelete.fileName} بنجاح`);
-      setDeleteDialogOpen(false);
-      setDocumentToDelete(null);
-    } catch (err) {
-      console.error('Delete error:', err);
-      
-      let errorMessage = 'فشل في حذف المستند';
-      if (err.response?.status === 403) {
-        errorMessage = '⚠️ ليس لديك صلاحية حذف هذا المستند';
-      } else if (err.response?.status === 404) {
-        errorMessage = '❌ المستند غير موجود';
-      } else if (err.response?.status === 409) {
-        errorMessage = '⚠️ لا يمكن حذف المستند - مرتبط بطلب قيد المعالجة';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   // RBAC checks
   const canViewClaims = () => {
     if (!user) return false;
@@ -397,25 +151,243 @@ const DocumentsLibrary = () => {
     return hasPermission(user, PERMISSIONS.VIEW_PRE_APPROVALS);
   };
 
-  const canDeleteDocument = (document) => {
+  const canDeleteDocument = (doc) => {
     if (!user) return false;
     if (user.roles?.includes('SUPER_ADMIN')) return true;
-    
-    if (document.entityType === 'CLAIM') {
+
+    if (doc.entityType === 'CLAIM') {
       return hasPermission(user, PERMISSIONS.MANAGE_CLAIMS);
     } else {
       return hasPermission(user, PERMISSIONS.MANAGE_PRE_APPROVALS);
     }
   };
 
+  const fetchAllDocuments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const allDocs = [];
+
+      // Fetch claims documents
+      if (canViewClaims()) {
+        try {
+          const claimsResponse = await claimsService.getAll({ page: 1, size: 500 });
+          const claims = claimsResponse.items || claimsResponse.data?.items || [];
+
+          // parallelize attachment fetching
+          const claimDocsPromises = claims.map(async (claim) => {
+            try {
+              const attachments = await claimsService.getAttachments(claim.id);
+              const attachmentsArray = attachments.data || attachments || [];
+
+              return attachmentsArray.map(att => ({
+                id: `CLAIM-${claim.id}-${att.id}`,
+                originalId: att.id,
+                fileName: att.fileName || att.originalFileName || `Document ${att.id}`,
+                fileType: att.fileType || att.mimeType || 'Unknown',
+                fileSize: att.fileSize || 0,
+                uploadedAt: att.uploadedAt || att.createdAt || new Date().toISOString(),
+                entityType: 'CLAIM',
+                entityId: claim.id,
+                entityReference: claim.claimNumber || `CLM-${claim.id}`,
+                memberName: claim.memberFullNameArabic || claim.memberName,
+                providerName: claim.providerName,
+                status: claim.status,
+                amount: claim.requestedAmount || claim.approvedAmount
+              }));
+            } catch (err) {
+              console.error(`❌ Error fetching attachments for claim ${claim.id}:`, err);
+              return [];
+            }
+          });
+
+          const claimsDocs = (await Promise.all(claimDocsPromises)).flat();
+          allDocs.push(...claimsDocs);
+        } catch (err) {
+          console.error('❌ Error fetching claims documents:', err);
+        }
+      }
+
+      // Fetch pre-approvals documents
+      if (canViewPreApprovals()) {
+        try {
+          const preApprovalsResponse = await preApprovalsService.getAll({ page: 1, size: 500 });
+          const preApprovals = preApprovalsResponse.items || preApprovalsResponse.data?.items || [];
+
+          // parallelize attachment fetching
+          const paDocsPromises = preApprovals.map(async (pa) => {
+            try {
+              const attachments = await preApprovalsService.getAttachments(pa.id);
+              const attachmentsArray = attachments.data || attachments || [];
+
+              return attachmentsArray.map(att => ({
+                id: `PREAPPROVAL-${pa.id}-${att.id}`,
+                originalId: att.id,
+                fileName: att.fileName || att.originalFileName || `Document ${att.id}`,
+                fileType: att.fileType || att.mimeType || 'Unknown',
+                fileSize: att.fileSize || 0,
+                uploadedAt: att.uploadedAt || att.createdAt || new Date().toISOString(),
+                entityType: 'PRE_APPROVAL',
+                entityId: pa.id,
+                entityReference: `PA-${pa.id}`,
+                memberName: pa.memberFullNameArabic || pa.memberName,
+                providerName: pa.providerName,
+                status: pa.status,
+                amount: pa.requestedAmount || pa.approvedAmount
+              }));
+            } catch (err) {
+              console.error(`❌ Error fetching attachments for pre-approval ${pa.id}:`, err);
+              return [];
+            }
+          });
+
+          const paDocs = (await Promise.all(paDocsPromises)).flat();
+          allDocs.push(...paDocs);
+        } catch (err) {
+          console.error('❌ Error fetching pre-approvals documents:', err);
+        }
+      }
+
+      setDocuments(allDocs);
+      calculateStats(allDocs);
+
+    } catch (err) {
+      console.error('❌ Error fetching documents:', err);
+      setError('فشل في تحميل المستندات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (docs) => {
+    const providerDocs = docs.filter(d =>
+      d.status === 'SUBMITTED' ||
+      d.status === 'REQUESTED' ||
+      d.status === 'UNDER_REVIEW'
+    );
+
+    const stats = {
+      total: docs.length,
+      claims: docs.filter(d => d.entityType === 'CLAIM').length,
+      preApprovals: docs.filter(d => d.entityType === 'PRE_APPROVAL').length,
+      fromProvider: providerDocs.length,
+      pdfs: docs.filter(d => d.fileType?.toLowerCase().includes('pdf')).length,
+      images: docs.filter(d => d.fileType?.toLowerCase().includes('image') ||
+        d.fileType?.toLowerCase().includes('jpeg') ||
+        d.fileType?.toLowerCase().includes('jpg') ||
+        d.fileType?.toLowerCase().includes('png')).length,
+      documents: docs.filter(d => !d.fileType?.toLowerCase().includes('pdf') &&
+        !d.fileType?.toLowerCase().includes('image')).length
+    };
+    setStats(stats);
+  };
+
+  const applyFilters = () => {
+    let filtered = [...documents];
+
+    if (searchTerm) {
+      filtered = filtered.filter(doc =>
+        doc.fileName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.entityReference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.memberName?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (entityTypeFilter !== 'ALL') {
+      filtered = filtered.filter(doc => doc.entityType === entityTypeFilter);
+    }
+
+    if (fileTypeFilter !== 'ALL') {
+      if (fileTypeFilter === 'PDF') {
+        filtered = filtered.filter(doc => doc.fileType?.toLowerCase().includes('pdf'));
+      } else if (fileTypeFilter === 'IMAGE') {
+        filtered = filtered.filter(doc =>
+          doc.fileType?.toLowerCase().includes('image') ||
+          doc.fileType?.toLowerCase().includes('jpeg') ||
+          doc.fileType?.toLowerCase().includes('jpg') ||
+          doc.fileType?.toLowerCase().includes('png')
+        );
+      } else if (fileTypeFilter === 'DOCUMENT') {
+        filtered = filtered.filter(doc =>
+          !doc.fileType?.toLowerCase().includes('pdf') &&
+          !doc.fileType?.toLowerCase().includes('image')
+        );
+      }
+    }
+
+    if (statusFilter !== 'ALL') {
+      filtered = filtered.filter(doc => doc.status === statusFilter);
+    }
+
+    setFilteredDocuments(filtered);
+  };
+
+  const handleOpenDrawer = (doc) => {
+    setSelectedDocument(doc);
+    setDrawerOpen(true);
+  };
+
+  const handleDownload = async (doc) => {
+    try {
+      setError(null);
+
+      let blob;
+      if (doc.entityType === 'CLAIM') {
+        blob = await claimsService.downloadAttachment(doc.entityId, doc.originalId);
+      } else {
+        blob = await preApprovalsService.downloadAttachment(doc.entityId, doc.originalId);
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.fileName || `document-${doc.originalId}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage(`تم تحميل ${doc.fileName} بنجاح`);
+    } catch (err) {
+      console.error('Download error:', err);
+      let errorMessage = 'فشل في تحميل المستند';
+      if (err.response?.status === 403) errorMessage = '⚠️ ليس لديك صلاحية تحميل هذا المستند';
+      else if (err.response?.status === 404) errorMessage = '❌ المستند غير موجود';
+      setError(errorMessage);
+    }
+  };
+
+  const handleOpenDeleteDialog = (doc) => {
+    setDocumentToDelete(doc);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      setDeleteLoading(true);
+      setError(null);
+      // Mock delete
+      setDocuments(prev => prev.filter(d => d.id !== documentToDelete.id));
+      setSuccessMessage(`تم حذف ${documentToDelete.fileName} بنجاح`);
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+    } catch (err) {
+      console.error('Delete error:', err);
+      let errorMessage = 'فشل في حذف المستند';
+      if (err.response?.status === 403) errorMessage = '⚠️ ليس لديك صلاحية حذف هذا المستند';
+      else if (err.response?.status === 404) errorMessage = '❌ المستند غير موجود';
+      setError(errorMessage);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const getFileIcon = (fileType) => {
     if (!fileType) return <DocumentIcon />;
-    
     const type = fileType.toLowerCase();
     if (type.includes('pdf')) return <PdfIcon />;
-    if (type.includes('image') || type.includes('jpeg') || type.includes('jpg') || type.includes('png')) {
-      return <ImageIcon />;
-    }
+    if (type.includes('image') || type.includes('jpeg') || type.includes('jpg') || type.includes('png')) return <ImageIcon />;
     return <ArticleIcon />;
   };
 
@@ -427,60 +399,60 @@ const DocumentsLibrary = () => {
     return `${mb.toFixed(1)} MB`;
   };
 
-  // DataGrid columns
-  const columns = [
+  // TanStack Table columns
+  const columns = useMemo(() => [
     {
-      field: 'fileName',
-      headerName: 'اسم المستند',
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params) => (
+      accessorKey: 'fileName',
+      header: 'اسم المستند',
+      size: 250,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={1} alignItems="center">
-          {getFileIcon(params.row.fileType)}
-          <Typography variant="body2">{params.value}</Typography>
+          {getFileIcon(row.original.fileType)}
+          <Typography variant="body2">{row.original.fileName}</Typography>
         </Stack>
       )
     },
     {
-      field: 'entityType',
-      headerName: 'مرتبط بـ',
-      width: 140,
-      renderCell: (params) => (
+      accessorKey: 'entityType',
+      header: 'مرتبط بـ',
+      size: 140,
+      cell: ({ row }) => (
         <Chip
-          icon={params.value === 'CLAIM' ? <ClaimIcon /> : <PreApprovalIcon />}
-          label={params.value === 'CLAIM' ? 'مطالبة' : 'موافقة مسبقة'}
+          icon={row.original.entityType === 'CLAIM' ? <ClaimIcon /> : <PreApprovalIcon />}
+          label={row.original.entityType === 'CLAIM' ? 'مطالبة' : 'موافقة مسبقة'}
           size="small"
-          color={params.value === 'CLAIM' ? 'primary' : 'secondary'}
+          color={row.original.entityType === 'CLAIM' ? 'primary' : 'secondary'}
         />
       )
     },
     {
-      field: 'entityReference',
-      headerName: 'رقم الطلب',
-      width: 130
+      accessorKey: 'entityReference',
+      header: 'رقم الطلب',
+      size: 130
     },
     {
-      field: 'memberName',
-      headerName: 'اسم المنتفع',
-      width: 160
+      accessorKey: 'memberName',
+      header: 'اسم المنتفع',
+      size: 160
     },
     {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      width: 150,
-      renderCell: (params) => (
+      accessorKey: 'providerName',
+      header: 'مقدم الخدمة',
+      size: 150,
+      cell: ({ row }) => (
         <Typography variant="body2" noWrap>
-          {params.value || '-'}
+          {row.original.providerName || '-'}
         </Typography>
       )
     },
     {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 130,
-      renderCell: (params) => {
-        if (!params.value) return null;
-        
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 130,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        if (!status) return null;
+
         const statusColors = {
           'DRAFT': 'default',
           'SUBMITTED': 'info',
@@ -490,7 +462,7 @@ const DocumentsLibrary = () => {
           'SETTLED': 'success',
           'REQUESTED': 'info'
         };
-        
+
         const statusLabels = {
           'DRAFT': 'مسودة',
           'SUBMITTED': 'مقدمة',
@@ -500,32 +472,33 @@ const DocumentsLibrary = () => {
           'SETTLED': 'مسددة',
           'REQUESTED': 'مطلوبة'
         };
-        
+
         return (
           <Chip
-            label={statusLabels[params.value] || params.value}
+            label={statusLabels[status] || status}
             size="small"
-            color={statusColors[params.value] || 'default'}
+            color={statusColors[status] || 'default'}
             sx={{ minWidth: 90 }}
           />
         );
       }
     },
     {
-      field: 'fileSize',
-      headerName: 'الحجم',
-      width: 100,
-      renderCell: (params) => (
-        <Typography variant="body2">{formatFileSize(params.value)}</Typography>
+      accessorKey: 'fileSize',
+      header: 'الحجم',
+      size: 100,
+      cell: ({ row }) => (
+        <Typography variant="body2">{formatFileSize(row.original.fileSize)}</Typography>
       )
     },
     {
-      field: 'uploadedAt',
-      headerName: 'تاريخ الرفع',
-      width: 150,
-      valueFormatter: (params) => {
-        if (!params.value) return '-';
-        return new Date(params.value).toLocaleDateString('ar-SA', {
+      accessorKey: 'uploadedAt',
+      header: 'تاريخ الرفع',
+      size: 150,
+      cell: ({ row }) => {
+        const val = row.original.uploadedAt;
+        if (!val) return '-';
+        return new Date(val).toLocaleDateString('ar-SA', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit'
@@ -533,17 +506,17 @@ const DocumentsLibrary = () => {
       }
     },
     {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 160,
-      sortable: false,
-      renderCell: (params) => (
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 160,
+      enableSorting: false,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="عرض التفاصيل">
             <IconButton
               size="small"
               color="primary"
-              onClick={() => handleOpenDrawer(params.row)}
+              onClick={() => handleOpenDrawer(row.original)}
             >
               <ViewIcon fontSize="small" />
             </IconButton>
@@ -552,17 +525,17 @@ const DocumentsLibrary = () => {
             <IconButton
               size="small"
               color="info"
-              onClick={() => handleDownload(params.row)}
+              onClick={() => handleDownload(row.original)}
             >
               <DownloadIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          {canDeleteDocument(params.row) && (
+          {canDeleteDocument(row.original) && (
             <Tooltip title="حذف">
               <IconButton
                 size="small"
                 color="error"
-                onClick={() => handleOpenDeleteDialog(params.row)}
+                onClick={() => handleOpenDeleteDialog(row.original)}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -571,7 +544,7 @@ const DocumentsLibrary = () => {
         </Stack>
       )
     }
-  ];
+  ], []);
 
   return (
     <RBACGuard
@@ -604,84 +577,48 @@ const DocumentsLibrary = () => {
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'primary.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="primary">
-                      {stats.total}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      إجمالي المستندات
-                    </Typography>
+                    <Typography variant="h4" color="primary">{stats.total}</Typography>
+                    <Typography variant="body2" color="text.secondary">إجمالي المستندات</Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'secondary.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="secondary">
-                      {stats.claims}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      مطالبات
-                    </Typography>
+                    <Typography variant="h4" color="secondary">{stats.claims}</Typography>
+                    <Typography variant="body2" color="text.secondary">مطالبات</Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'info.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="info.main">
-                      {stats.preApprovals}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      موافقات مسبقة
-                    </Typography>
+                    <Typography variant="h4" color="info.main">{stats.preApprovals}</Typography>
+                    <Typography variant="body2" color="text.secondary">موافقات مسبقة</Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'warning.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="warning.main">
-                      {stats.fromProvider}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      من مقدمي الخدمة
-                    </Typography>
+                    <Typography variant="h4" color="warning.main">{stats.fromProvider}</Typography>
+                    <Typography variant="body2" color="text.secondary">من مقدمي الخدمة</Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'error.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="error.main">
-                      {stats.pdfs}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      PDF
-                    </Typography>
+                    <Typography variant="h4" color="error.main">{stats.pdfs}</Typography>
+                    <Typography variant="body2" color="text.secondary">PDF</Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={2}>
                 <Card sx={{ bgcolor: 'success.lighter' }}>
                   <CardContent>
-                    <Typography variant="h4" color="success.main">
-                      {stats.images}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      صور
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <Card sx={{ bgcolor: 'warning.lighter' }}>
-                  <CardContent>
-                    <Typography variant="h4" color="warning.main">
-                      {stats.documents}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      مستندات أخرى
-                    </Typography>
+                    <Typography variant="h4" color="success.main">{stats.images}</Typography>
+                    <Typography variant="body2" color="text.secondary">صور</Typography>
                   </CardContent>
                 </Card>
               </Grid>
@@ -746,39 +683,18 @@ const DocumentsLibrary = () => {
               </FormControl>
             </Stack>
 
-            {/* DataGrid */}
-            <Box sx={{ height: 600, width: '100%' }}>
-              {loading ? (
-                <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                  <CircularProgress />
-                </Box>
-              ) : filteredDocuments.length === 0 ? (
-                <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%">
-                  <DocumentIcon sx={{ fontSize: 100, color: 'text.disabled', mb: 2 }} />
-                  <Typography variant="h5" color="text.secondary" gutterBottom>
-                    لا توجد مستندات
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {documents.length === 0 
-                      ? 'لم يتم رفع أي مستندات بعد'
-                      : 'لا توجد نتائج تطابق الفلاتر المحددة'}
-                  </Typography>
-                </Box>
-              ) : (
-                <DataGrid
-                  rows={filteredDocuments}
-                  columns={columns}
-                  pageSize={10}
-                  rowsPerPageOptions={[10, 25, 50]}
-                  disableSelectionOnClick
-                  autoHeight
-                  sx={{
-                    '& .MuiDataGrid-cell:focus': {
-                      outline: 'none'
-                    }
-                  }}
-                />
-              )}
+            {/* GenericDataTable */}
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <GenericDataTable
+                data={paginatedData}
+                columns={columns}
+                totalCount={processedData.length}
+                tableState={tableState}
+                isLoading={loading}
+                enableFiltering={false}
+                emptyMessage={documents.length === 0 ? 'لم يتم رفع أي مستندات بعد' : 'لا توجد نتائج تطابق الفلاتر المحددة'}
+                rowsPerPageOptions={[10, 25, 50]}
+              />
             </Box>
           </Box>
         </MainCard>
@@ -789,20 +705,13 @@ const DocumentsLibrary = () => {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           sx={{
-            '& .MuiDrawer-paper': {
-              width: { xs: '100%', sm: 480 },
-              p: 3
-            }
+            '& .MuiDrawer-paper': { width: { xs: '100%', sm: 480 }, p: 3 }
           }}
         >
           <Box sx={{ mb: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5" fontWeight={600}>
-                📄 تفاصيل المستند
-              </Typography>
-              <IconButton onClick={() => setDrawerOpen(false)}>
-                <CloseIcon />
-              </IconButton>
+              <Typography variant="h5" fontWeight={600}>📄 تفاصيل المستند</Typography>
+              <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon /></IconButton>
             </Stack>
             <Divider sx={{ mt: 2 }} />
           </Box>
@@ -810,22 +719,15 @@ const DocumentsLibrary = () => {
           {selectedDocument && (
             <Box>
               <Stack spacing={3}>
-                {/* File Info */}
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    اسم الملف
-                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>اسم الملف</Typography>
                   <Stack direction="row" spacing={1} alignItems="center">
                     {getFileIcon(selectedDocument.fileType)}
                     <Typography variant="h6">{selectedDocument.fileName}</Typography>
                   </Stack>
                 </Box>
-
-                {/* Entity Info */}
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    مرتبط بـ
-                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>مرتبط بـ</Typography>
                   <Stack direction="row" spacing={1}>
                     <Chip
                       icon={selectedDocument.entityType === 'CLAIM' ? <ClaimIcon /> : <PreApprovalIcon />}
@@ -835,16 +737,10 @@ const DocumentsLibrary = () => {
                     <Chip label={selectedDocument.entityReference} variant="outlined" />
                   </Stack>
                 </Box>
-
-                {/* Member Info */}
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    اسم المنتفع
-                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>اسم المنتفع</Typography>
                   <Typography variant="body1">{selectedDocument.memberName}</Typography>
                 </Box>
-
-                {/* File Details */}
                 <Table size="small">
                   <TableBody>
                     <TableRow>
@@ -870,15 +766,11 @@ const DocumentsLibrary = () => {
                     {selectedDocument.amount && (
                       <TableRow>
                         <TableCell><strong>المبلغ</strong></TableCell>
-                        <TableCell>
-                          {selectedDocument.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل
-                        </TableCell>
+                        <TableCell>{selectedDocument.amount.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} د.ل</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-
-                {/* Actions */}
                 <Stack direction="row" spacing={2}>
                   <Button
                     variant="contained"
@@ -903,8 +795,6 @@ const DocumentsLibrary = () => {
                     </Button>
                   )}
                 </Stack>
-
-                {/* Navigate to Entity */}
                 <Button
                   variant="text"
                   onClick={() => {
@@ -928,15 +818,10 @@ const DocumentsLibrary = () => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>
-            ❌ تأكيد حذف المستند
-          </DialogTitle>
+          <DialogTitle>❌ تأكيد حذف المستند</DialogTitle>
           <DialogContent>
             <Stack spacing={2}>
-              <Alert severity="warning">
-                هل أنت متأكد من حذف هذا المستند؟ لا يمكن التراجع عن هذا الإجراء.
-              </Alert>
-              
+              <Alert severity="warning">هل أنت متأكد من حذف هذا المستند؟ لا يمكن التراجع عن هذا الإجراء.</Alert>
               {documentToDelete && (
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -950,9 +835,7 @@ const DocumentsLibrary = () => {
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteLoading}>
-              إلغاء
-            </Button>
+            <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteLoading}>إلغاء</Button>
             <Button
               onClick={handleDelete}
               variant="contained"

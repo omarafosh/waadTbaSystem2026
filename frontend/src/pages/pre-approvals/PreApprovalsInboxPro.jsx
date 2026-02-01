@@ -80,7 +80,8 @@ import MainCard from 'components/MainCard';
 import { ModernPageHeader } from 'components/tba';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import { DataGrid } from '@mui/x-data-grid';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import { preApprovalsService } from 'services/api';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -213,9 +214,13 @@ const PreApprovalsInbox = () => {
   const [preApprovals, setPreApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'createdAt', direction: 'asc' }
+  });
 
   // Statistics
   const [stats, setStats] = useState({
@@ -263,10 +268,10 @@ const PreApprovalsInbox = () => {
       setError(null);
 
       const params = {
-        page: page + 1,
-        size: pageSize,
-        sortBy: 'createdAt',
-        sortDir: 'asc' // FIFO
+        page: tableState.page + 1,
+        size: tableState.pageSize,
+        sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+        sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'desc' : 'asc') : 'asc'
       };
 
       if (statusFilter) params.status = statusFilter;
@@ -300,7 +305,7 @@ const PreApprovalsInbox = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, priorityFilter, searchQuery, dateFrom, dateTo]);
+  }, [tableState.page, tableState.pageSize, tableState.sorting, statusFilter, priorityFilter, searchQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchPreApprovals();
@@ -464,86 +469,84 @@ const PreApprovalsInbox = () => {
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // DATAGRID COLUMNS
+  // GENERIC DATATABLE COLUMNS
   // ════════════════════════════════════════════════════════════════════════════
   const columns = useMemo(() => [
     {
-      field: 'referenceNumber',
-      headerName: 'رقم الطلب',
-      width: 130,
-      renderCell: (params) => (
+      accessorKey: 'referenceNumber',
+      header: 'رقم الطلب',
+      size: 130,
+      cell: ({ row }) => (
         <Stack>
           <Typography variant="body2" fontWeight="bold" color="primary">
-            {params.row?.referenceNumber || `PA-${params.row?.id}`}
+            {row.original.referenceNumber || `PA-${row.original.id}`}
           </Typography>
-          <AgeIndicator createdAt={params.row?.createdAt || params.row?.requestDate} />
+          <AgeIndicator createdAt={row.original.createdAt || row.original.requestDate} />
         </Stack>
       )
     },
     {
-      field: 'priority',
-      headerName: 'الأولوية',
-      width: 100,
-      renderCell: (params) => (
-        <PriorityBadge priority={params.row?.priority || params.row?.urgency} />
+      accessorKey: 'priority',
+      header: 'الأولوية',
+      size: 100,
+      cell: ({ row }) => (
+        <PriorityBadge priority={row.original.priority || row.original.urgency} />
       )
     },
     {
-      field: 'memberName',
-      headerName: 'المستفيد',
-      flex: 1,
-      minWidth: 180,
-      renderCell: (params) => (
+      accessorKey: 'memberName',
+      header: 'المستفيد',
+      size: 200,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={1} alignItems="center">
           <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.lighter' }}>
             <PersonIcon sx={{ fontSize: 18, color: 'primary.main' }} />
           </Avatar>
           <Box>
             <Typography variant="body2" fontWeight={500}>
-              {params.row?.memberName || params.row?.memberFullName || params.row?.fullName || '-'}
+              {row.original.memberName || row.original.memberFullName || row.original.fullName || '-'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {params.row?.memberNationalNumber || params.row?.memberCivilId || ''}
+              {row.original.memberNationalNumber || row.original.memberCivilId || ''}
             </Typography>
           </Box>
         </Stack>
       )
     },
     {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => (
+      accessorKey: 'providerName',
+      header: 'مقدم الخدمة',
+      size: 180,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={1} alignItems="center">
           <Avatar sx={{ width: 28, height: 28, bgcolor: 'success.lighter' }}>
             <ProviderIcon sx={{ fontSize: 16, color: 'success.main' }} />
           </Avatar>
           <Typography variant="body2">
-            {params.row?.providerName || '-'}
+            {row.original.providerName || '-'}
           </Typography>
         </Stack>
       )
     },
     {
-      field: 'serviceName',
-      headerName: 'الخدمة المطلوبة',
-      width: 180,
-      renderCell: (params) => (
+      accessorKey: 'serviceName',
+      header: 'الخدمة المطلوبة',
+      size: 180,
+      cell: ({ row }) => (
         <Stack direction="row" spacing={1} alignItems="center">
           <MedicalIcon sx={{ fontSize: 18, color: 'info.main' }} />
           <Typography variant="body2">
-            {params.row?.serviceName || params.row?.serviceCode || params.row?.procedureName || '-'}
+            {row.original.serviceName || row.original.serviceCode || row.original.procedureName || '-'}
           </Typography>
         </Stack>
       )
     },
     {
-      field: 'requestedAmount',
-      headerName: 'المبلغ',
-      width: 130,
-      renderCell: (params) => {
-        const amount = params.row?.contractPrice || params.row?.requestedAmount;
+      accessorKey: 'requestedAmount',
+      header: 'المبلغ',
+      size: 130,
+      cell: ({ row }) => {
+        const amount = row.original.contractPrice || row.original.requestedAmount;
         return (
           <Typography variant="body2" fontWeight="bold" color="primary.main">
             {amount ? `${Number(amount).toLocaleString()} د.ل` : '-'}
@@ -552,29 +555,26 @@ const PreApprovalsInbox = () => {
       }
     },
     {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 140,
-      renderCell: (params) => renderStatus(params.value)
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 140,
+      cell: ({ row }) => renderStatus(row.original.status)
     },
     {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 200,
-      sortable: false,
-      renderCell: (params) => {
-        // CANONICAL 2026-01-26: PreAuth workflow uses PENDING (not SUBMITTED like Claims)
-        // PENDING = newly created, awaiting initial review
-        // UNDER_REVIEW = currently being reviewed
-        const isPending = params.row.status === 'PENDING';
-        const canProcess = params.row.status === 'PENDING' || params.row.status === 'UNDER_REVIEW';
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 200,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const isPending = row.original.status === 'PENDING';
+        const canProcess = row.original.status === 'PENDING' || row.original.status === 'UNDER_REVIEW';
 
         return (
           <Stack direction="row" spacing={0.5}>
             <Tooltip title="عرض التفاصيل">
               <IconButton
                 size="small"
-                onClick={() => navigate(`/pre-approvals/${params.row.id}`)}
+                onClick={() => navigate(`/pre-approvals/${row.original.id}`)}
                 disabled={actionLoading}
                 sx={{
                   bgcolor: 'primary.lighter',
@@ -588,7 +588,7 @@ const PreApprovalsInbox = () => {
             <Tooltip title="رفع مستندات">
               <IconButton
                 size="small"
-                onClick={() => handleOpenUpload(params.row)}
+                onClick={() => handleOpenUpload(row.original)}
                 disabled={actionLoading}
                 sx={{
                   bgcolor: 'secondary.lighter',
@@ -599,13 +599,12 @@ const PreApprovalsInbox = () => {
               </IconButton>
             </Tooltip>
 
-            {/* PENDING → Start Review (transition to UNDER_REVIEW) */}
             {isPending && (
               <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
                 <Tooltip title="بدء المراجعة">
                   <IconButton
                     size="small"
-                    onClick={() => handleStartReview(params.row)}
+                    onClick={() => handleStartReview(row.original)}
                     disabled={actionLoading}
                     sx={{
                       bgcolor: 'info.lighter',
@@ -618,13 +617,12 @@ const PreApprovalsInbox = () => {
               </RBACGuard>
             )}
 
-            {/* PENDING/UNDER_REVIEW → Approve/Reject */}
             {canProcess && (
               <RBACGuard requiredPermission={PERMISSIONS.PREAPPROVAL_WRITE}>
                 <Tooltip title="موافقة">
                   <IconButton
                     size="small"
-                    onClick={() => handleOpenApprove(params.row)}
+                    onClick={() => handleOpenApprove(row.original)}
                     disabled={actionLoading}
                     sx={{
                       bgcolor: 'success.lighter',
@@ -637,7 +635,7 @@ const PreApprovalsInbox = () => {
                 <Tooltip title="رفض">
                   <IconButton
                     size="small"
-                    onClick={() => handleOpenReject(params.row)}
+                    onClick={() => handleOpenReject(row.original)}
                     disabled={actionLoading}
                     sx={{
                       bgcolor: 'error.lighter',
@@ -818,42 +816,18 @@ const PreApprovalsInbox = () => {
       </Collapse>
 
       {/* ══════════ DATA GRID ══════════ */}
+      {/* ══════════ GENERIC DATATABLE ══════════ */}
       <MainCard>
         {loading && <LinearProgress sx={{ mb: 1 }} />}
-        <Box sx={{ height: 600, width: '100%' }}>
-          <DataGrid
-            rows={preApprovals}
+        <Box sx={{ width: '100%' }}>
+          <GenericDataTable
+            data={preApprovals}
             columns={columns}
-            loading={loading}
-            paginationMode="server"
-            rowCount={totalRows}
-            paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
-              setPage(model.page);
-              setPageSize(model.pageSize);
-            }}
-            pageSizeOptions={[10, 20, 50, 100]}
-            disableRowSelectionOnClick
-            localeText={{
-              noRowsLabel: 'لا توجد طلبات موافقة مسبقة معلقة 🎉',
-              MuiTablePagination: {
-                labelRowsPerPage: 'عدد الصفوف:'
-              }
-            }}
-            sx={{
-              border: 'none',
-              '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid',
-                borderColor: 'divider'
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                bgcolor: 'grey.100',
-                fontWeight: 700
-              },
-              '& .MuiDataGrid-row:hover': {
-                bgcolor: 'primary.lighter'
-              }
-            }}
+            totalCount={totalRows}
+            tableState={tableState}
+            isLoading={loading}
+            emptyMessage="لا توجد طلبات موافقة مسبقة معلقة 🎉"
+            rowsPerPageOptions={[10, 20, 50, 100]}
           />
         </Box>
       </MainCard>

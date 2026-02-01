@@ -141,7 +141,7 @@ const KPICard = ({
                     color: warning ? 'warning.dark' : 'text.primary'
                   }}
                 >
-                  {typeof value === 'number' ? value.toLocaleString('en-US') : value}
+                  {typeof value === 'number' ? value.toLocaleString('ar-SA') : value}
                 </Typography>
               )}
             </Stack>
@@ -259,12 +259,12 @@ const RecentClaimsTable = ({ claims, loading, onViewClaim }) => {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) return '—';
-    return `${parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل`;
+    return `${parseFloat(amount).toLocaleString('ar-SA', { minimumFractionDigits: 2 })} د.ل`;
   };
 
   const formatDate = (date) => {
     if (!date) return '—';
-    return new Date(date).toLocaleDateString('en-GB', {
+    return new Date(date).toLocaleDateString('ar-SA', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -426,11 +426,7 @@ export default function Dashboard() {
     refresh: refreshSummary
   } = useDashboardStats();
 
-  const {
-    data: claimsData,
-    loading: claimsLoading,
-    refresh: refreshClaims
-  } = useClaimsList(
+  const claimsParams = useMemo(() => (
     canViewClaims
       ? {
         page: 0,
@@ -440,7 +436,13 @@ export default function Dashboard() {
         sortDir: 'desc'
       }
       : { skip: true }
-  );
+  ), [canViewClaims, selectedEmployerId]);
+
+  const {
+    data: claimsData,
+    loading: claimsLoading,
+    refresh: refreshClaims
+  } = useClaimsList(claimsParams);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Refresh Handler
@@ -472,7 +474,7 @@ export default function Dashboard() {
   // Format currency
   const formatLYD = (amount) => {
     if (!amount) return '0.00 د.ل';
-    return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل`;
+    return `${amount.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} د.ل`;
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -485,6 +487,10 @@ export default function Dashboard() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // HELPER COMPONENTS
   // ═══════════════════════════════════════════════════════════════════════════════
 
   const InfoRow = ({ label, value, icon: Icon, color = 'primary', loading }) => {

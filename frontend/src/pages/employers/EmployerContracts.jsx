@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -19,7 +19,8 @@ import {
   Alert,
   Snackbar
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+import GenericDataTable from '../../components/GenericDataTable';
+import useTableState from '../../hooks/useTableState';
 import {
   Add as AddIcon,
   MoreVert as MoreVertIcon,
@@ -64,12 +65,11 @@ const EmployerContracts = () => {
   const [loading, setLoading] = useState(false);
   const [totalElements, setTotalElements] = useState(0);
 
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Sorting
-  const [sortModel, setSortModel] = useState([{ field: 'createdAt', sort: 'desc' }]);
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'createdAt', direction: 'desc' }
+  });
 
   // Filters
   const [filters, setFilters] = useState({
@@ -112,10 +112,10 @@ const EmployerContracts = () => {
     setLoading(true);
     try {
       const params = {
-        page,
-        size: pageSize,
-        sortBy: sortModel[0]?.field || 'createdAt',
-        sortDir: sortModel[0]?.sort?.toUpperCase() || 'DESC'
+        page: tableState.page,
+        size: tableState.pageSize,
+        sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+        sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'DESC' : 'ASC') : 'DESC'
       };
 
       // Add filters
@@ -146,7 +146,7 @@ const EmployerContracts = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, sortModel, filters]);
+  }, [tableState.page, tableState.pageSize, tableState.sorting, filters]);
 
   useEffect(() => {
     fetchContracts();
@@ -323,87 +323,76 @@ const EmployerContracts = () => {
     return messages[confirmAction] || '';
   };
 
-  // DataGrid Columns
-  const columns = [
+  // GenericDataTable Columns
+  const columns = useMemo(() => [
     {
-      field: 'policyCode',
-      headerName: 'رقم العقد',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => params.value || '-'
+      accessorKey: 'policyCode',
+      header: 'رقم العقد',
+      size: 150,
+      cell: ({ row }) => row.original.policyCode || '-'
     },
     {
-      field: 'name',
-      headerName: 'اسم العقد',
-      flex: 2,
-      minWidth: 200
+      accessorKey: 'name',
+      header: 'اسم العقد',
+      size: 200
     },
     {
-      field: 'employerName',
-      headerName: 'الشريك',
-      flex: 1.5,
-      minWidth: 180,
-      renderCell: (params) => params.value || '-'
+      accessorKey: 'employerName',
+      header: 'الشريك',
+      size: 180,
+      cell: ({ row }) => row.original.employerName || '-'
     },
     {
-      field: 'startDate',
-      headerName: 'تاريخ البدء',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => dayjs(params.value).format('YYYY-MM-DD')
+      accessorKey: 'startDate',
+      header: 'تاريخ البدء',
+      size: 130,
+      cell: ({ row }) => dayjs(row.original.startDate).format('YYYY-MM-DD')
     },
     {
-      field: 'endDate',
-      headerName: 'تاريخ الانتهاء',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => dayjs(params.value).format('YYYY-MM-DD')
+      accessorKey: 'endDate',
+      header: 'تاريخ الانتهاء',
+      size: 130,
+      cell: ({ row }) => dayjs(row.original.endDate).format('YYYY-MM-DD')
     },
     {
-      field: 'annualLimit',
-      headerName: 'الحد السنوي',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => params.value ? `${params.value.toLocaleString('ar-SA')} ر.س` : '-'
+      accessorKey: 'annualLimit',
+      header: 'الحد السنوي',
+      size: 150,
+      cell: ({ row }) => row.original.annualLimit ? `${row.original.annualLimit.toLocaleString('ar-SA')} ر.س` : '-'
     },
     {
-      field: 'defaultCoveragePercent',
-      headerName: 'التغطية',
-      flex: 0.8,
-      minWidth: 80,
-      renderCell: (params) => `${params.value}%`
+      accessorKey: 'defaultCoveragePercent',
+      header: 'التغطية',
+      size: 100,
+      cell: ({ row }) => `${row.original.defaultCoveragePercent}%`
     },
     {
-      field: 'coveredMembersCount',
-      headerName: 'المنتفعين',
-      flex: 0.8,
-      minWidth: 80,
-      renderCell: (params) => params.value || 0
+      accessorKey: 'coveredMembersCount',
+      header: 'المنتفعين',
+      size: 100,
+      cell: ({ row }) => row.original.coveredMembersCount || 0
     },
     {
-      field: 'status',
-      headerName: 'الحالة',
-      flex: 1,
-      minWidth: 100,
-      renderCell: (params) => <ContractStatusChip status={params.value} />
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 120,
+      cell: ({ row }) => <ContractStatusChip status={row.original.status} />
     },
     {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      flex: 0.8,
-      minWidth: 80,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 100,
+      enableSorting: false,
+      cell: ({ row }) => (
         <IconButton
           size="small"
-          onClick={(e) => handleOpenMenu(e, params.row)}
+          onClick={(e) => handleOpenMenu(e, row.original)}
         >
           <MoreVertIcon />
         </IconButton>
       )
     }
-  ];
+  ], []);
 
   return (
     <Box>
@@ -503,37 +492,15 @@ const EmployerContracts = () => {
         </Box>
 
         {/* DataGrid */}
-        <DataGrid
-          rows={contracts}
+        {/* GenericDataTable */}
+        <GenericDataTable
+          data={contracts}
           columns={columns}
-          loading={loading}
-          rowCount={totalElements}
-          pagination
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          totalCount={totalElements}
+          tableState={tableState}
+          isLoading={loading}
+          emptyMessage="لا توجد عقود"
           rowsPerPageOptions={[10, 20, 50, 100]}
-          sortingMode="server"
-          sortModel={sortModel}
-          onSortModelChange={setSortModel}
-          autoHeight
-          disableSelectionOnClick
-          localeText={{
-            noRowsLabel: 'لا توجد عقود',
-            MuiTablePagination: {
-              labelRowsPerPage: 'عدد الصفوف'
-            }
-          }}
-          sx={{
-            '& .MuiDataGrid-cell:focus': {
-              outline: 'none'
-            },
-            '& .MuiDataGrid-row:hover': {
-              backgroundColor: 'action.hover'
-            }
-          }}
         />
       </MainCard>
 

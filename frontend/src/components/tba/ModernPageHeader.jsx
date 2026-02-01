@@ -12,7 +12,7 @@ import { Link as RouterLink } from 'react-router-dom';
  * - A React component (e.g., PeopleAltIcon) - will be rendered as <Icon sx={...} />
  * - A JSX element (e.g., <LocalHospitalIcon />) - will be cloned with sx props
  */
-const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusChip, icon }) => {
+const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusChip, icon, sx = {} }) => {
   // Render icon - handles both ComponentType and JSX Element
   const renderIcon = () => {
     if (!icon) return null;
@@ -65,7 +65,7 @@ const ModernPageHeader = ({ title, subtitle, breadcrumbs = [], actions, statusCh
   };
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={{ mb: 3, ...sx }}>
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
         <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1.5 }}>
@@ -136,7 +136,8 @@ ModernPageHeader.propTypes = {
     color: PropTypes.oneOf(['default', 'primary', 'secondary', 'error', 'warning', 'info', 'success'])
   }),
   // Icon can be either a component type OR a JSX element
-  icon: PropTypes.oneOfType([PropTypes.elementType, PropTypes.element])
+  icon: PropTypes.oneOfType([PropTypes.elementType, PropTypes.element]),
+  sx: PropTypes.object
 };
 
 export default ModernPageHeader;

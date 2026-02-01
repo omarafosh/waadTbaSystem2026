@@ -66,7 +66,7 @@ public class MemberExcelTemplateServiceTest {
     @DisplayName("Import Fails on Missing Headers (Strict validation)")
     void testImport_MissingHeaders() throws IOException {
         // Arrange
-        when(parserService.openWorkbook(any())).thenReturn(mockWorkbook);
+        when(parserService.openWorkbook(any(MultipartFile.class))).thenReturn(mockWorkbook);
         when(parserService.getDataSheet(mockWorkbook)).thenReturn(mockSheet);
         when(mockSheet.getRow(0)).thenReturn(mockHeaderRow);
         

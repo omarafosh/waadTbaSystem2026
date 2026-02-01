@@ -159,7 +159,7 @@ const PreAuthDashboard = () => {
                 <Box>
                   <Typography variant="caption" color="text.secondary">إجمالي المبالغ المطلوبة</Typography>
                   <Typography variant="h6" fontWeight="bold">
-                    {(stats?.totalRequestedAmount || 0).toLocaleString('en-US')} د.ل
+                    {(stats?.totalRequestedAmount || 0).toLocaleString('ar-SA')} د.ل
                   </Typography>
                 </Box>
                 <AttachMoney color="primary" sx={{ fontSize: 32, opacity: 0.7 }} />
@@ -174,7 +174,7 @@ const PreAuthDashboard = () => {
                 <Box>
                   <Typography variant="caption" color="text.secondary">إجمالي المبالغ المعتمدة</Typography>
                   <Typography variant="h6" fontWeight="bold" color="success.main">
-                    {(stats?.totalApprovedAmount || 0).toLocaleString('en-US')} د.ل
+                    {(stats?.totalApprovedAmount || 0).toLocaleString('ar-SA')} د.ل
                   </Typography>
                 </Box>
                 <AttachMoney color="success" sx={{ fontSize: 32, opacity: 0.7 }} />
@@ -189,7 +189,7 @@ const PreAuthDashboard = () => {
                 <Box>
                   <Typography variant="caption" color="text.secondary">متوسط المبلغ المطلوب</Typography>
                   <Typography variant="h6" fontWeight="bold" color="info.main">
-                    {(stats?.averageRequestedAmount || 0).toLocaleString('en-US')} د.ل
+                    {(stats?.averageRequestedAmount || 0).toLocaleString('ar-SA')} د.ل
                   </Typography>
                 </Box>
                 <AttachMoney color="info" sx={{ fontSize: 32, opacity: 0.7 }} />

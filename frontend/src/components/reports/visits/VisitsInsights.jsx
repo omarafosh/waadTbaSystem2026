@@ -55,7 +55,7 @@ const InsightCard = ({ title, icon: Icon, items, loading, color, maxItems = 5 })
                   >
                     {item.name}
                   </Typography>
-                  <Chip label={item.count.toLocaleString('en-US')} size="small" color={color} variant="outlined" />
+                  <Chip label={item.count.toLocaleString('ar-SA')} size="small" color={color} variant="outlined" />
                 </Stack>
                 <LinearProgress
                   variant="determinate"

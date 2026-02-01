@@ -35,7 +35,10 @@ const axiosServices = axios.create({
     'Content-Type': 'application/json'
   },
   // Phase C: Enable cookie-based auth (HttpOnly JSESSIONID)
-  withCredentials: true
+  withCredentials: true,
+  // CSRF Protection
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN'
 });
 
 // ==============================|| REQUEST INTERCEPTOR - SIMPLIFIED ||============================== //
@@ -82,7 +85,7 @@ axiosServices.interceptors.response.use(
     const status = error.response?.status;
     const url = error.config?.url;
     const errorData = error.response?.data;
-    
+
     // Get current auth state for context
     const rbacState = useRBACStore.getState();
     const isAuthenticated = !!rbacState.user;
@@ -100,10 +103,10 @@ axiosServices.interceptors.response.use(
     if (status === 401) {
       // Clear RBAC store only (no redirect - let router handle)
       rbacState.clear();
-      
+
       // Notify AuthContext to handle logout
       window.dispatchEvent(new CustomEvent('auth:session-expired'));
-      
+
       // Attach user-friendly message
       error.userMessage = getUserFriendlyMessage(error);
       error.errorType = classification.type;

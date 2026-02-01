@@ -8,9 +8,14 @@ import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 
 import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.exception.BusinessRuleException;
@@ -422,12 +427,7 @@ public class UnifiedMemberService {
 
         Page<Member> page = memberRepository.findAll(spec, pageable);
         return page.map(member -> {
-            MemberViewDto dto;
-            if (member.isPrincipal()) {
-                dto = mapper.toViewDto(member, memberRepository.findByParentId(member.getId()));
-            } else {
-                dto = mapper.toViewDto(member);
-            }
+            MemberViewDto dto = mapper.toViewDto(member);
 
             // Override status for view if soft-deleted (Visual Fix for old records)
             if (Boolean.FALSE.equals(member.getActive())) {
@@ -515,19 +515,14 @@ public class UnifiedMemberService {
             else if ("DEPENDENT".equalsIgnoreCase(type))
                 predicates.add(cb.isNotNull(root.get("parent")));
 
-            // Fix: Filter only active members (Soft Delete)
-            predicates.add(cb.equal(root.get("active"), true));
+            // Filter based on deleted flag
+            predicates.add(cb.equal(root.get("active"), !deleted));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
         return memberRepository.findAll(spec, pageable).map(member -> {
-            MemberViewDto dto;
-            if (member.isPrincipal()) {
-                dto = mapper.toViewDto(member, memberRepository.findByParentId(member.getId()));
-            } else {
-                dto = mapper.toViewDto(member);
-            }
+            MemberViewDto dto = mapper.toViewDto(member);
 
             // Override status for view if soft-deleted (Visual Fix for old records)
             if (Boolean.FALSE.equals(member.getActive())) {
@@ -591,5 +586,71 @@ public class UnifiedMemberService {
         }
 
         return memberRepository.countByParentId(principalId);
+    }
+
+    /**
+     * Export members to Excel based on generic search filters.
+     * 
+     * @return byte array of the Excel file
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportMembersToExcel(String searchTerm, String civilId, String barcode, String cardNumber,
+            Long organizationId, Long benefitPolicyId, String status, String type, boolean deleted) throws IOException {
+        
+        log.info("📊 Generating Excel export for members: searchTerm={}, orgId={}, status={}, type={}", 
+                 searchTerm, organizationId, status, type);
+        
+        // Fetch matching members (Limit to 10k for safety)
+        Pageable pageable = PageRequest.of(0, 10000);
+        Page<MemberViewDto> membersPage = searchMembers(searchTerm, civilId, barcode, cardNumber, 
+                organizationId, benefitPolicyId, status, type, deleted, pageable);
+        List<MemberViewDto> members = membersPage.getContent();
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Members");
+            
+            // 1. Create Header Row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"الاسم الكامل", "رقم البطاقة", "الباركود", "الرقم المدني", "النوع", "الحالة", "جهة العمل", "عدد التابعين"};
+            
+            // Style for header
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // 2. Fill Data Rows
+            int rowNum = 1;
+            for (MemberViewDto member : members) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(member.getFullName() != null ? member.getFullName() : "");
+                row.createCell(1).setCellValue(member.getCardNumber() != null ? member.getCardNumber() : "");
+                row.createCell(2).setCellValue(member.getBarcode() != null ? member.getBarcode() : "");
+                row.createCell(3).setCellValue(member.getNationalNumber() != null ? member.getNationalNumber() : "");
+                row.createCell(4).setCellValue("PRINCIPAL".equalsIgnoreCase(member.getType()) ? "أصيل" : "تابع");
+                row.createCell(5).setCellValue(member.getStatus() != null ? member.getStatus().name() : "");
+                row.createCell(6).setCellValue(member.getEmployerName() != null ? member.getEmployerName() : "");
+                row.createCell(7).setCellValue(member.getDependentsCount() != null ? member.getDependentsCount() : 0);
+            }
+
+            // 3. Post-Process
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                workbook.write(out);
+                return out.toByteArray();
+            }
+        }
     }
 }

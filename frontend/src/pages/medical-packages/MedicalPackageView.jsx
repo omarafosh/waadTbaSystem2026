@@ -250,7 +250,7 @@ const MedicalPackageView = () => {
               <Typography variant="caption" color="text.secondary">
                 تاريخ الإنشاء
               </Typography>
-              <Typography variant="body1">{pkg.createdAt ? new Date(pkg.createdAt).toLocaleString('en-US') : '-'}</Typography>
+              <Typography variant="body1">{pkg.createdAt ? new Date(pkg.createdAt).toLocaleString('ar-SA') : '-'}</Typography>
             </Paper>
           </Grid>
 
@@ -259,7 +259,7 @@ const MedicalPackageView = () => {
               <Typography variant="caption" color="text.secondary">
                 تاريخ آخر تحديث
               </Typography>
-              <Typography variant="body1">{pkg.updatedAt ? new Date(pkg.updatedAt).toLocaleString('en-US') : '-'}</Typography>
+              <Typography variant="body1">{pkg.updatedAt ? new Date(pkg.updatedAt).toLocaleString('ar-SA') : '-'}</Typography>
             </Paper>
           </Grid>
 

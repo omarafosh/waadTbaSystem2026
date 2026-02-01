@@ -31,7 +31,7 @@ const safeString = (value) => {
 const formatDate = (dateString) => {
   if (!dateString) return '—';
   try {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('ar-SA', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'

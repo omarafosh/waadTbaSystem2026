@@ -72,8 +72,11 @@ export default function ThemeCustomization({ children }) {
     [state.themeDirection, themeTypography, palette]
   );
 
-  const themes = createTheme(themeOptions);
-  themes.components = componentsOverride(themes);
+  const themes = useMemo(() => {
+    const t = createTheme(themeOptions);
+    t.components = componentsOverride(t);
+    return t;
+  }, [themeOptions]);
 
   return (
     <StyledEngineProvider injectFirst>

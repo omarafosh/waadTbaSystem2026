@@ -45,7 +45,7 @@ const KPICard = ({ title, value, subtitle, icon: Icon, color, loading }) => {
             ) : (
               <>
                 <Typography variant="h4" fontWeight={600}>
-                  {typeof value === 'number' ? value.toLocaleString('en-US') : value}
+                  {typeof value === 'number' ? value.toLocaleString('ar-SA') : value}
                 </Typography>
                 {subtitle && (
                   <Typography variant="caption" color="text.secondary">

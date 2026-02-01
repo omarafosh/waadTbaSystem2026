@@ -338,6 +338,9 @@ export const executeImport = async (file, params) => {
     if (params.headerRowNumber !== null && params.headerRowNumber !== undefined) {
       formData.append('headerRowNumber', params.headerRowNumber);
     }
+    if (params.importPolicy) {
+      formData.append('importPolicy', params.importPolicy);
+    }
 
     const response = await api.post(`${UNIFIED_MEMBERS_BASE_URL}/import/execute`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -346,6 +349,22 @@ export const executeImport = async (file, params) => {
     return response.data;
   } catch (error) {
     console.error('Error executing import:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get import status (for polling)
+ * 
+ * @param {string} batchId - Import batch ID
+ * @returns {Promise<any>} Status result
+ */
+export const getImportStatus = async (batchId) => {
+  try {
+    const response = await api.get(`${UNIFIED_MEMBERS_BASE_URL}/import/status/${batchId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching import status:', error);
     throw error;
   }
 };
@@ -363,6 +382,25 @@ export const downloadTemplate = async () => {
     return response.data;
   } catch (error) {
     console.error('Error downloading template:', error);
+    throw error;
+  }
+};
+
+/**
+ * Export members to Excel based on filters
+ * 
+ * @param {Object} params - Filter parameters
+ * @returns {Promise<Blob>} Excel file blob
+ */
+export const exportMembers = async (params = {}) => {
+  try {
+    const response = await api.get(`${UNIFIED_MEMBERS_BASE_URL}/export/excel`, {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error exporting members:', error);
     throw error;
   }
 };
@@ -462,6 +500,7 @@ export default {
   detectColumns,
   previewImport,
   executeImport,
+  exportMembers,
   downloadTemplate,
   uploadPhoto,
   deletePhoto,

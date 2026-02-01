@@ -84,7 +84,7 @@ const getErrorInfo = (error) => {
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
-    return new Date(dateString).toLocaleString('en-US');
+    return new Date(dateString).toLocaleString('ar-SA');
   } catch {
     return '-';
   }

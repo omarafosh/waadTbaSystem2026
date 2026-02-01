@@ -424,7 +424,7 @@ const ProviderView = () => {
                     تاريخ الإنشاء
                   </Typography>
                   <Typography variant="body1" fontWeight={500}>
-                    {provider?.createdAt ? new Date(provider.createdAt).toLocaleDateString('en-US') : '—'}
+                    {provider?.createdAt ? new Date(provider.createdAt).toLocaleDateString('ar-SA') : '—'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -432,7 +432,7 @@ const ProviderView = () => {
                     آخر تحديث
                   </Typography>
                   <Typography variant="body1" fontWeight={500}>
-                    {provider?.updatedAt ? new Date(provider.updatedAt).toLocaleDateString('en-US') : '—'}
+                    {provider?.updatedAt ? new Date(provider.updatedAt).toLocaleDateString('ar-SA') : '—'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -482,8 +482,8 @@ const ProviderView = () => {
                         contracts.map((contract) => (
                           <TableRow key={contract.id}>
                             <TableCell>{contract.contractNumber}</TableCell>
-                            <TableCell>{contract.startDate ? new Date(contract.startDate).toLocaleDateString('en-US') : '-'}</TableCell>
-                            <TableCell>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('en-US') : '-'}</TableCell>
+                            <TableCell>{contract.startDate ? new Date(contract.startDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
+                            <TableCell>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
                             <TableCell>{contract.discountRate ? `${contract.discountRate}%` : '-'}</TableCell>
                             <TableCell>
                               <Chip

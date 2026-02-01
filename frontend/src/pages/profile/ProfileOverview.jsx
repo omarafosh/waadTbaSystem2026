@@ -245,7 +245,7 @@ export default function ProfileOverview() {
               <InfoRow label="جهة الارتباط" value={getLinkedEntity()} />
 
               {/* Last Login (optional) */}
-              {user?.lastLogin && <InfoRow label="آخر تسجيل دخول" value={new Date(user.lastLogin).toLocaleString('en-US')} />}
+              {user?.lastLogin && <InfoRow label="آخر تسجيل دخول" value={new Date(user.lastLogin).toLocaleString('ar-SA')} />}
             </Stack>
           </MainCard>
         </Grid>

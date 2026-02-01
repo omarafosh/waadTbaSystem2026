@@ -30,7 +30,7 @@ export const formatDate = (date, format = 'medium') => {
     short: { year: 'numeric', month: '2-digit', day: '2-digit' }
   };
 
-  const locale = 'en-US';
+  const locale = 'ar-SA';
   const selectedOptions = options[format] || options.medium;
 
   return dateObj.toLocaleDateString(locale, selectedOptions);
@@ -75,7 +75,7 @@ export const formatDateTime = (datetime, includeSeconds = false) => {
     ? { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }
     : { hour: '2-digit', minute: '2-digit', hour12: true };
 
-  const locale = 'en-US';
+  const locale = 'ar-SA';
 
   const datePart = dateObj.toLocaleDateString(locale, dateOptions);
   const timePart = dateObj.toLocaleTimeString(locale, timeOptions);
@@ -103,7 +103,7 @@ export const formatTime = (datetime, includeSeconds = false) => {
     ? { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }
     : { hour: '2-digit', minute: '2-digit', hour12: true };
 
-  const locale = 'en-US';
+  const locale = 'ar-SA';
 
   return dateObj.toLocaleTimeString(locale, timeOptions);
 };

@@ -1,6 +1,7 @@
 package com.waad.tba.modules.providercontract.entity;
 
 import com.waad.tba.modules.provider.entity.Provider;
+import com.waad.tba.common.entity.Organization;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -67,6 +68,13 @@ public class ProviderContract {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
+
+    /**
+     * Optional link to specific employer (if not standard network)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employer_id")
+    private Organization employer;
 
     /**
      * Contract status

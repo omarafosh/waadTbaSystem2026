@@ -20,7 +20,7 @@ const TrendChart = ({ data, loading, days = 30 }) => {
 
   // Transform data for chart
   const categories = data.map((item) =>
-    new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    new Date(item.date).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
   );
   const seriesData = data.map((item) => item.count || 0);
 

@@ -144,8 +144,8 @@ const GenericDataTable = memo(({
   maxHeight = 'calc(100vh - 300px)',
   onRowClick,
   emptyMessage = 'لا توجد بيانات',
-  rowsPerPageOptions = [5, 10, 15, 25, 50, 100], 
-  
+  rowsPerPageOptions = [5, 10, 15, 25, 50, 100],
+
   // Custom Styles Props
   headerVariant = 'light', // 'light' | 'primary'
   cellPadding = 'normal'   // 'normal' | 'dense'
@@ -225,7 +225,7 @@ const GenericDataTable = memo(({
         '& .MuiTableCell-head': {
           color: headerVariant === 'primary' ? 'common.white' : 'text.primary',
           backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'primary.lighter',
-          fontWeight: 'bold', 
+          fontWeight: 'bold',
           py: headerVariant === 'primary' ? 1.5 : 2
         }
       }}
@@ -237,7 +237,7 @@ const GenericDataTable = memo(({
             {headerGroup.headers.map((header) => (
               <TableCell
                 key={header.id}
-                align={header.column.columnDef.align || 'center'} // Changed Default to center per user request for "same level"
+                align={header.column.columnDef.headerAlign || header.column.columnDef.align || 'center'}
                 sx={{
                   fontWeight: 'bold',
                   minWidth: header.column.columnDef.minWidth || 100,
@@ -245,57 +245,65 @@ const GenericDataTable = memo(({
                   maxWidth: header.column.columnDef.maxWidth,
                   verticalAlign: 'middle', // User request: Center elements vertically
                   borderBottom: headerVariant === 'primary' ? 'none' : undefined,
+                  fontSize: '0.875rem', // Match body font size
                   // SORT ICON COLOR OVERRIDE
                   '& .MuiTableSortLabel-icon': {
-                     color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
-                     opacity: headerVariant === 'primary' ? 0.7 : 1,
-                     fontSize: '1.2rem' // Scalable unit
+                    color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                    opacity: headerVariant === 'primary' ? 0.7 : 1,
+                    fontSize: '1.2rem' // Scalable unit
                   },
                   '& .MuiTableSortLabel-root:hover .MuiTableSortLabel-icon': {
-                     opacity: 1
+                    opacity: 1
                   },
                   '& .Mui-active .MuiTableSortLabel-icon': {
-                     color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
-                     opacity: 1
+                    color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                    opacity: 1
                   }
                 }}
               >
                 {header.isPlaceholder ? null : (
-                  <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+                  <Box sx={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    justifyContent: header.column.columnDef.headerAlign === 'right' ? 'flex-end' :
+                      (header.column.columnDef.headerAlign === 'left' ? 'flex-start' : 'center')
+                  }}>
                     {header.column.getCanSort() ? (
                       <TableSortLabel
                         active={header.column.getIsSorted() !== false}
                         direction={header.column.getIsSorted() || 'asc'}
                         onClick={header.column.getToggleSortingHandler()}
                         IconComponent={header.column.getIsSorted() === 'desc' ? ArrowDownwardIcon : ArrowUpwardIcon}
-                        hideSortIcon={false} 
+                        hideSortIcon={false}
                         sx={{
-                           color: 'inherit',
-                           '&.Mui-active': { 
-                               color: 'inherit',
-                               '& .MuiTableSortLabel-icon': {
-                                   color: headerVariant === 'primary' ? 'common.white !important' : 'primary.main',
-                                   opacity: 1
-                               }
-                           },
-                           flexDirection: 'row',
-                           '& .MuiTableSortLabel-icon': {
-                               opacity: header.column.getIsSorted() ? 1 : 0, // Only show if sorted
-                               transition: 'opacity 0.2s',
-                               width: 20, 
-                               height: 20
-                           },
-                           '&:hover .MuiTableSortLabel-icon': {
-                               opacity: 0.5
-                           }
+                          color: 'inherit',
+                          '&.Mui-active': {
+                            color: 'inherit',
+                            '& .MuiTableSortLabel-icon': {
+                              color: headerVariant === 'primary' ? 'common.white !important' : 'primary.main',
+                              opacity: 1
+                            }
+                          },
+                          flexDirection: 'row',
+                          '& .MuiTableSortLabel-icon': {
+                            opacity: header.column.getIsSorted() ? 1 : 0, // Only show if sorted
+                            transition: 'opacity 0.2s',
+                            width: 16, // Reduced size (from 20)
+                            height: 16 // Reduced size (from 20)
+                          },
+                          '&:hover .MuiTableSortLabel-icon': {
+                            opacity: 0.5
+                          }
                         }}
                       >
-                         <Typography variant="subtitle2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                         </Typography>
+                        <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </Typography>
                       </TableSortLabel>
                     ) : (
-                      <Typography variant="subtitle2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }} color="inherit">
+                      <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }} color="inherit">
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </Typography>
                     )}
@@ -371,8 +379,8 @@ const GenericDataTable = memo(({
             }}
           >
             {row.getVisibleCells().map((cell) => (
-              <TableCell 
-                key={cell.id} 
+              <TableCell
+                key={cell.id}
                 align={cell.column.columnDef.align || 'center'}
                 sx={{
                   py: cellPadding === 'dense' ? 1 : 2,
@@ -444,8 +452,8 @@ const GenericDataTable = memo(({
           }
         }}
       >
-        <Table 
-          stickyHeader={stickyHeader} 
+        <Table
+          stickyHeader={stickyHeader}
           size={cellPadding === 'dense' ? 'small' : 'medium'}
           sx={{ minWidth: 650, width: '100%' }}
         >

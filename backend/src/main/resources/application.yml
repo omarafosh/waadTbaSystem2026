@@ -41,7 +41,7 @@ spring:
     host: ${EMAIL_HOST:smtp.hostinger.com}
     port: ${EMAIL_PORT:587}
     username: ${EMAIL_USERNAME:support@alwahacare.com}
-    password: ${EMAIL_PASSWORD:6L8~nz@Go}
+    password: ${EMAIL_PASSWORD:6L8~nz@Go} # Default for DEV only. Override in PROD.
     protocol: smtp
     properties:
       mail:
@@ -64,7 +64,7 @@ spring:
     # Docker PostgreSQL uses port 5433, native uses 5432
     url: ${DB_URL:jdbc:postgresql://localhost:5432/tba_waad_system}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:12345}
+    password: ${DB_PASSWORD:12345} # Default for DEV only. Override in PROD.
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: TBA-WAAD-HikariPool
@@ -132,7 +132,7 @@ server:
 # 🔐 JWT (محفوظ للموبايل)
 # ==============================
 jwt:
-  secret: ${JWT_SECRET:VGhpcy1pcy1hLUJhc2U2NC1leGFtcGxlLXNlY3JldC0uLi4=}
+  secret: ${JWT_SECRET:VGhpcy1pcy1hLUJhc2U2NC1leGFtcGxlLXNlY3JldC0uLi4=} # Default for DEV only.
   expiration: 86400000
 
 # ==============================
@@ -159,6 +159,10 @@ app:
   # Frontend URL for email links
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
+    
+    # CORS Configuration
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   
   # Email configuration
   email:
@@ -172,10 +176,10 @@ app:
 # ==============================
 springdoc:
   api-docs:
-    enabled: true
+    enabled: ${SWAGGER_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
-    enabled: true
+    enabled: ${SWAGGER_ENABLED:false}
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
@@ -214,6 +218,6 @@ file:
 # ==============================
 logging:
   level:
-    com.waad.tba: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
+    com.waad.tba: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: ERROR

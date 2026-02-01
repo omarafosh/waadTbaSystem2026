@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,7 +34,8 @@ import RBACGuard from 'components/tba/RBACGuard';
 import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
 import { useEmployerFilter } from 'contexts/EmployerFilterContext';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import { DataGrid } from '@mui/x-data-grid';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import { claimsService } from 'services/api';
 
 /**
@@ -53,9 +54,13 @@ const ClaimsInbox = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'createdAt', direction: 'asc' }
+  });
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -79,10 +84,10 @@ const ClaimsInbox = () => {
       setLoading(true);
       setError(null);
       const params = {
-        page: page + 1,
-        size: pageSize,
-        sortBy: 'createdAt',
-        sortDir: 'asc'
+        page: tableState.page + 1,
+        size: tableState.pageSize,
+        sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+        sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'desc' : 'asc') : 'asc'
       };
       // Add employer filter if selected
       if (selectedEmployer?.id) {
@@ -97,7 +102,7 @@ const ClaimsInbox = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, selectedEmployer]);
+  }, [tableState.page, tableState.pageSize, tableState.sorting, selectedEmployer]);
 
   useEffect(() => {
     fetchClaims();
@@ -229,71 +234,69 @@ const ClaimsInbox = () => {
     return <Chip label={statusLabels[status] || status} color={statusColors[status] || 'default'} size="small" />;
   };
 
-  // DataGrid columns
-  const columns = [
+  // GenericDataTable columns
+  const columns = useMemo(() => [
     {
-      field: 'id',
-      headerName: '#',
-      width: 70,
-      valueGetter: (value, row) => row?.claimNumber || `CLM-${row?.id}` || row?.id
+      accessorKey: 'id',
+      header: '#',
+      size: 100,
+      cell: ({ row }) => row.original.claimNumber || `CLM-${row.original.id}` || row.original.id
     },
     {
-      field: 'memberName',
-      headerName: 'اسم المستفيد',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => row?.memberName || row?.memberFullName || '-'
+      accessorKey: 'memberName',
+      header: 'اسم المستفيد',
+      size: 180,
+      cell: ({ row }) => row.original.memberName || row.original.memberFullName || '-'
     },
     {
-      field: 'memberNationalNumber',
-      headerName: 'الرقم الوطني',
-      width: 130,
-      valueGetter: (value, row) => row?.memberNationalNumber || '-'
+      accessorKey: 'memberNationalNumber',
+      header: 'الرقم الوطني',
+      size: 130,
+      cell: ({ row }) => row.original.memberNationalNumber || '-'
     },
     {
-      field: 'providerName',
-      headerName: 'مقدم الخدمة',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => row?.providerName || '-'
+      accessorKey: 'providerName',
+      header: 'مقدم الخدمة',
+      size: 180,
+      cell: ({ row }) => row.original.providerName || '-'
     },
     {
-      field: 'serviceDate',
-      headerName: 'تاريخ الخدمة',
-      width: 120,
-      valueGetter: (value, row) => {
-        const date = row?.serviceDate || row?.visitDate;
-        return date ? new Date(date).toLocaleDateString('en-US') : '-';
+      accessorKey: 'serviceDate',
+      header: 'تاريخ الخدمة',
+      size: 120,
+      cell: ({ row }) => {
+        const date = row.original.serviceDate || row.original.visitDate;
+        return date ? new Date(date).toLocaleDateString('ar-SA') : '-';
       }
     },
     {
-      field: 'requestedAmount',
-      headerName: 'المبلغ المطلوب',
-      width: 130,
-      valueGetter: (value, row) => {
-        const amount = row?.totalAmount || row?.requestedAmount;
+      accessorKey: 'requestedAmount',
+      header: 'المبلغ المطلوب',
+      size: 130,
+      cell: ({ row }) => {
+        const amount = row.original.totalAmount || row.original.requestedAmount;
         return amount ? `${Number(amount).toFixed(2)} د.ل` : '-';
       }
     },
     {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 130,
-      renderCell: (params) => renderStatus(params.value)
+      accessorKey: 'status',
+      header: 'الحالة',
+      size: 130,
+      cell: ({ row }) => renderStatus(row.original.status)
     },
     {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 220,
-      sortable: false,
-      renderCell: (params) => {
-        const isSubmitted = params.row.status === 'SUBMITTED';
-        const isUnderReview = params.row.status === 'UNDER_REVIEW';
+      id: 'actions',
+      header: 'الإجراءات',
+      size: 220,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const isSubmitted = row.original.status === 'SUBMITTED';
+        const isUnderReview = row.original.status === 'UNDER_REVIEW';
 
         return (
           <Stack direction="row" spacing={0.5}>
             <Tooltip title="عرض التفاصيل">
-              <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${params.row.id}`)} disabled={actionLoading}>
+              <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${row.original.id}`)} disabled={actionLoading}>
                 <ViewIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -301,7 +304,7 @@ const ClaimsInbox = () => {
             {/* Start Review - only for SUBMITTED claims */}
             {isSubmitted && (
               <Tooltip title="بدء المراجعة">
-                <IconButton size="small" color="info" onClick={() => handleStartReview(params.row)} disabled={actionLoading}>
+                <IconButton size="small" color="info" onClick={() => handleStartReview(row.original)} disabled={actionLoading}>
                   <StartReviewIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -313,7 +316,7 @@ const ClaimsInbox = () => {
                 <IconButton
                   size="small"
                   color="success"
-                  onClick={() => handleOpenApprove(params.row)}
+                  onClick={() => handleOpenApprove(row.original)}
                   disabled={actionLoading || !isUnderReview}
                 >
                   <ApproveIcon fontSize="small" />
@@ -327,7 +330,7 @@ const ClaimsInbox = () => {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleOpenReject(params.row)}
+                  onClick={() => handleOpenReject(row.original)}
                   disabled={actionLoading || !isUnderReview}
                 >
                   <RejectIcon fontSize="small" />
@@ -338,7 +341,7 @@ const ClaimsInbox = () => {
         );
       }
     }
-  ];
+  ], [actionLoading, navigate]);
 
   return (
     <>
@@ -371,25 +374,15 @@ const ClaimsInbox = () => {
       </Box>
 
       <MainCard>
-        <Box sx={{ height: 600, width: '100%' }}>
-          <DataGrid
-            rows={claims}
+        <Box sx={{ width: '100%' }}>
+          <GenericDataTable
+            data={claims}
             columns={columns}
-            loading={loading}
-            paginationMode="server"
-            rowCount={totalRows}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            totalCount={totalRows}
+            tableState={tableState}
+            isLoading={loading}
+            emptyMessage="لا توجد مطالبات معلقة"
             rowsPerPageOptions={[10, 20, 50]}
-            disableSelectionOnClick
-            localeText={{
-              noRowsLabel: 'لا توجد مطالبات معلقة',
-              MuiTablePagination: {
-                labelRowsPerPage: 'عدد الصفوف:'
-              }
-            }}
           />
         </Box>
       </MainCard>

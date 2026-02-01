@@ -161,7 +161,7 @@ public class ClaimMapper {
             // ═══════════════════════════════════════════════════════════════════════════
             // NEW: Get coverage info from BenefitPolicyRule (includes requiresPA + coverage %)
             // ═══════════════════════════════════════════════════════════════════════════
-            var coverageInfoOpt = benefitPolicyCoverageService.getCoverageForService(member, medicalService.getId());
+            var coverageInfoOpt = benefitPolicyCoverageService.getCoverageForService(member, medicalService.getId(), visit.getVisitType());
             boolean requiresPA = coverageInfoOpt.map(c -> c.isRequiresPreApproval()).orElse(false);
             Integer coveragePercentSnapshot = coverageInfoOpt.map(c -> c.getCoveragePercent()).orElse(null);
             Integer patientCopayPercentSnapshot = coveragePercentSnapshot != null ? (100 - coveragePercentSnapshot) : null;

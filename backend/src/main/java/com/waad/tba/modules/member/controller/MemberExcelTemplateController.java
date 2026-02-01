@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Controller for Members Excel template download and import
@@ -40,6 +41,8 @@ public class MemberExcelTemplateController {
     private final MemberExcelTemplateService templateService;
     private final MemberExcelImportService importService;
     private final ExcelColumnMappingService columnMappingService;
+    private final com.waad.tba.security.AuthorizationService authorizationService;
+    private final com.waad.tba.modules.member.repository.MemberImportLogRepository importLogRepository;
     
     /**
      * Download Excel template for members import
@@ -157,16 +160,33 @@ public class MemberExcelTemplateController {
     @Operation(summary = "Execute Excel import")
     public ResponseEntity<ApiResponse<MemberImportResultDto>> executeImport(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("employerId") Long employerId,
+            @RequestParam(value = "employerId", required = false) Long employerId,
             @RequestParam(value = "benefitPolicyId", required = false) Long benefitPolicyId,
             @RequestParam(value = "batchId", required = false) String batchId,
-            @RequestParam(value = "headerRowNumber", required = false) Integer headerRowNumber) {
-        log.info("[MemberImport] Execute requested: employer={}, policy={}, header={}", employerId, benefitPolicyId, headerRowNumber);
+            @RequestParam(value = "headerRowNumber", required = false) Integer headerRowNumber,
+            @RequestParam(value = "importPolicy", defaultValue = "UPDATE") String importPolicy) {
+        log.info("[MemberImport] Execute requested: employer={}, policy={}, header={}, policy={}", employerId, benefitPolicyId, headerRowNumber, importPolicy);
         try {
             if (batchId == null || batchId.isBlank()) {
                 batchId = java.util.UUID.randomUUID().toString();
             }
-            MemberImportResultDto result = importService.executeImport(file, batchId, employerId, benefitPolicyId, headerRowNumber);
+            
+            // Save MultipartFile to a stable temp file for background processing
+            java.io.File tempFile = importService.saveToTempFile(file);
+
+            // Fetch current user details BEFORE going async
+            com.waad.tba.modules.rbac.entity.User currentUser = authorizationService.getCurrentUser();
+            String username = currentUser != null ? currentUser.getUsername() : "system";
+            Long userId = currentUser != null ? currentUser.getId() : null;
+
+            // Trigger background import with stable file and user context
+            importService.executeImport(tempFile, batchId, employerId, benefitPolicyId, headerRowNumber, importPolicy, username, userId);
+            
+            // Return batchId immediately so frontend can monitor progress
+            MemberImportResultDto result = MemberImportResultDto.builder()
+                    .batchId(batchId)
+                    .message("تم بدء الاستيراد في الخلفية بنجاح")
+                    .build();
             return ResponseEntity.ok(ApiResponse.success(result.getMessage(), result));
         } catch (Throwable t) {
             log.error("[MemberImport] Execute critical error: {}", t.getMessage(), t);
@@ -176,5 +196,22 @@ public class MemberExcelTemplateController {
             }
             return ResponseEntity.status(500).body(ApiResponse.error(errorMsg));
         }
+    }
+
+    /**
+     * Get import status for polling.
+     */
+    @GetMapping("/status/{batchId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('members.import')")
+    @Operation(summary = "Get import status")
+    public ResponseEntity<ApiResponse<Object>> getImportStatus(@PathVariable String batchId) {
+        return ResponseEntity.ok(ApiResponse.success(importService.getImportLog(batchId)));
+    }
+
+    @GetMapping("/errors/{batchId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('members.import')")
+    @Operation(summary = "Get import errors")
+    public ResponseEntity<ApiResponse<List<com.waad.tba.modules.member.dto.MemberImportResultDto.ImportErrorDetailDto>>> getImportErrors(@PathVariable String batchId) {
+        return ResponseEntity.ok(ApiResponse.success(importService.getImportErrors(batchId)));
     }
 }

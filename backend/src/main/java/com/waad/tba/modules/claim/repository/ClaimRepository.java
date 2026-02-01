@@ -66,7 +66,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(m.civilId) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Claim> searchPaged(@Param("keyword") String keyword, Pageable pageable);
 
     /**
@@ -84,7 +84,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(m.civilId) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Claim> searchPagedByEmployerId(@Param("keyword") String keyword, @Param("employerId") Long employerId, Pageable pageable);
 
     /**
@@ -102,7 +102,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(m.civilId) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Claim> searchPagedByProviderId(@Param("keyword") String keyword, @Param("providerId") Long providerId, Pageable pageable);
 
     @Query("SELECT c FROM Claim c " +
@@ -229,7 +229,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%')) " +
-           "OR LOWER(m.civilId) LIKE LOWER(CONCAT('%', :query, '%')))")
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<Claim> searchByProviderId(@Param("query") String query, @Param("providerId") Long providerId);
 
     /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -29,9 +29,11 @@ import {
   People as PeopleIcon,
   Business as BusinessIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
-import { DataGrid } from '@mui/x-data-grid';
+import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { orderBy } from 'lodash-es';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import MainCard from '../../components/MainCard';
 import ModernPageHeader from '../../components/tba/ModernPageHeader';
 import ContractStatusChip from '../../components/employers/ContractStatusChip';
@@ -68,6 +70,27 @@ const EmployerContractDetails = () => {
 
   // Snackbar
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 10,
+    defaultSort: { field: 'serviceName', direction: 'asc' }
+  });
+
+  // Client-side pagination/sorting for rules
+  const processedRules = useMemo(() => {
+    let data = [...rules];
+    if (tableState.sorting.length > 0) {
+      const { id, desc } = tableState.sorting[0];
+      data = orderBy(data, [item => item[id]], [desc ? 'desc' : 'asc']);
+    }
+    return data;
+  }, [rules, tableState.sorting]);
+
+  const paginatedRules = useMemo(() => {
+    const start = tableState.page * tableState.pageSize;
+    return processedRules.slice(start, start + tableState.pageSize);
+  }, [processedRules, tableState.page, tableState.pageSize]);
 
   // Load contract details
   useEffect(() => {
@@ -181,49 +204,44 @@ const EmployerContractDetails = () => {
     return messages[confirmAction] || '';
   };
 
-  // Rules DataGrid columns
-  const rulesColumns = [
+  // Rules GenericDataTable columns
+  const rulesColumns = useMemo(() => [
     {
-      field: 'serviceName',
-      headerName: 'الخدمة',
-      flex: 2,
-      minWidth: 200
+      accessorKey: 'serviceName',
+      header: 'الخدمة',
+      size: 200
     },
     {
-      field: 'coveragePercent',
-      headerName: 'نسبة التغطية',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => `${params.value}%`
+      accessorKey: 'coveragePercent',
+      header: 'نسبة التغطية',
+      size: 120,
+      cell: ({ getValue }) => `${getValue()}%`
     },
     {
-      field: 'maxAmount',
-      headerName: 'الحد الأقصى',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => params.value ? `${params.value.toLocaleString('ar-SA')} ر.س` : 'غير محدد'
+      accessorKey: 'maxAmount',
+      header: 'الحد الأقصى',
+      size: 120,
+      cell: ({ getValue }) => getValue() ? `${getValue().toLocaleString('ar-SA')} ر.س` : 'غير محدد'
     },
     {
-      field: 'waitingPeriodDays',
-      headerName: 'فترة الانتظار (أيام)',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => params.value || 0
+      accessorKey: 'waitingPeriodDays',
+      header: 'فترة الانتظار (أيام)',
+      size: 120,
+      cell: ({ getValue }) => getValue() || 0
     },
     {
-      field: 'active',
-      headerName: 'الحالة',
-      flex: 1,
-      minWidth: 100,
-      renderCell: (params) => (
+      accessorKey: 'active',
+      header: 'الحالة',
+      size: 100,
+      cell: ({ getValue }) => (
         <Chip
-          label={params.value ? 'نشط' : 'غير نشط'}
-          color={params.value ? 'success' : 'default'}
+          label={getValue() ? 'نشط' : 'غير نشط'}
+          color={getValue() ? 'success' : 'default'}
           size="small"
         />
       )
     }
-  ];
+  ], []);
 
   if (loading) {
     return (
@@ -522,25 +540,13 @@ const EmployerContractDetails = () => {
         {/* Benefit Policy Rules */}
         <Grid item xs={12}>
           <MainCard title="قواعد الخدمات المشمولة">
-            <DataGrid
-              rows={rules}
+            <GenericDataTable
+              data={paginatedRules}
               columns={rulesColumns}
-              loading={rulesLoading}
-              autoHeight
-              pageSize={10}
-              rowsPerPageOptions={[10, 25, 50]}
-              disableSelectionOnClick
-              localeText={{
-                noRowsLabel: 'لا توجد قواعد محددة',
-                MuiTablePagination: {
-                  labelRowsPerPage: 'عدد الصفوف'
-                }
-              }}
-              sx={{
-                '& .MuiDataGrid-cell:focus': {
-                  outline: 'none'
-                }
-              }}
+              totalCount={processedRules.length}
+              tableState={tableState}
+              isLoading={rulesLoading}
+              emptyMessage="لا توجد قواعد محددة"
             />
           </MainCard>
         </Grid>

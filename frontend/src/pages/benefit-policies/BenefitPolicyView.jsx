@@ -522,12 +522,12 @@ const BenefitPolicyView = () => {
               <Divider sx={{ my: 2 }} />
               <DetailRow
                 label="تاريخ البدء"
-                value={policy?.startDate ? new Date(policy.startDate).toLocaleDateString('en-US') : null}
+                value={policy?.startDate ? new Date(policy.startDate).toLocaleDateString('ar-SA') : null}
                 icon={CalendarIcon}
               />
               <DetailRow
                 label="تاريخ الانتهاء"
-                value={policy?.endDate ? new Date(policy.endDate).toLocaleDateString('en-US') : null}
+                value={policy?.endDate ? new Date(policy.endDate).toLocaleDateString('ar-SA') : null}
                 icon={CalendarIcon}
               />
             </MainCard>
@@ -538,7 +538,7 @@ const BenefitPolicyView = () => {
             <MainCard title="معلومات التغطية">
               <DetailRow
                 label="الحد السنوي"
-                value={policy?.annualLimit ? `${Number(policy.annualLimit).toLocaleString('en-US')} د.ل` : 'غير محدد'}
+                value={policy?.annualLimit ? `${Number(policy.annualLimit).toLocaleString('ar-SA')} د.ل` : 'غير محدد'}
                 icon={MoneyIcon}
               />
               <DetailRow
@@ -574,14 +574,14 @@ const BenefitPolicyView = () => {
                 <Grid item xs={12} sm={6}>
                   <DetailRow
                     label="تاريخ الإنشاء"
-                    value={policy?.createdAt ? new Date(policy.createdAt).toLocaleString('en-US') : null}
+                    value={policy?.createdAt ? new Date(policy.createdAt).toLocaleString('ar-SA') : null}
                     icon={CalendarIcon}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <DetailRow
                     label="آخر تحديث"
-                    value={policy?.updatedAt ? new Date(policy.updatedAt).toLocaleString('en-US') : null}
+                    value={policy?.updatedAt ? new Date(policy.updatedAt).toLocaleString('ar-SA') : null}
                     icon={CalendarIcon}
                   />
                 </Grid>

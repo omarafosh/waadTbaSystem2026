@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -40,7 +40,8 @@ import RBACGuard from 'components/tba/RBACGuard';
 import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
 import { useEmployerFilter } from 'contexts/EmployerFilterContext';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import { DataGrid } from '@mui/x-data-grid';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import { claimsService } from 'services/api';
 import { exportToExcel, exportToPDF } from 'utils/exportUtils';
 
@@ -63,9 +64,13 @@ const SettlementInbox = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'reviewedAt', direction: 'asc' }
+  });
 
   // Tabs
   const [activeTab, setActiveTab] = useState(0);
@@ -109,8 +114,8 @@ const SettlementInbox = () => {
       setLoading(true);
       setError(null);
       const params = {
-        page: page + 1,
-        size: pageSize,
+        page: tableState.page + 1,
+        size: tableState.pageSize,
         sortBy: activeTab === 0 ? 'reviewedAt' : 'settledAt',
         sortDir: activeTab === 0 ? 'asc' : 'desc'
       };
@@ -193,7 +198,7 @@ const SettlementInbox = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, selectedEmployer, activeTab]);
+  }, [tableState.page, tableState.pageSize, selectedEmployer, activeTab]);
 
   useEffect(() => {
     fetchClaims();
@@ -240,14 +245,14 @@ const SettlementInbox = () => {
 
   const handleExportPDF = () => {
     const tabNames = ['المعلقة', 'الفواتير', 'المدفوعات', 'المكتملة'];
-    const title = `تقرير التسويات - ${tabNames[activeTab]} - ${new Date().toLocaleDateString('en-US')}`;
+    const title = `تقرير التسويات - ${tabNames[activeTab]} - ${new Date().toLocaleDateString('ar-SA')}`;
     exportToPDF(claims, title);
   };
 
   // Tab change handler
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
-    setPage(0);
+    tableState.setPage(0);
   };
 
   // Reset filters
@@ -256,234 +261,237 @@ const SettlementInbox = () => {
     setDateTo('');
   };
 
-  // DataGrid columns - Tab based
-  const pendingColumns = [
-    { field: 'id', headerName: '#', width: 70 },
-    { field: 'memberFullNameArabic', headerName: 'اسم المنتفع', flex: 1, minWidth: 180 },
-    { field: 'providerName', headerName: 'مقدم الخدمة', flex: 1, minWidth: 150 },
-    {
-      field: 'visitDate',
-      headerName: 'تاريخ الزيارة',
-      width: 120,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return '-';
-        try {
-          return new Date(params.value).toLocaleDateString('en-US');
-        } catch (error) {
-          return '-';
+  // GenericDataTable columns
+  const columns = useMemo(() => {
+    const pendingColumns = [
+      { accessorKey: 'id', header: '#', size: 100 },
+      { accessorKey: 'memberFullNameArabic', header: 'اسم المنتفع', size: 200 },
+      { accessorKey: 'providerName', header: 'مقدم الخدمة', size: 180 },
+      {
+        accessorKey: 'visitDate',
+        header: 'تاريخ الزيارة',
+        size: 150,
+        cell: ({ getValue }) => {
+          const val = getValue();
+          if (!val) return '-';
+          try {
+            return new Date(val).toLocaleDateString('ar-SA');
+          } catch (error) {
+            return '-';
+          }
         }
-      }
-    },
-    {
-      field: 'approvedAmount',
-      headerName: 'المبلغ المعتمد',
-      width: 130,
-      renderCell: (params) => `${params.value?.toLocaleString() || 0} د.ل`
-    },
-    {
-      field: 'netProviderAmount',
-      headerName: 'المستحق للدفع',
-      width: 130,
-      valueGetter: (value, row) => row.netProviderAmount || row.approvedAmount,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600} color="success.main">
-          {params.value?.toLocaleString() || 0} د.ل
-        </Typography>
-      )
-    },
-    {
-      field: 'reviewedAt',
-      headerName: 'تاريخ الموافقة',
-      width: 130,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return '-';
-        try {
-          return new Date(params.value).toLocaleDateString('en-US');
-        } catch (error) {
-          return '-';
+      },
+      {
+        accessorKey: 'approvedAmount',
+        header: 'المبلغ المعتمد',
+        size: 150,
+        cell: ({ getValue }) => `${getValue()?.toLocaleString() || 0} د.ل`
+      },
+      {
+        accessorKey: 'netProviderAmount',
+        header: 'المستحق للدفع',
+        size: 150,
+        cell: ({ row }) => {
+          const val = row.original.netProviderAmount || row.original.approvedAmount;
+          return (
+            <Typography variant="body2" fontWeight={600} color="success.main">
+              {val?.toLocaleString() || 0} د.ل
+            </Typography>
+          );
         }
+      },
+      {
+        accessorKey: 'reviewedAt',
+        header: 'تاريخ الموافقة',
+        size: 150,
+        cell: ({ getValue }) => {
+          const val = getValue();
+          if (!val) return '-';
+          try {
+            return new Date(val).toLocaleDateString('ar-SA');
+          } catch (error) {
+            return '-';
+          }
+        }
+      },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        size: 150,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="عرض">
+              <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${row.original.id}`)} disabled={actionLoading}>
+                <ViewIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <RBACGuard requiredPermission={PERMISSIONS.CLAIM_WRITE}>
+              <Tooltip title="تسوية">
+                <IconButton size="small" color="success" onClick={() => handleOpenSettle(row.original)} disabled={actionLoading}>
+                  <SettleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </RBACGuard>
+          </Stack>
+        )
       }
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 150,
-      sortable: false,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={1}>
+    ];
+
+    const invoiceColumns = [
+      { accessorKey: 'invoiceNo', header: 'رقم الفاتورة', size: 150 },
+      { accessorKey: 'memberFullNameArabic', header: 'المنتفع', size: 200 },
+      { accessorKey: 'insuranceCompanyName', header: 'الشركة', size: 180 },
+      { accessorKey: 'providerName', header: 'المقدم', size: 180 },
+      {
+        accessorKey: 'netProviderAmount',
+        header: 'المبلغ',
+        size: 130,
+        cell: ({ row }) => {
+          const val = row.original.netProviderAmount || row.original.approvedAmount;
+          return `${val?.toLocaleString() || 0} د.ل`;
+        }
+      },
+      {
+        accessorKey: 'settledAt',
+        header: 'تاريخ التسوية',
+        size: 130,
+        cell: ({ getValue }) => {
+          const val = getValue();
+          if (!val) return '-';
+          try {
+            return new Date(val).toLocaleDateString('ar-SA');
+          } catch (error) {
+            return '-';
+          }
+        }
+      },
+      { accessorKey: 'paymentReference', header: 'مرجع الدفع', size: 150 },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        size: 100,
+        enableSorting: false,
+        cell: ({ row }) => (
           <Tooltip title="عرض">
-            <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${params.row.id}`)} disabled={actionLoading}>
+            <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${row.original.id}`)}>
               <ViewIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <RBACGuard requiredPermission={PERMISSIONS.CLAIM_WRITE}>
-            <Tooltip title="تسوية">
-              <IconButton size="small" color="success" onClick={() => handleOpenSettle(params.row)} disabled={actionLoading}>
-                <SettleIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </RBACGuard>
-        </Stack>
-      )
-    }
-  ];
-
-  const invoiceColumns = [
-    { field: 'invoiceNo', headerName: 'رقم الفاتورة', width: 150 },
-    { field: 'memberFullNameArabic', headerName: 'المنتفع', flex: 1, minWidth: 180 },
-    { field: 'insuranceCompanyName', headerName: 'الشركة', flex: 1, minWidth: 150 },
-    { field: 'providerName', headerName: 'المقدم', flex: 1, minWidth: 150 },
-    {
-      field: 'netProviderAmount',
-      headerName: 'المبلغ',
-      width: 130,
-      valueGetter: (value, row) => row.netProviderAmount || row.approvedAmount,
-      renderCell: (params) => `${params.value?.toLocaleString() || 0} د.ل`
-    },
-    {
-      field: 'settledAt',
-      headerName: 'تاريخ التسوية',
-      width: 130,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return '-';
-        try {
-          return new Date(params.value).toLocaleDateString('en-US');
-        } catch (error) {
-          return '-';
-        }
+        )
       }
-    },
-    { field: 'paymentReference', headerName: 'مرجع الدفع', width: 150 },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 100,
-      sortable: false,
-      renderCell: (params) => (
-        <Tooltip title="عرض">
-          <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${params.row.id}`)}>
-            <ViewIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )
-    }
-  ];
+    ];
 
-  const paymentColumns = [
-    { field: 'paymentReference', headerName: 'مرجع الدفع', width: 150 },
-    { field: 'memberFullNameArabic', headerName: 'المنتفع', flex: 1, minWidth: 180 },
-    { field: 'insuranceCompanyName', headerName: 'الشركة', flex: 1, minWidth: 150 },
-    {
-      field: 'netProviderAmount',
-      headerName: 'المبلغ المدفوع',
-      width: 130,
-      valueGetter: (value, row) => row.netProviderAmount || row.approvedAmount,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600} color="success.main">
-          {params.value?.toLocaleString() || 0} د.ل
-        </Typography>
-      )
-    },
-    {
-      field: 'settledAt',
-      headerName: 'تاريخ الدفع',
-      width: 130,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return '-';
-        try {
-          return new Date(params.value).toLocaleDateString('en-US');
-        } catch (error) {
-          return '-';
+    const paymentColumns = [
+      { accessorKey: 'paymentReference', header: 'مرجع الدفع', size: 150 },
+      { accessorKey: 'memberFullNameArabic', header: 'المنتفع', size: 200 },
+      { accessorKey: 'insuranceCompanyName', header: 'الشركة', size: 180 },
+      {
+        accessorKey: 'netProviderAmount',
+        header: 'المبلغ المدفوع',
+        size: 130,
+        cell: ({ row }) => {
+          const val = row.original.netProviderAmount || row.original.approvedAmount;
+          return (
+            <Typography variant="body2" fontWeight={600} color="success.main">
+              {val?.toLocaleString() || 0} د.ل
+            </Typography>
+          );
         }
-      }
-    },
-    {
-      field: 'settlementNotes',
-      headerName: 'ملاحظات',
-      flex: 1,
-      minWidth: 150
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 100,
-      sortable: false,
-      renderCell: (params) => (
-        <Tooltip title="عرض">
-          <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${params.row.id}`)}>
-            <ViewIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )
-    }
-  ];
-
-  const completedColumns = [
-    { field: 'id', headerName: 'رقم المطالبة', width: 120 },
-    { field: 'memberFullNameArabic', headerName: 'المنتفع', flex: 1, minWidth: 180 },
-    { field: 'providerName', headerName: 'المقدم', flex: 1, minWidth: 150 },
-    {
-      field: 'approvedAmount',
-      headerName: 'المعتمد',
-      width: 120,
-      renderCell: (params) => `${params.value?.toLocaleString() || 0} د.ل`
-    },
-    {
-      field: 'netProviderAmount',
-      headerName: 'المدفوع',
-      width: 120,
-      valueGetter: (value, row) => row.netProviderAmount || row.approvedAmount,
-      renderCell: (params) => `${params.value?.toLocaleString() || 0} د.ل`
-    },
-    {
-      field: 'settledAt',
-      headerName: 'تاريخ التسوية',
-      width: 130,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return '-';
-        try {
-          return new Date(params.value).toLocaleDateString('en-US');
-        } catch (error) {
-          return '-';
+      },
+      {
+        accessorKey: 'settledAt',
+        header: 'تاريخ الدفع',
+        size: 130,
+        cell: ({ getValue }) => {
+          const val = getValue();
+          if (!val) return '-';
+          try {
+            return new Date(val).toLocaleDateString('ar-SA');
+          } catch (error) {
+            return '-';
+          }
         }
+      },
+      { accessorKey: 'settlementNotes', header: 'ملاحظات', size: 150 },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        size: 100,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Tooltip title="عرض">
+            <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${row.original.id}`)}>
+              <ViewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )
       }
-    },
-    { field: 'paymentReference', headerName: 'مرجع الدفع', width: 150 },
-    {
-      field: 'status',
-      headerName: 'الحالة',
-      width: 100,
-      renderCell: () => <Chip label="مسدد" size="small" color="success" />
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 100,
-      sortable: false,
-      renderCell: (params) => (
-        <Tooltip title="عرض">
-          <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${params.row.id}`)}>
-            <ViewIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )
-    }
-  ];
+    ];
 
-  const getColumns = () => {
+    const completedColumns = [
+      { accessorKey: 'id', header: 'رقم المطالبة', size: 120 },
+      { accessorKey: 'memberFullNameArabic', header: 'المنتفع', size: 200 },
+      { accessorKey: 'providerName', header: 'المقدم', size: 180 },
+      {
+        accessorKey: 'approvedAmount',
+        header: 'المعتمد',
+        size: 120,
+        cell: ({ getValue }) => `${getValue()?.toLocaleString() || 0} د.ل`
+      },
+      {
+        accessorKey: 'netProviderAmount',
+        header: 'المدفوع',
+        size: 120,
+        cell: ({ row }) => {
+          const val = row.original.netProviderAmount || row.original.approvedAmount;
+          return `${val?.toLocaleString() || 0} د.ل`;
+        }
+      },
+      {
+        accessorKey: 'settledAt',
+        header: 'تاريخ التسوية',
+        size: 130,
+        cell: ({ getValue }) => {
+          const val = getValue();
+          if (!val) return '-';
+          try {
+            return new Date(val).toLocaleDateString('ar-SA');
+          } catch (error) {
+            return '-';
+          }
+        }
+      },
+      { accessorKey: 'paymentReference', header: 'مرجع الدفع', size: 150 },
+      {
+        accessorKey: 'status',
+        header: 'الحالة',
+        size: 100,
+        cell: () => <Chip label="مسدد" size="small" color="success" />
+      },
+      {
+        id: 'actions',
+        header: 'الإجراءات',
+        size: 100,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Tooltip title="عرض">
+            <IconButton size="small" color="primary" onClick={() => navigate(`/claims/${row.original.id}`)}>
+              <ViewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )
+      }
+    ];
+
     switch (activeTab) {
-      case 0:
-        return pendingColumns;
-      case 1:
-        return invoiceColumns;
-      case 2:
-        return paymentColumns;
-      case 3:
-        return completedColumns;
-      default:
-        return pendingColumns;
+      case 0: return pendingColumns;
+      case 1: return invoiceColumns;
+      case 2: return paymentColumns;
+      case 3: return completedColumns;
+      default: return pendingColumns;
     }
-  };
+  }, [activeTab, navigate, actionLoading]);
 
   return (
     <Box>
@@ -634,30 +642,14 @@ const SettlementInbox = () => {
               </Typography>
             </Box>
           ) : (
-            <DataGrid
-              rows={claims}
-              columns={getColumns()}
-              pageSize={pageSize}
+            <GenericDataTable
+              data={claims}
+              columns={columns}
+              totalCount={totalRows}
+              tableState={tableState}
+              isLoading={loading}
+              emptyMessage="لا توجد تسويات في هذا القسم حالياً"
               rowsPerPageOptions={[10, 20, 50]}
-              pagination
-              paginationMode="server"
-              rowCount={totalRows}
-              page={page}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              disableSelectionOnClick
-              autoHeight
-              sx={{
-                '& .MuiDataGrid-cell': {
-                  borderBottom: '1px solid',
-                  borderColor: 'divider'
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: 'background.paper',
-                  borderBottom: 2,
-                  borderColor: 'divider'
-                }
-              }}
             />
           )}
         </Box>

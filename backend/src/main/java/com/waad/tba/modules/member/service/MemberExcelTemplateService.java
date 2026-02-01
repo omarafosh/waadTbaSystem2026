@@ -502,7 +502,7 @@ public class MemberExcelTemplateService {
         // Create member
         Member member = Member.builder()
             .fullName(fullName.trim())
-            .civilId(getCellValue(row, columnIndices.get("civil_id")))
+            .nationalNumber(getCellValue(row, columnIndices.get("civil_id")))
             .birthDate(birthDate)
             .gender(gender)
             .phone(getCellValue(row, columnIndices.get("phone")))

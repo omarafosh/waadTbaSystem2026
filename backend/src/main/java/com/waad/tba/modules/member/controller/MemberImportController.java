@@ -50,6 +50,7 @@ public class MemberImportController {
     private final ExcelColumnMappingService columnMappingService;
     private final MemberImportLogRepository importLogRepository;
     private final MemberImportErrorRepository importErrorRepository;
+    private final com.waad.tba.security.AuthorizationService authorizationService;
 
     /**
      * Detect columns and suggest mapping (NEW: Column Mapping Feature).
@@ -209,19 +210,24 @@ public class MemberImportController {
         }
         
         try {
-            MemberImportResultDto result = importService.executeImport(
-                    file, batchId, employerId, benefitPolicyId);
+            // Fetch current user details BEFORE going async
+            com.waad.tba.modules.rbac.entity.User currentUser = authorizationService.getCurrentUser();
+            String username = currentUser != null ? currentUser.getUsername() : "system";
+            Long userId = currentUser != null ? currentUser.getId() : null;
+
+            // Save MultipartFile to a stable temp file for background processing
+            java.io.File tempFile = importService.saveToTempFile(file);
+
+            importService.executeImport(
+                    tempFile, batchId, employerId, benefitPolicyId, username, userId);
             
-            String status = result.getStatus();
-            if ("COMPLETED".equals(status)) {
-                return ResponseEntity.ok(ApiResponse.success(result.getMessage(), result));
-            } else if ("PARTIAL".equals(status)) {
-                return ResponseEntity.ok(ApiResponse.success(
-                        "تم الاستيراد مع بعض الأخطاء: " + result.getMessage(), result));
-            } else {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("فشل الاستيراد: " + result.getMessage()));
-            }
+            MemberImportResultDto result = MemberImportResultDto.builder()
+                    .batchId(batchId)
+                    .message("تم بدء الاستيراد في الخلفية بنجاح")
+                    .status("PROCESSING")
+                    .build();
+            
+            return ResponseEntity.ok(ApiResponse.success(result.getMessage(), result));
             
         } catch (Exception e) {
             log.error("❌ Import failed: {}", e.getMessage(), e);

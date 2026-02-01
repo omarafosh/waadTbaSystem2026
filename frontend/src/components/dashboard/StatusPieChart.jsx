@@ -89,7 +89,7 @@ const StatusPieChart = ({ data, loading }) => {
 
   return (
     <Card>
-      <CardHeader title="توزيع الحالات" subheader={`إجمالي: ${total.toLocaleString('en-US')}`} />
+      <CardHeader title="توزيع الحالات" subheader={`إجمالي: ${total.toLocaleString('ar-SA')}`} />
       <CardContent>
         <Box sx={{ height: 350, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Chart options={chartOptions} series={series} type="pie" width="100%" height={300} />

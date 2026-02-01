@@ -150,7 +150,7 @@ const printTable = (data, columns, title = 'تقرير') => {
       </style>
     </head>
     <body>
-      <div class="print-date">تاريخ الطباعة: ${new Date().toLocaleDateString('en-US')}</div>
+      <div class="print-date">تاريخ الطباعة: ${new Date().toLocaleDateString('ar-SA')}</div>
       <h1>${title}</h1>
       <table>
         <thead>
@@ -158,19 +158,19 @@ const printTable = (data, columns, title = 'تقرير') => {
         </thead>
         <tbody>
           ${data
-            .map(
-              (row) => `
+      .map(
+        (row) => `
             <tr>
               ${exportColumns
-                .map((col) => {
-                  const value = row[col.accessorKey];
-                  return `<td>${value ?? '-'}</td>`;
-                })
-                .join('')}
+            .map((col) => {
+              const value = row[col.accessorKey];
+              return `<td>${value ?? '-'}</td>`;
+            })
+            .join('')}
             </tr>
           `
-            )
-            .join('')}
+      )
+      .join('')}
         </tbody>
       </table>
       <script>window.onload = () => { window.print(); }</script>
@@ -279,7 +279,7 @@ const TbaDataTable = ({
         page: pagination.pageIndex + 1, // API uses 1-based
         size: pagination.pageSize,
         sortBy: sorting[0]?.id || 'createdAt',
-        sortDir: sorting[0]?.desc ? 'desc' : 'asc',
+        sortDir: sorting[0]?.desc ? 'DESC' : 'ASC',
         search: globalFilter || undefined,
         ...initialFiltersRef.current
       };
@@ -496,9 +496,9 @@ const TbaDataTable = ({
     // Row click handler
     muiTableBodyRowProps: onRowClick
       ? ({ row }) => ({
-          onClick: () => onRowClick(row.original),
-          sx: { cursor: 'pointer' }
-        })
+        onClick: () => onRowClick(row.original),
+        sx: { cursor: 'pointer' }
+      })
       : undefined,
 
     // Empty state

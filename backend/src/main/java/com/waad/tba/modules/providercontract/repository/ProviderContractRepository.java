@@ -75,6 +75,16 @@ public interface ProviderContractRepository extends JpaRepository<ProviderContra
      */
     List<ProviderContract> findByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status);
 
+    /**
+     * Find contracts by provider and status (paginated)
+     */
+    Page<ProviderContract> findByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status, Pageable pageable);
+
+    /**
+     * Count active contracts for a specific provider
+     */
+    long countByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // FIND BY STATUS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -147,6 +157,23 @@ public interface ProviderContractRepository extends JpaRepository<ProviderContra
            "AND c.endDate IS NOT NULL " +
            "AND c.endDate < :today")
     List<ProviderContract> findExpiredButStillActive(@Param("today") LocalDate today);
+
+    /**
+     * Find valid contracts for a specific provider and employer (or global) on a date.
+     * Requirement: Provider must have an ACTIVE contract.
+     * Link: Contract must be either global (employer IS NULL) or for this specific employer.
+     */
+    @Query("SELECT c FROM ModernProviderContract c " +
+           "WHERE c.provider.id = :providerId " +
+           "AND (c.employer.id = :employerId OR c.employer IS NULL) " +
+           "AND c.status = 'ACTIVE' " +
+           "AND c.active = true " +
+           "AND c.startDate <= :date " +
+           "AND (c.endDate IS NULL OR c.endDate >= :date)")
+    List<ProviderContract> findValidContracts(
+            @Param("providerId") Long providerId, 
+            @Param("employerId") Long employerId, 
+            @Param("date") LocalDate date);
 
     /**
      * Check for overlapping contracts for same provider

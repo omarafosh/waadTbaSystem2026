@@ -216,7 +216,12 @@ public class CostCalculationService {
             .distinct()
             .collect(java.util.stream.Collectors.toList());
         
-        java.util.Map<Long, Integer> coverageMap = benefitPolicyCoverageService.batchGetCoveragePercents(member, serviceIds);
+        // Derive VisitType form Claim
+        com.waad.tba.modules.visit.entity.VisitType visitType = (claim.getVisit() != null && claim.getVisit().getVisitType() != null) 
+             ? claim.getVisit().getVisitType() 
+             : com.waad.tba.modules.visit.entity.VisitType.OUTPATIENT;
+
+        java.util.Map<Long, Integer> coverageMap = benefitPolicyCoverageService.batchGetCoveragePercents(member, serviceIds, visitType);
         
         log.debug("📊 Preloaded coverage for {} services (N+1 elimination)", serviceIds.size());
         
@@ -290,7 +295,11 @@ public class CostCalculationService {
         // Try to get coverage from BenefitPolicyCoverageService
         if (line.getMedicalService() != null) {
             Long serviceId = line.getMedicalService().getId();
-            int rawCoverage = benefitPolicyCoverageService.getEffectiveCoveragePercent(member, serviceId);
+            com.waad.tba.modules.visit.entity.VisitType visitType = com.waad.tba.modules.visit.entity.VisitType.OUTPATIENT;
+            if (line.getClaim() != null && line.getClaim().getVisit() != null && line.getClaim().getVisit().getVisitType() != null) {
+                visitType = line.getClaim().getVisit().getVisitType();
+            }
+            int rawCoverage = benefitPolicyCoverageService.getEffectiveCoveragePercent(member, serviceId, visitType);
             
             if (rawCoverage > 0) {
                 log.debug("✅ Coverage for service {} resolved from BenefitPolicyRule: {}%", 

@@ -46,14 +46,14 @@ export default function DashboardLayout() {
   if (menuMasterLoading) return <Loader />;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%', flexDirection: 'column' }}>
+    <Box sx={{ display: 'flex', width: '100%', height: '100vh', flexDirection: 'column', overflow: 'hidden' }}>
       <Header />
       {/* ✅ Drawer/Sidebar removed - using horizontal navigation */}
       {/* <Drawer /> */}
 
-      <Box component="main" sx={{ width: '100%', flexGrow: 1 }}>
+      <Box component="main" sx={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* ✅ Spacer matching adjusted header height */}
-        <Toolbar sx={{ minHeight: { xs: 60, sm: 68 }, height: { xs: 60, sm: 68 } }} />
+        <Toolbar sx={{ minHeight: { xs: 60, sm: 68 }, height: { xs: 60, sm: 68 }, flexShrink: 0 }} />
         <Container
           maxWidth={isContainer ? 'xl' : false}
           sx={{
@@ -64,8 +64,9 @@ export default function DashboardLayout() {
             px: { xs: 1.5, sm: 2 },
             ...(isContainer && { px: { xs: 0, sm: 2 } }),
             position: 'relative',
-            height: 'calc(100vh - 72px)',
-            overflow: 'hidden',
+            flexGrow: 1, // Fill remaining space in main box
+            height: '100%', // Ensure it takes full height of parent
+            overflow: 'hidden', // Prevent container scroll, let inner components handle it
             display: 'flex',
             flexDirection: 'column'
           }}

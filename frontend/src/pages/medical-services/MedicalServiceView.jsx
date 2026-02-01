@@ -45,7 +45,7 @@ const formatPrice = (value) => {
   if (value == null || value === '') return '-';
   const num = parseFloat(value);
   if (isNaN(num)) return '-';
-  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' د.ل';
+  return num.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' د.ل';
 };
 
 const formatDate = (value) => {
@@ -53,7 +53,7 @@ const formatDate = (value) => {
   try {
     const date = new Date(value);
     if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('ar-SA', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

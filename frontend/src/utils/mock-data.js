@@ -1,5 +1,5 @@
 // third-party
-import { sub } from 'date-fns';
+import dayjs from 'dayjs';
 import { Chance } from 'chance';
 import { sampleSize } from 'lodash-es';
 
@@ -37,11 +37,11 @@ export default function mockData(index) {
     id: `${chance.bb_pin()}${index}`,
     email: chance.email({ domain: 'gmail.com' }),
     contact: chance.phone(),
-    datetime: sub(new Date(), {
-      days: chance.integer({ min: 0, max: 30 }),
-      hours: chance.integer({ min: 0, max: 23 }),
-      minutes: chance.integer({ min: 0, max: 59 })
-    }),
+    datetime: dayjs()
+      .subtract(chance.integer({ min: 0, max: 30 }), 'day')
+      .subtract(chance.integer({ min: 0, max: 23 }), 'hour')
+      .subtract(chance.integer({ min: 0, max: 59 }), 'minute')
+      .toDate(),
     boolean: chance.bool(),
     role: chance.profession(),
     company: chance.company(),

@@ -1,6 +1,6 @@
 // ==============================|| TBA COMPONENTS - BARREL EXPORT ||============================== //
 
-export { default as GenericDataTable } from './TbaDataTable';
+export { default as GenericDataTable } from '../GenericDataTable';
 export { default as TbaDataTable } from './TbaDataTable';
 export { default as CrudDrawer } from './CrudDrawer';
 export { default as RBACGuard } from './RBACGuard';

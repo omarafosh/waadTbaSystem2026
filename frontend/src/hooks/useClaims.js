@@ -7,6 +7,11 @@ export const useClaimsList = (initialParams = { page: 0, size: 10 }) => {
   const [error, setError] = useState(null);
   const [params, setParams] = useState(initialParams);
 
+  // Sync params with initialParams when they change externally
+  useEffect(() => {
+    setParams(initialParams);
+  }, [initialParams]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);

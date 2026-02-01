@@ -23,7 +23,7 @@ import ClaimStatusChip from './ClaimStatusChip';
  */
 const formatCurrency = (amount) => {
   if (amount == null) return '—';
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ar-SA', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount) + ' د.ل';
@@ -35,7 +35,7 @@ const formatCurrency = (amount) => {
 const formatDate = (dateString) => {
   if (!dateString) return '—';
   try {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('ar-SA', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'

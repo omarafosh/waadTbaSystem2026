@@ -49,7 +49,7 @@ export const exportToPDF = (auditData) => {
   doc.text('Audit Log / سجل التدقيق', 105, 20, { align: 'center' });
 
   doc.setFontSize(10);
-  doc.text(`Generated: ${new Date().toLocaleDateString('en-US')}`, 105, 30, { align: 'center' });
+  doc.text(`Generated: ${new Date().toLocaleDateString('ar-SA')}`, 105, 30, { align: 'center' });
   doc.text(`Total Records: ${auditData.length}`, 105, 35, { align: 'center' });
 
   let yPosition = 50;

@@ -30,21 +30,21 @@ public class ExcelColumnMappingService {
         put("nationalNumber", new FieldDefinition("nationalNumber", "الرقم الوطني", "National Number", 
             Arrays.asList("national number", "national_number", "national id", "civil id", "civilid", "رقم مدني", "رقم", "معرف", "الرقم الوطني", "civil_id")));
         put("fullName", new FieldDefinition("fullName", "الاسم الكامل", "Full Name",
-            Arrays.asList("full name", "fullname", "name", "اسم", "الاسم", "اسم كامل", "الاسم الكامل", "full_name")));
+            Arrays.asList("full name", "fullname", "name", "member_name", "اسم", "الاسم", "اسم كامل", "الاسم الكامل", "full_name", "اسم الموظف", "اسم العضو")));
         put("email", new FieldDefinition("email", "البريد الإلكتروني", "Email",
-            Arrays.asList("email", "e-mail", "بريد", "بريد إلكتروني", "ايميل", "البريد الإلكتروني")));
+            Arrays.asList("email", "e-mail", "work_email", "email_address", "بريد", "بريد إلكتروني", "ايميل", "البريد الإلكتروني")));
         put("phone", new FieldDefinition("phone", "رقم الهاتف", "Phone",
-            Arrays.asList("phone", "mobile", "tel", "telephone", "هاتف", "جوال", "موبايل", "رقم الهاتف")));
+            Arrays.asList("phone", "mobile", "tel", "telephone", "mobile_phone", "work_phone", "هاتف", "جوال", "موبايل", "رقم الهاتف", "رقم الجوال")));
         put("dateOfBirth", new FieldDefinition("dateOfBirth", "تاريخ الميلاد", "Date of Birth",
-            Arrays.asList("dob", "birth date", "date of birth", "تاريخ ميلاد", "ميلاد", "تاريخ الميلاد", "birth_date")));
+            Arrays.asList("dob", "birth date", "date of birth", "birthdate", "تاريخ ميلاد", "ميلاد", "تاريخ الميلاد", "birth_date")));
         put("gender", new FieldDefinition("gender", "الجنس", "Gender",
-            Arrays.asList("gender", "sex", "جنس", "الجنس")));
+            Arrays.asList("gender", "sex", "جنس", "الجنس", "النوع")));
         put("policyNumber", new FieldDefinition("policyNumber", "رقم البوليصة", "Policy Number",
-            Arrays.asList("policy", "policy number", "بوليصة", "رقم بوليصة", "رقم الوثيقة", "policy_number")));
+            Arrays.asList("policy", "policy number", "policy_number", "بوليصة", "رقم بوليصة", "رقم الوثيقة", "الوثيقة")));
         put("employer", new FieldDefinition("employer", "جهة العمل", "Employer",
-            Arrays.asList("employer", "employer id", "company", "جهة عمل", "جهة العمل", "شركة", "اسم جهة العمل")));
+            Arrays.asList("employer", "employer id", "company", "company_id", "company_name", "work_company", "organization", "جهة عمل", "جهة العمل", "شركة", "اسم جهة العمل", "المؤسسة", "جهة الانتساب", "صاحب العمل")));
         put("nationality", new FieldDefinition("nationality", "الجنسية", "Nationality",
-            Arrays.asList("nationality", "nation", "جنسية", "الجنسية")));
+            Arrays.asList("nationality", "nation", "country", "جنسية", "الجنسية", "البلد")));
         put("employeeNumber", new FieldDefinition("employeeNumber", "الرقم الوظيفي", "Employee Number",
             Arrays.asList("employee number", "emp number", "badge id", "رقم وظيفي", "الرقم الوظيفي", "employee_number")));
     }};
@@ -130,7 +130,7 @@ public class ExcelColumnMappingService {
     /**
      * Find the most likely header row by scanning first 10 rows
      */
-    private int findHeaderRow(Sheet sheet) {
+    public int findHeaderRow(Sheet sheet) {
         int bestRow = 0;
         int maxMatches = -1;
 
@@ -367,10 +367,21 @@ public class ExcelColumnMappingService {
      */
     private String normalizeText(String text) {
         if (text == null) return "";
-        return text.toLowerCase()
+        String input = text.replace('\u00A0', ' ').replace('\u200B', ' ');
+        String normalized = input.toLowerCase()
             .replaceAll("[\\s_-]+", " ")
             .replaceAll("[^a-zA-Z0-9\\u0600-\\u06FF\\s]", "")
             .trim();
+            
+        // Enhanced Arabic Normalization
+        normalized = normalized.replace('أ', 'ا');
+        normalized = normalized.replace('إ', 'ا');
+        normalized = normalized.replace('آ', 'ا');
+        normalized = normalized.replace('ة', 'ه');
+        normalized = normalized.replace('ى', 'ي');
+        normalized = normalized.replaceAll("[\\u064B-\\u0652]", ""); // Remove harakat
+        
+        return normalized;
     }
 
     /**

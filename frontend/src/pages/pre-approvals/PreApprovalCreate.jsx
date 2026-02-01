@@ -816,7 +816,7 @@ const PreApprovalCreate = () => {
                         <Chip label={`${selectedServices.length} خدمة`} size="small" color="success" variant="outlined" />
                       </Stack>
                       <Typography variant="h4" color="success.dark" fontWeight="bold">
-                        {calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل
+                        {calculateTotal().toLocaleString('ar-SA', { minimumFractionDigits: 2 })} د.ل
                       </Typography>
                     </Stack>
                   </Paper>

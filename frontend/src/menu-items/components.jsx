@@ -381,26 +381,18 @@ const menuItem = [
     children: [
       {
         id: 'members',
-        title: 'إدارة المستفيدين',
-        titleEn: 'Insured Management',
-        type: 'collapse',
+        title: 'المستفيدين',
+        titleEn: 'Insured',
+        type: 'item',
+        url: '/members',
         icon: PeopleAltIcon,
-        children: [
-          {
-            id: 'members-list',
-            title: 'قائمة المستفيدين',
-            titleEn: 'Insured List',
-            type: 'item',
-            url: '/members',
-            icon: FormatListBulletedIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          }
-          // NOTE (2026-01-23): Removed old 'eligibility-check' - now in /members/eligibility page
-        ]
+        breadcrumbs: false,
+        chip: {
+          label: '✅',
+          color: 'success',
+          size: 'small',
+          variant: 'filled'
+        }
       }
     ]
   },

@@ -79,7 +79,8 @@ import RBACGuard from 'components/tba/RBACGuard';
 import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
 import { useEmployerFilter } from 'contexts/EmployerFilterContext';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import GenericDataTable from 'components/GenericDataTable';
+import useTableState from 'hooks/useTableState';
 import { claimsService } from 'services/api';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -179,9 +180,13 @@ const ClaimsInbox = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
   const [totalRows, setTotalRows] = useState(0);
+
+  // Table State
+  const tableState = useTableState({
+    initialPageSize: 20,
+    defaultSort: { field: 'createdAt', direction: 'asc' }
+  });
 
   // Statistics
   const [stats, setStats] = useState({
@@ -232,10 +237,10 @@ const ClaimsInbox = () => {
       setError(null);
 
       const params = {
-        page: page + 1,
-        size: pageSize,
-        sortBy: 'createdAt',
-        sortDir: 'asc' // FIFO - oldest first
+        page: tableState.page + 1,
+        size: tableState.pageSize,
+        sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+        sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'desc' : 'asc') : 'asc'
       };
 
       // Apply filters
@@ -270,7 +275,7 @@ const ClaimsInbox = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, selectedEmployer, statusFilter, searchQuery, dateFrom, dateTo]);
+  }, [tableState.page, tableState.pageSize, tableState.sorting, selectedEmployer, statusFilter, searchQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchClaims();
@@ -449,73 +454,71 @@ const ClaimsInbox = () => {
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // DATAGRID COLUMNS
+  // GENERIC DATATABLE COLUMNS
   // ════════════════════════════════════════════════════════════════════════════
   const columns = useMemo(
     () => [
       {
-        field: 'claimNumber',
-        headerName: 'رقم المطالبة',
-        width: 130,
-        renderCell: (params) => (
+        accessorKey: 'claimNumber',
+        header: 'رقم المطالبة',
+        size: 130,
+        cell: ({ row }) => (
           <Stack>
             <Typography variant="body2" fontWeight="bold" color="primary">
-              {params.row?.claimNumber || `CLM-${params.row?.id}`}
+              {row.original.claimNumber || `CLM-${row.original.id}`}
             </Typography>
-            <AgeIndicator createdAt={params.row?.createdAt} />
+            <AgeIndicator createdAt={row.original.createdAt} />
           </Stack>
         )
       },
       {
-        field: 'memberName',
-        headerName: 'المستفيد',
-        flex: 1,
-        minWidth: 180,
-        renderCell: (params) => (
+        accessorKey: 'memberName',
+        header: 'المستفيد',
+        size: 200,
+        cell: ({ row }) => (
           <Stack direction="row" spacing={1} alignItems="center">
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.lighter' }}>
               <PersonIcon sx={{ fontSize: 18, color: 'primary.main' }} />
             </Avatar>
             <Box>
               <Typography variant="body2" fontWeight={500}>
-                {params.row?.memberName || params.row?.memberFullName || '-'}
+                {row.original.memberName || row.original.memberFullName || '-'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {params.row?.memberNationalNumber || params.row?.memberCivilId || ''}
+                {row.original.memberNationalNumber || row.original.memberCivilId || ''}
               </Typography>
             </Box>
           </Stack>
         )
       },
       {
-        field: 'providerName',
-        headerName: 'مقدم الخدمة',
-        flex: 1,
-        minWidth: 150,
-        renderCell: (params) => (
+        accessorKey: 'providerName',
+        header: 'مقدم الخدمة',
+        size: 180,
+        cell: ({ row }) => (
           <Stack direction="row" spacing={1} alignItems="center">
             <Avatar sx={{ width: 28, height: 28, bgcolor: 'success.lighter' }}>
               <ProviderIcon sx={{ fontSize: 16, color: 'success.main' }} />
             </Avatar>
-            <Typography variant="body2">{params.row?.providerName || '-'}</Typography>
+            <Typography variant="body2">{row.original.providerName || '-'}</Typography>
           </Stack>
         )
       },
       {
-        field: 'serviceDate',
-        headerName: 'تاريخ الخدمة',
-        width: 120,
-        valueGetter: (value, row) => {
-          const date = row?.serviceDate || row?.visitDate;
+        accessorKey: 'serviceDate',
+        header: 'تاريخ الخدمة',
+        size: 120,
+        cell: ({ row }) => {
+          const date = row.original.serviceDate || row.original.visitDate;
           return date ? dayjs(date).format('YYYY/MM/DD') : '-';
         }
       },
       {
-        field: 'requestedAmount',
-        headerName: 'المبلغ المطلوب',
-        width: 140,
-        renderCell: (params) => {
-          const amount = params.row?.totalAmount || params.row?.requestedAmount;
+        accessorKey: 'requestedAmount',
+        header: 'المبلغ المطلوب',
+        size: 140,
+        cell: ({ row }) => {
+          const amount = row.original.totalAmount || row.original.requestedAmount;
           return (
             <Typography variant="body2" fontWeight="bold" color="primary.main">
               {amount ? `${Number(amount).toLocaleString()} د.ل` : '-'}
@@ -524,26 +527,26 @@ const ClaimsInbox = () => {
         }
       },
       {
-        field: 'status',
-        headerName: 'الحالة',
-        width: 150,
-        renderCell: (params) => renderStatus(params.value)
+        accessorKey: 'status',
+        header: 'الحالة',
+        size: 150,
+        cell: ({ row }) => renderStatus(row.original.status)
       },
       {
-        field: 'actions',
-        headerName: 'الإجراءات',
-        width: 200,
-        sortable: false,
-        renderCell: (params) => {
-          const isSubmitted = params.row.status === 'SUBMITTED';
-          const isUnderReview = params.row.status === 'UNDER_REVIEW';
+        id: 'actions',
+        header: 'الإجراءات',
+        size: 200,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const isSubmitted = row.original.status === 'SUBMITTED';
+          const isUnderReview = row.original.status === 'UNDER_REVIEW';
 
           return (
             <Stack direction="row" spacing={0.5}>
               <Tooltip title="عرض التفاصيل">
                 <IconButton
                   size="small"
-                  onClick={() => navigate(`/claims/${params.row.id}`)}
+                  onClick={() => navigate(`/claims/${row.original.id}`)}
                   disabled={actionLoading}
                   sx={{
                     bgcolor: 'primary.lighter',
@@ -557,7 +560,7 @@ const ClaimsInbox = () => {
               <Tooltip title="رفع مستندات">
                 <IconButton
                   size="small"
-                  onClick={() => handleOpenUpload(params.row)}
+                  onClick={() => handleOpenUpload(row.original)}
                   disabled={actionLoading}
                   sx={{
                     bgcolor: 'secondary.lighter',
@@ -572,7 +575,7 @@ const ClaimsInbox = () => {
                 <Tooltip title="استلام للمراجعة">
                   <IconButton
                     size="small"
-                    onClick={() => handleStartReview(params.row)}
+                    onClick={() => handleStartReview(row.original)}
                     disabled={actionLoading}
                     sx={{
                       bgcolor: 'info.lighter',
@@ -589,7 +592,7 @@ const ClaimsInbox = () => {
                   <Tooltip title="موافقة">
                     <IconButton
                       size="small"
-                      onClick={() => handleOpenApprove(params.row)}
+                      onClick={() => handleOpenApprove(row.original)}
                       disabled={actionLoading}
                       sx={{
                         bgcolor: 'success.lighter',
@@ -603,7 +606,7 @@ const ClaimsInbox = () => {
                   <Tooltip title="رفض">
                     <IconButton
                       size="small"
-                      onClick={() => handleOpenReject(params.row)}
+                      onClick={() => handleOpenReject(row.original)}
                       disabled={actionLoading}
                       sx={{
                         bgcolor: 'error.lighter',
@@ -746,43 +749,18 @@ const ClaimsInbox = () => {
         </Paper>
       </Collapse>
 
-      {/* ══════════ DATA GRID ══════════ */}
+      {/* ══════════ GENERIC DATATABLE ══════════ */}
       <MainCard>
         {loading && <LinearProgress sx={{ mb: 1 }} />}
-        <Box sx={{ height: 600, width: '100%' }}>
-          <DataGrid
-            rows={claims}
+        <Box sx={{ width: '100%' }}>
+          <GenericDataTable
+            data={claims}
             columns={columns}
-            loading={loading}
-            paginationMode="server"
-            rowCount={totalRows}
-            paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
-              setPage(model.page);
-              setPageSize(model.pageSize);
-            }}
-            pageSizeOptions={[10, 20, 50, 100]}
-            disableRowSelectionOnClick
-            localeText={{
-              noRowsLabel: 'لا توجد مطالبات معلقة 🎉',
-              MuiTablePagination: {
-                labelRowsPerPage: 'عدد الصفوف:'
-              }
-            }}
-            sx={{
-              border: 'none',
-              '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid',
-                borderColor: 'divider'
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                bgcolor: 'grey.100',
-                fontWeight: 700
-              },
-              '& .MuiDataGrid-row:hover': {
-                bgcolor: 'primary.lighter'
-              }
-            }}
+            totalCount={totalRows}
+            tableState={tableState}
+            isLoading={loading}
+            emptyMessage="لا توجد مطالبات معلقة 🎉"
+            rowsPerPageOptions={[10, 20, 50, 100]}
           />
         </Box>
       </MainCard>

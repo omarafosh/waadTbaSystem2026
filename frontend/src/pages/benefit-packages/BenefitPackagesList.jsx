@@ -53,7 +53,7 @@ const QUERY_KEY = 'benefit-packages';
  */
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '-';
-  return `${Number(value).toLocaleString('en-US')} د.ل`;
+  return `${Number(value).toLocaleString('ar-SA')} د.ل`;
 };
 
 // ============================================================================

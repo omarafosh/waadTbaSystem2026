@@ -78,8 +78,8 @@ export default function TabAuditLog() {
           const date = new Date(getValue());
           return (
             <Stack>
-              <span>{date.toLocaleDateString('en-GB')}</span>
-              <span style={{ fontSize: '0.75rem', color: '#666' }}>{date.toLocaleTimeString('en-GB')}</span>
+              <span>{date.toLocaleDateString('ar-SA')}</span>
+              <span style={{ fontSize: '0.75rem', color: '#666' }}>{date.toLocaleTimeString('ar-SA')}</span>
             </Stack>
           );
         }

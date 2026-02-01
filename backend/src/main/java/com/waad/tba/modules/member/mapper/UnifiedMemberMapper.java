@@ -215,6 +215,7 @@ public class UnifiedMemberMapper {
             .updatedBy(entity.getUpdatedBy())
             .createdAt(entity.getCreatedAt())
             .updatedAt(entity.getUpdatedAt())
+            .dependentsCount(entity.getDependentsCount())
             .build();
         
         // Set organization/policy info
