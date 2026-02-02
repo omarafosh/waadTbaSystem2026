@@ -325,14 +325,14 @@ const UnifiedMemberEdit = () => {
             variant: 'alert',
             alert: { color: 'warning' }
           });
-          navigate(`/members/${id}`);
+          navigate('/members');
           return;
         }
       }
 
       openSnackbar({ message: 'تم تحديث بيانات المنتفع بنجاح', variant: 'alert', alert: { color: 'success' } });
       setTimeout(() => {
-        navigate(`/members/${id}`);
+        navigate('/members');
       }, 500);
     } catch (error) {
       console.error('Error updating member:', error);
@@ -356,7 +356,7 @@ const UnifiedMemberEdit = () => {
         subtitle={form.fullName}
         icon={<EditIcon />}
         actions={
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(`/members/${id}`)}>
+          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/members')}>
             رجوع
           </Button>
         }

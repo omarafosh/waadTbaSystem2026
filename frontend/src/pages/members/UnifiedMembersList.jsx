@@ -93,7 +93,7 @@ import axiosClient from 'utils/axios';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
-const DEFAULT_SORT = { field: 'fullName', direction: 'asc' };
+const DEFAULT_SORT = { field: 'createdAt', direction: 'desc' };
 
 /**
  * Unified Members List Component
