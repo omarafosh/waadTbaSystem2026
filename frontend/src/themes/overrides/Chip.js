@@ -52,8 +52,12 @@ export default function Chip(theme) {
           '&.MuiChip-colorSuccess': getColor({ color: 'success', theme }),
           '&.MuiChip-colorWarning': getColor({ color: 'warning', theme })
         },
-        sizeLarge: {
+        sizeSmall: {
           fontSize: '1rem',
+          height: 28
+        },
+        sizeLarge: {
+          fontSize: theme.typography.body1.fontSize,
           height: 40
         },
         light: {

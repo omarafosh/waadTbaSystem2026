@@ -146,4 +146,16 @@ public class MemberCreateDto {
     @Schema(description = "List of custom attributes (key-value pairs)")
     @Valid
     private List<MemberAttributeDto> attributes;
+
+    @Schema(description = "VIP flag")
+    private Boolean isVip;
+
+    @Schema(description = "Urgent case flag")
+    private Boolean isUrgent;
+
+    @Schema(description = "Emergency notes")
+    private String emergencyNotes;
+
+    @Schema(description = "Fast-track mode (bypass some validations, set pending status)")
+    private Boolean isFastTrack;
 }

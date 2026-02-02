@@ -42,10 +42,10 @@ import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
 // Services
-import { 
-  getBenefitPolicyById, 
+import {
+  getBenefitPolicyById,
   updateBenefitPolicy,
-  getBenefitPoliciesByEmployer 
+  getBenefitPoliciesByEmployer
 } from 'services/api/benefit-policies.service';
 import { getEmployerSelectors } from 'services/api/employers.service';
 
@@ -58,33 +58,33 @@ const validationSchema = Yup.object().shape({
     .required('اسم الوثيقة مطلوب')
     .min(5, 'الاسم يجب أن يكون 5 أحرف على الأقل')
     .max(255, 'الاسم يجب أن لا يتجاوز 255 حرفاً'),
-  
+
   employerOrgId: Yup.mixed()
     .required('يجب اختيار الشريك (صاحب العمل)'),
-  
+
   policyCode: Yup.string().nullable(),
 
   startDate: Yup.date()
     .nullable()
     .required('تاريخ البدء مطلوب')
     .typeError('تاريخ غير صالح'),
-  
+
   endDate: Yup.date()
     .nullable()
     .required('تاريخ الانتهاء مطلوب')
     .min(Yup.ref('startDate'), 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء')
     .typeError('تاريخ غير صالح'),
-  
+
   annualLimit: Yup.number()
     .required('السقف السنوي مطلوب')
     .positive('يجب أن يكون أكبر من صفر')
     .max(10000000, 'قيمة السقف السنوي كبيرة جداً'),
-  
+
   defaultCoveragePercent: Yup.number()
     .required('نسبة التغطية مطلوبة')
     .min(0, 'النسبة لا تقل عن 0%')
     .max(100, 'النسبة لا تزيد عن 100%'),
-  
+
   perMemberLimit: Yup.mixed()
     .test('is-positive', 'يجب أن يكون رقماً موجباً', (val) => !val || (!isNaN(val) && Number(val) > 0))
     .nullable(),
@@ -92,7 +92,7 @@ const validationSchema = Yup.object().shape({
   perFamilyLimit: Yup.mixed()
     .test('is-positive', 'يجب أن يكون رقماً موجباً', (val) => !val || (!isNaN(val) && Number(val) > 0))
     .nullable(),
-    
+
   status: Yup.string().required('الحالة مطلوبة'),
 
   description: Yup.string().max(1000, 'الوصف طويل جداً')
@@ -105,7 +105,7 @@ const validationSchema = Yup.object().shape({
 const BenefitPolicyEdit = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  
+
   const [policy, setPolicy] = useState(null);
   const [employers, setEmployers] = useState([]);
   const [loadingPolicy, setLoadingPolicy] = useState(true);
@@ -116,7 +116,7 @@ const BenefitPolicyEdit = () => {
   // Fetch Policy Data
   useEffect(() => {
     let mounted = true;
-    
+
     const fetchPolicy = async () => {
       try {
         setLoadingPolicy(true);
@@ -145,7 +145,7 @@ const BenefitPolicyEdit = () => {
   // Fetch Employers Data
   useEffect(() => {
     let mounted = true;
-    
+
     const fetchSelectors = async () => {
       try {
         const data = await getEmployerSelectors();
@@ -158,9 +158,9 @@ const BenefitPolicyEdit = () => {
         if (mounted) setLoadingEmployers(false);
       }
     };
-    
+
     fetchSelectors();
-    
+
     return () => { mounted = false; };
   }, []);
 
@@ -168,26 +168,26 @@ const BenefitPolicyEdit = () => {
   const checkOverlap = async (employerOrgId, startDate, endDate, currentPolicyId) => {
     try {
       const policies = await getBenefitPoliciesByEmployer(employerOrgId);
-      
+
       const overlapping = policies.filter(p => {
         // Skip the current policy being edited
         if (p.id === currentPolicyId) return false;
-        
+
         // Only check active policies
         if (p.status !== 'ACTIVE') return false;
-        
+
         // Check date overlap
         const pStart = dayjs(p.startDate);
         const pEnd = dayjs(p.endDate);
         const newStart = dayjs(startDate);
         const newEnd = dayjs(endDate);
-        
+
         return (
           (newStart.isBefore(pEnd) || newStart.isSame(pEnd)) &&
           (newEnd.isAfter(pStart) || newEnd.isSame(pStart))
         );
       });
-      
+
       if (overlapping.length > 0) {
         const names = overlapping.map(p => p.name).join('، ');
         setOverlapWarning(`تحذير: توجد وثائق نشطة أخرى في نفس الفترة: ${names}`);
@@ -203,7 +203,7 @@ const BenefitPolicyEdit = () => {
   // Handle Form Submission
   const handleSubmit = async (values, { setSubmitting }) => {
     setGeneralError(null);
-    
+
     try {
       // Transform Form Values to API Payload
       const payload = {
@@ -222,7 +222,7 @@ const BenefitPolicyEdit = () => {
       };
 
       await updateBenefitPolicy(id, payload);
-      
+
       // Success - Navigate back
       navigate('/benefit-policies');
     } catch (err) {
@@ -315,7 +315,7 @@ const BenefitPolicyEdit = () => {
               return (
                 <Form autoComplete="off">
                   <Grid container spacing={4}>
-                    
+
                     {/* === Section 1: Basic Information === */}
                     <Grid item xs={12}>
                       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
@@ -366,7 +366,7 @@ const BenefitPolicyEdit = () => {
                             <CircularProgress size={20} sx={{ mr: 1 }} /> جارٍ التحميل...
                           </MenuItem>
                         ) : employers.length > 0 ? (
-                          employers.map((emp) => (
+                          Array.isArray(employers) && employers.map((emp) => (
                             <MenuItem key={emp.id} value={emp.id}>
                               {emp.label || emp.nameAr || emp.name}
                             </MenuItem>
@@ -378,19 +378,25 @@ const BenefitPolicyEdit = () => {
                     </Grid>
 
                     <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="رمز الوثيقة"
-                        name="policyCode"
-                        value={values.policyCode}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.policyCode && Boolean(errors.policyCode)}
-                        helperText={touched.policyCode && errors.policyCode}
-                        InputProps={{
-                          readOnly: Boolean(policy?.policyCode) // Read-only if auto-generated
-                        }}
-                      />
+                      <Box sx={{
+                        p: 2,
+                        bgcolor: 'info.lighter',
+                        border: '1px solid',
+                        borderColor: 'info.main',
+                        borderRadius: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        height: '100%',
+                        minHeight: 56
+                      }}>
+                        <Typography variant="caption" color="textSecondary">
+                          رمز الوثيقة الحالي:
+                        </Typography>
+                        <Typography variant="body1" fontWeight="bold" color="info.main">
+                          {values.policyCode || 'سيتم توليده تلقائياً'}
+                        </Typography>
+                      </Box>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
@@ -560,16 +566,16 @@ const BenefitPolicyEdit = () => {
 
                     {/* === Actions === */}
                     <Grid item xs={12}>
-                      <Stack 
-                        direction="row" 
-                        justifyContent="flex-end" 
-                        spacing={2} 
+                      <Stack
+                        direction="row"
+                        justifyContent="flex-end"
+                        spacing={2}
                         sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}
                       >
-                        <Button 
-                          variant="outlined" 
-                          color="inherit" 
-                          onClick={() => navigate('/benefit-policies')} 
+                        <Button
+                          variant="outlined"
+                          color="inherit"
+                          onClick={() => navigate('/benefit-policies')}
                           startIcon={<CancelIcon />}
                           disabled={isSubmitting}
                         >

@@ -32,8 +32,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.waad.tba.common.exception.BusinessRuleException;
-import com.waad.tba.modules.employer.entity.Employer;
-import com.waad.tba.modules.employer.repository.EmployerRepository;
 import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy;
 import com.waad.tba.modules.benefitpolicy.repository.BenefitPolicyRepository;
 import com.waad.tba.modules.member.dto.MemberImportPreviewDto;
@@ -94,7 +92,6 @@ public class MemberExcelImportService {
     private final MemberAttributeRepository attributeRepository;
     private final MemberImportLogRepository importLogRepository;
     private final MemberImportErrorRepository importErrorRepository;
-    private final EmployerRepository employerRepository;
     private final BenefitPolicyRepository benefitPolicyRepository;
     private final OrganizationRepository organizationRepository;
     private final AuthorizationService authorizationService;

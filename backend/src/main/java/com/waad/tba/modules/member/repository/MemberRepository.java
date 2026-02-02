@@ -12,8 +12,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 
 import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy;
 
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecificationExecutor<Member> {
@@ -471,4 +473,17 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      */
     @Query("SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END FROM Member m WHERE m.parent.id = :principalId")
     boolean hasAnyDependents(@Param("principalId") Long principalId);
+
+    /**
+     * Bulk update benefit policy for all members of an employer
+     */
+    @Modifying
+    @Query("UPDATE Member m SET m.benefitPolicy = :policy WHERE m.employerOrganization.id = :employerId AND m.active = true")
+    int updateBenefitPolicyForEmployer(@Param("employerId") Long employerId, @Param("policy") BenefitPolicy policy);
+
+    /**
+     * Count members with a specific benefit policy status
+     */
+    long countByEmployerOrganizationIdAndBenefitPolicyStatusAndBenefitPolicyActiveTrue(
+            Long employerId, BenefitPolicy.BenefitPolicyStatus status);
 }

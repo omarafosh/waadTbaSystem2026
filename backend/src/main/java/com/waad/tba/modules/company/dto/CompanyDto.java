@@ -92,6 +92,16 @@ public class CompanyDto {
     private String cardNumberFormat;
 
     /**
+     * Claim processing SLA in business days.
+     */
+    private Integer claimSlaDays;
+
+    /**
+     * Pre-approval processing SLA in business days.
+     */
+    private Integer preApprovalSlaDays;
+
+    /**
      * Preferred system font family.
      */
     private String fontFamily;

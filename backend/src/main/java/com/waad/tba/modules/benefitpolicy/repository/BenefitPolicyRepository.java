@@ -54,6 +54,22 @@ public interface BenefitPolicyRepository extends JpaRepository<BenefitPolicy, Lo
     List<BenefitPolicy> findByStatusAndActiveTrue(BenefitPolicyStatus status);
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // GLOBAL UNIQUENESS QUERIES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /** Check if a policy name already exists globally */
+    boolean existsByNameAndActiveTrue(String name);
+
+    /** Check if a policy name already exists globally (excluding current ID) */
+    boolean existsByNameAndIdNotAndActiveTrue(String name, Long excludeId);
+
+    /** Check if a policy code already exists globally */
+    boolean existsByPolicyCodeAndActiveTrue(String policyCode);
+
+    /** Check if a policy code already exists globally (excluding current ID) */
+    boolean existsByPolicyCodeAndIdNotAndActiveTrue(String policyCode, Long excludeId);
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EMPLOYER QUERIES
     // ═══════════════════════════════════════════════════════════════════════════
 

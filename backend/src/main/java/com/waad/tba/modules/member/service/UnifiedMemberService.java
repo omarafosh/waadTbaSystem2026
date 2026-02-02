@@ -102,18 +102,49 @@ public class UnifiedMemberService {
         // Barcode will be generated AFTER card number
         // String barcode = barcodeGenerator.generateUniqueBarcodeForPrincipal();
 
-        Organization employerOrg = organizationRepository.findById(dto.getEmployerId())
+        Long employerId = dto.getEmployerId();
+        // Special Handling: VIPs without Employer
+        if (employerId == null && Boolean.TRUE.equals(dto.getIsVip())) {
+            employerId = organizationRepository.findByCode("VIP")
+                    .map(Organization::getId)
+                    .orElseGet(() -> organizationRepository.findAll().stream()
+                            .filter(o -> o.getType() == com.waad.tba.common.enums.OrganizationType.EMPLOYER)
+                            .findFirst()
+                            .map(Organization::getId)
+                            .orElseThrow(() -> new BusinessRuleException("No Employer Organization found to assign VIP member.")));
+        }
+
+        if (employerId == null) {
+            throw new BusinessRuleException("Employer ID is required for non-VIP members.");
+        }
+
+        Organization employerOrg = organizationRepository.findById(employerId)
                 .orElseThrow(
-                        () -> new ResourceNotFoundException("Employer organization not found: " + dto.getEmployerId()));
+                        () -> new ResourceNotFoundException("Employer organization not found: " + employerId));
 
         BenefitPolicy benefitPolicy = null;
         if (dto.getBenefitPolicyId() != null) {
             benefitPolicy = benefitPolicyRepository.findById(dto.getBenefitPolicyId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Benefit policy not found: " + dto.getBenefitPolicyId()));
+        } else {
+            // Auto-detect active policy for this employer
+            benefitPolicy = benefitPolicyRepository.findActiveEffectivePolicyForEmployer(employerId, LocalDate.now())
+                    .orElse(null);
+            
+            // Note: We don't throw error if missing, some members might exist without policy for a while 
+            // but for Fast-Track it's better to have one.
         }
 
         Member principal = mapper.toEntity(dto);
+        
+        // Fast-Track Logic: Force status and flags
+        if (Boolean.TRUE.equals(dto.getIsFastTrack())) {
+            principal.setStatus(Member.MemberStatus.PENDING_VERIFICATION);
+            principal.setIsVip(true);
+            principal.setIsUrgent(true);
+        }
+
         // Barcode set later derived from card number
         principal.setEmployerOrganization(employerOrg);
         principal.setBenefitPolicy(benefitPolicy);

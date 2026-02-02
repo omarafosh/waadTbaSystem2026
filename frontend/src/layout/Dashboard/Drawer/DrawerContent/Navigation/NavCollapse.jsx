@@ -202,7 +202,7 @@ export default function NavCollapse({ menu, level, parentId, setSelectedItems, s
   const popperId = miniMenuOpened ? `collapse-pop-${menu.id}` : undefined;
   const FlexBox = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' };
 
-  const collapsedIconStyle = { fontSize: '0.625rem' };
+  const collapsedIconStyle = { fontSize: '1rem' };
   const collapsedIcon = miniMenuOpened || open ? <UpOutlined style={collapsedIconStyle} /> : <DownOutlined style={collapsedIconStyle} />;
 
   return (
@@ -233,11 +233,11 @@ export default function NavCollapse({ menu, level, parentId, setSelectedItems, s
             })}
             {...(drawerOpen &&
               menu.isDropdown && {
-                'aria-controls': openCollapse ? `${menu.id}-menu` : undefined,
-                'aria-haspopup': true,
-                'aria-expanded': openCollapse ? 'true' : undefined,
-                onClick: handleClickCollapse
-              })}
+              'aria-controls': openCollapse ? `${menu.id}-menu` : undefined,
+              'aria-haspopup': true,
+              'aria-expanded': openCollapse ? 'true' : undefined,
+              onClick: handleClickCollapse
+            })}
           >
             {menuIcon && (
               <ListItemIcon
@@ -255,10 +255,10 @@ export default function NavCollapse({ menu, level, parentId, setSelectedItems, s
                   }),
                   ...(!drawerOpen &&
                     selected === menu.id && {
-                      bgcolor: 'primary.lighter',
-                      ...theme.applyStyles('dark', { bgcolor: 'primary.900' }),
-                      '&:hover': { bgcolor: 'primary.lighter', ...theme.applyStyles('dark', { bgcolor: 'primary.darker' }) }
-                    })
+                    bgcolor: 'primary.lighter',
+                    ...theme.applyStyles('dark', { bgcolor: 'primary.900' }),
+                    '&:hover': { bgcolor: 'primary.lighter', ...theme.applyStyles('dark', { bgcolor: 'primary.darker' }) }
+                  })
                 })}
               >
                 {menuIcon}

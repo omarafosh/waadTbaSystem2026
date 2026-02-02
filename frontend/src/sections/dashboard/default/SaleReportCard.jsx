@@ -43,7 +43,7 @@ export default function SaleReportCard() {
             select
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            slotProps={{ htmlInput: { sx: { py: 0.75, fontSize: '0.875rem' } } }}
+            slotProps={{ htmlInput: { fontSize: '1rem' } }}
           >
             {status.map((option) => (
               <MenuItem key={option.value} value={option.value}>

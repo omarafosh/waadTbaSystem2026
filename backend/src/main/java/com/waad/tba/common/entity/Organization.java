@@ -28,6 +28,15 @@ public class Organization {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
+    @Column(length = 255)
+    private String address;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(length = 100)
+    private String email;
+
     @Builder.Default
     @Column(length = 20)
     private String barcodePrefix = "WAAD";

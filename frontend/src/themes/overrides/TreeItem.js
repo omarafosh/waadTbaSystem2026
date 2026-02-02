@@ -9,8 +9,12 @@ export default function TreeItem() {
         },
         iconContainer: {
           '& svg': {
-            fontSize: '0.625rem'
+            fontSize: '1rem'
           }
+        },
+        label: {
+          fontSize: '1rem',
+          fontWeight: 500
         },
         groupTransition: {
           paddingLeft: 12

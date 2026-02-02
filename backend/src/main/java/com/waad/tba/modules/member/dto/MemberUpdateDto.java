@@ -108,6 +108,15 @@ public class MemberUpdateDto {
     @Schema(description = "Active flag", example = "true")
     private Boolean active;
 
+    @Schema(description = "Is VIP", example = "true")
+    private Boolean isVip;
+
+    @Schema(description = "Is Urgent", example = "true")
+    private Boolean isUrgent;
+
+    @Schema(description = "Emergency Notes", example = "Some notes")
+    private String emergencyNotes;
+
     // ==================== UNIFIED ARCHITECTURE - UPDATE SUPPORT ====================
     
     /**

@@ -2,13 +2,13 @@
 
 export default function TableCell(theme) {
   const varsPalette = (theme.vars && theme.vars.palette) || theme.palette || {};
-  
+
   // Use dynamic font size from theme (User Preference)
-  const cellFontSize = theme.typography.body1.fontSize; 
+  const cellFontSize = theme.typography.body1.fontSize;
 
   const commonCell = {
     // automation-scaling: Removed hardcoded rem
-    // fontSize: '0.875rem', 
+    // fontSize: '1rem', 
     textTransform: 'uppercase',
     '&:not(:last-of-type)': {
       backgroundImage: `linear-gradient(${varsPalette.divider ?? theme.palette.divider}, ${varsPalette.divider ?? theme.palette.divider})`,
@@ -62,14 +62,14 @@ export default function TableCell(theme) {
 
           return baseStyle;
         },
-        sizeSmall: { 
-          padding: 12, // increased from 8px
-          fontSize: '0.875rem' // 14px for small cells
+        sizeSmall: {
+          padding: 12,
+          fontSize: theme.typography.body2.fontSize
         },
-        head: { 
+        head: {
           fontWeight: 700,
-          fontSize: '0.9375rem', // 15px - increased for headers
-          ...commonCell 
+          fontSize: theme.typography.body2.fontSize,
+          ...commonCell
         },
         footer: { ...commonCell }
       }

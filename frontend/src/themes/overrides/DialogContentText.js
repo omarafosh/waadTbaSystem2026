@@ -6,7 +6,7 @@ export default function DialogContentText(theme) {
     MuiDialogContentText: {
       styleOverrides: {
         root: {
-          fontSize: '0.875rem',
+          fontSize: '1rem',
           color: varsPalette.text?.primary ?? theme.palette.text?.primary
         }
       }

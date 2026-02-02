@@ -176,7 +176,7 @@ export default function DataTable({
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Box>{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}</Box>
                           {isSortable && (
-                            <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            <Box sx={{ fontSize: '1rem', color: 'text.secondary' }}>
                               {sortDirection === 'asc' && <ArrowUpOutlined />}
                               {sortDirection === 'desc' && <ArrowDownOutlined />}
                             </Box>

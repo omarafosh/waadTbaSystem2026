@@ -5,10 +5,10 @@ export default function TablePagination() {
     MuiTablePagination: {
       styleOverrides: {
         selectLabel: {
-          fontSize: '0.875rem'
+          fontSize: '1rem'
         },
         displayedRows: {
-          fontSize: '0.875rem'
+          fontSize: '1rem'
         }
       }
     }

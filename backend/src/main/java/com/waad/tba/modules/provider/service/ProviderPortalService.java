@@ -146,7 +146,7 @@ public class ProviderPortalService {
 
         // 2. Check if the employer is in the permitted list
         Long memberEmployerId = member.getEmployerOrganization().getId();
-        boolean isPermitted = user.getPermittedCompanies().stream()
+        boolean isPermitted = user.getPermittedOrganizations().stream()
                 .anyMatch(e -> e.getId().equals(memberEmployerId));
 
         if (!isPermitted) {

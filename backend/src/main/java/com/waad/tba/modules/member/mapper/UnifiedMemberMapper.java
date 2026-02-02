@@ -54,6 +54,9 @@ public class UnifiedMemberMapper {
             .cardStatus(dto.getCardStatus() != null ? dto.getCardStatus() : Member.CardStatus.ACTIVE)
             .notes(dto.getNotes())
             .active(dto.getActive() != null ? dto.getActive() : true)
+            .isVip(Boolean.TRUE.equals(dto.getIsVip()))
+            .isUrgent(Boolean.TRUE.equals(dto.getIsUrgent()))
+            .emergencyNotes(dto.getEmergencyNotes())
             .build();
     }
 
@@ -144,6 +147,16 @@ public class UnifiedMemberMapper {
             entity.setActive(dto.getActive());
         }
         
+        if (dto.getIsVip() != null) {
+            entity.setIsVip(dto.getIsVip());
+        }
+        if (dto.getIsUrgent() != null) {
+            entity.setIsUrgent(dto.getIsUrgent());
+        }
+        if (dto.getEmergencyNotes() != null) {
+            entity.setEmergencyNotes(dto.getEmergencyNotes());
+        }
+        
         // Relationship can be updated for dependents only
         if (dto.getRelationship() != null && entity.isDependent()) {
             entity.setRelationship(dto.getRelationship());
@@ -216,6 +229,9 @@ public class UnifiedMemberMapper {
             .createdAt(entity.getCreatedAt())
             .updatedAt(entity.getUpdatedAt())
             .dependentsCount(entity.getDependentsCount())
+            .isVip(Boolean.TRUE.equals(entity.getIsVip()))
+            .isUrgent(Boolean.TRUE.equals(entity.getIsUrgent()))
+            .emergencyNotes(entity.getEmergencyNotes())
             .build();
         
         // Set organization/policy info

@@ -3,7 +3,7 @@ package com.waad.tba.modules.rbac.entity;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-import com.waad.tba.modules.employer.entity.Employer;
+import com.waad.tba.common.entity.Organization;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -163,12 +163,12 @@ public class User {
      */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "user_permitted_companies",
+            name = "user_permitted_organizations",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "employer_id")
+            inverseJoinColumns = @JoinColumn(name = "organization_id")
     )
     @Builder.Default
-    private Set<Employer> permittedCompanies = new HashSet<>();
+    private Set<Organization> permittedOrganizations = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

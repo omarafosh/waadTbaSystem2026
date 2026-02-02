@@ -45,7 +45,8 @@ import {
   LinearProgress,
   RadioGroup,
   FormControlLabel,
-  Radio
+  Radio,
+  Switch
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,7 +59,11 @@ import {
   UploadFile as UploadFileIcon,
   Download as DownloadIcon,
   FileDownload as FileDownloadIcon,
-  Undo as UndoIcon
+  Undo as UndoIcon,
+  Bolt as FlashIcon,
+  Star as VIPIcon,
+  MedicalServices as MedicalIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 
@@ -80,6 +85,7 @@ import {
   deleteMember,
   restoreMember,
   hardDeleteMember,
+  createPrincipalMember,
   MEMBER_TYPES,
   MEMBER_STATUSES
 } from 'services/api/unified-members.service';
@@ -99,6 +105,7 @@ const UnifiedMembersList = () => {
   // Table State Management
   const tableState = useTableState({
     initialPageSize: 8, // Default to 8 records as requested
+    allowedPageSizes: [8, 16, 24, 32],
     defaultSort: DEFAULT_SORT,
     storageKey: 'members_table_page_size' // Per-table persistence to avoid conflicts
   });
@@ -168,10 +175,10 @@ const UnifiedMembersList = () => {
       },
       '& .MuiButton-startIcon': {
         '& .MuiSvgIcon-root': {
-          fontSize: '22px'
+          fontSize: '1.375rem' // 22px relative to root
         }
       },
-      fontSize: '11px',
+      fontSize: '1rem', // 12px relative to root
       fontWeight: 700,
       whiteSpace: 'nowrap',
       px: 1.5,
@@ -281,36 +288,71 @@ const UnifiedMembersList = () => {
       header: 'الاسم',
       size: 200,
       headerAlign: 'center', // Header title in the center
-      align: 'right'        // Content to the right
+      align: 'right',        // Content to the right
+      size: 180,
+      cell: ({ row }) => (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2">{row.original.fullName}</Typography>
+          {row.original.isVip && (
+            <Tooltip title="VIP member">
+              <VIPIcon sx={{ color: '#ffc107', fontSize: 18 }} />
+            </Tooltip>
+          )}
+          {row.original.isUrgent && (
+            <Tooltip title="Urgent case">
+              <FlashIcon sx={{ color: '#ff5722', fontSize: 18 }} />
+            </Tooltip>
+          )}
+        </Stack>
+      )
     },
     {
       accessorKey: 'type',
       header: 'النوع',
       size: 90,
+      enableSorting: true,
       cell: ({ getValue }) => getMemberTypeChip(getValue())
     },
     {
       accessorKey: 'status',
       header: 'الحالة',
       size: 90,
+      enableSorting: true,
       cell: ({ getValue }) => getStatusChip(getValue())
     },
     {
       accessorKey: 'barcode',
       header: 'باركود',
-      size: 130
+      size: 130,
+      enableSorting: true
     },
     {
       accessorKey: 'employerName', // Assuming employerName is flattened or handled
       header: 'جهة العمل',
-      size: 150
+      size: 150,
+      enableSorting: true
     },
     // Calculated/Derived Columns
     {
       id: 'dependents',
       header: 'التابعون',
       size: 70,
-      cell: ({ row }) => row.original.dependentsCount || 0
+      cell: ({ row }) => (
+        <Chip
+          label={row.original.dependentsCount || 0}
+          size="small"
+          variant="outlined"
+          sx={{
+            minWidth: 28,
+            height: 20,
+            borderRadius: '6px',
+            bgcolor: (row.original.dependentsCount > 0) ? 'secondary.lighter' : 'transparent',
+            borderColor: (row.original.dependentsCount > 0) ? 'secondary.light' : 'divider',
+            color: (row.original.dependentsCount > 0) ? 'secondary.main' : 'text.disabled',
+            fontWeight: (row.original.dependentsCount > 0) ? 600 : 400
+          }}
+        />
+      )
     },
     {
       id: 'actions',
@@ -333,6 +375,20 @@ const UnifiedMembersList = () => {
             </>
           ) : (
             <>
+              {row.original.status === MEMBER_STATUSES.PENDING_VERIFICATION && (
+                <Tooltip title="اعتماد العضوية">
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleApproveClick(row.original);
+                    }}
+                  >
+                    <CheckCircleIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               {row.original.type === MEMBER_TYPES.DEPENDENT && (
                 <Tooltip title="بيانات التابع">
                   <IconButton
@@ -399,12 +455,38 @@ const UnifiedMembersList = () => {
     }
   };
 
+  const handleApproveClick = (member) => {
+    setConfirmDialog({
+      open: true,
+      title: 'اعتماد العضوية؟',
+      content: `هل أنت متأكد من اعتماد عضوية ${member.fullName} وتحويلها للحالة النشطة؟`,
+      severity: 'success',
+      confirmText: 'نعم، اعتماد',
+      onConfirm: () => handleConfirmAction(
+        async () => {
+          await updateMember(member.id, { status: MEMBER_STATUSES.ACTIVE });
+        },
+        'تم اعتماد العضوية بنجاح',
+        'خطأ في اعتماد العضوية'
+      )
+    });
+  };
+
   const fetchMembers = async () => {
     setLoading(true);
     try {
       let response;
       // Fix: Split sort into field and direction for backend compatibility
-      const sortField = sorting.length > 0 ? sorting[0].id : undefined;
+      const sortMapping = {
+        employerName: 'employerOrganizationId', // Maps to employer_org_id
+        type: 'parentId' // Maps to parent_id (NULL = Principal, Value = Dependent)
+      };
+
+      let sortField = sorting.length > 0 ? sorting[0].id : undefined;
+      if (sortField && sortMapping[sortField]) {
+        sortField = sortMapping[sortField];
+      }
+
       const sortDirection = sorting.length > 0 ? (sorting[0].desc ? 'DESC' : 'ASC') : undefined;
 
       const displayStatus = filters.status === '' ? undefined : filters.status;
@@ -511,22 +593,24 @@ const UnifiedMembersList = () => {
 
   const getMemberTypeChip = (type) => {
     if (type === MEMBER_TYPES.PRINCIPAL) {
-      return <Chip label="رئيسي" color="primary" size="small" sx={{ fontSize: '12px', height: 24, minWidth: '60px' }} />;
+      return <Chip label="رئيسي" color="primary" size="small" />;
     }
-    return <Chip label="تابع" color="secondary" size="small" sx={{ fontSize: '12px', height: 24, minWidth: '60px' }} />;
+    return <Chip label="تابع" color="secondary" size="small" />;
   };
 
   const getStatusChip = (status) => {
-    const statusColors = {
-      ACTIVE: 'success',
-      SUSPENDED: 'warning',
-      TERMINATED: 'error'
-    };
-
     const statusLabels = {
       ACTIVE: 'نشط',
       SUSPENDED: 'معلق',
-      TERMINATED: 'منتهي'
+      TERMINATED: 'منتهي',
+      PENDING_VERIFICATION: 'قيد المراجعة'
+    };
+
+    const statusColors = {
+      ACTIVE: 'success',
+      SUSPENDED: 'warning',
+      TERMINATED: 'error',
+      PENDING_VERIFICATION: 'warning'
     };
 
     return (
@@ -534,7 +618,6 @@ const UnifiedMembersList = () => {
         label={statusLabels[status] || status}
         color={statusColors[status] || 'default'}
         size="small"
-        sx={{ fontSize: '12px', height: 24, minWidth: '80px' }}
       />
     );
   };
@@ -601,11 +684,13 @@ const UnifiedMembersList = () => {
             >
               إضافة مستفيد
             </Button>
+
           </Stack>
         }
         sx={{ mb: 0.5 }} // Overrides default mb: 3 in ModernPageHeader
       />
 
+      {/* Fast-Track VIP Modal */}
       <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: 'hidden', height: '100%' }}>
         {/* Filters - Top Bar */}
         <MainCard sx={{ p: 1, flexShrink: 0 }}>
@@ -617,51 +702,51 @@ const UnifiedMembersList = () => {
               value={localSearchTerm}
               onChange={handleFilterChange('searchTerm')}
               sx={{ minWidth: 200, flexGrow: 1 }}
-              InputLabelProps={{ sx: { fontSize: '0.8125rem' } }}
-              InputProps={{ sx: { fontSize: '0.8125rem', height: 36 } }}
+              InputProps={{ sx: { fontSize: '1rem', height: 36 } }}
+              InputLabelProps={{ sx: { fontSize: '1rem' } }}
             />
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel sx={{ fontSize: '0.8125rem' }}>جهة العمل</InputLabel>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel sx={{ fontSize: '1rem' }}>جهة العمل</InputLabel>
               <Select
                 value={filters.organizationId}
                 onChange={handleFilterChange('organizationId')}
                 label="جهة العمل"
-                sx={{ fontSize: '0.8125rem', height: 36 }}
+                sx={{ fontSize: '1rem', height: 36 }}
               >
-                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
-                {employers.map((emp) => (
-                  <MenuItem key={emp.id} value={emp.id} sx={{ fontSize: '0.8125rem' }}>{emp.label}</MenuItem>
+                <MenuItem value="" sx={{ fontSize: '1rem' }}><em>الكل</em></MenuItem>
+                {Array.isArray(employers) && employers.map((emp) => (
+                  <MenuItem key={emp.id} value={emp.id} sx={{ fontSize: '1rem' }}>{emp.label}</MenuItem>
                 ))}
               </Select>
             </FormControl>
 
             <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel sx={{ fontSize: '0.8125rem' }}>النوع</InputLabel>
+              <InputLabel sx={{ fontSize: '1rem' }}>النوع</InputLabel>
               <Select
                 value={filters.type}
                 onChange={handleFilterChange('type')}
                 label="النوع"
-                sx={{ fontSize: '0.8125rem', height: 36 }}
+                sx={{ fontSize: '1rem', height: 36 }}
               >
-                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
-                <MenuItem value={MEMBER_TYPES.PRINCIPAL} sx={{ fontSize: '0.8125rem' }}>رئيسي</MenuItem>
-                <MenuItem value={MEMBER_TYPES.DEPENDENT} sx={{ fontSize: '0.8125rem' }}>تابع</MenuItem>
+                <MenuItem value="" sx={{ fontSize: '1rem' }}><em>الكل</em></MenuItem>
+                <MenuItem value={MEMBER_TYPES.PRINCIPAL} sx={{ fontSize: '1rem' }}>رئيسي</MenuItem>
+                <MenuItem value={MEMBER_TYPES.DEPENDENT} sx={{ fontSize: '1rem' }}>تابع</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel sx={{ fontSize: '0.8125rem' }}>الحالة</InputLabel>
+              <InputLabel sx={{ fontSize: '1rem' }}>الحالة</InputLabel>
               <Select
                 value={filters.status}
                 onChange={handleFilterChange('status')}
                 label="الحالة"
-                sx={{ fontSize: '0.8125rem', height: 36 }}
+                sx={{ fontSize: '1rem', height: 36 }}
               >
-                <MenuItem value="" sx={{ fontSize: '0.8125rem' }}><em>الكل</em></MenuItem>
-                <MenuItem value={MEMBER_STATUSES.ACTIVE} sx={{ fontSize: '0.8125rem' }}>نشط</MenuItem>
-                <MenuItem value={MEMBER_STATUSES.SUSPENDED} sx={{ fontSize: '0.8125rem' }}>معلق</MenuItem>
-                <MenuItem value={MEMBER_STATUSES.TERMINATED} sx={{ fontSize: '0.8125rem' }}>منتهي</MenuItem>
+                <MenuItem value="" sx={{ fontSize: '1rem' }}><em>الكل</em></MenuItem>
+                <MenuItem value={MEMBER_STATUSES.ACTIVE} sx={{ fontSize: '1rem' }}>نشط</MenuItem>
+                <MenuItem value={MEMBER_STATUSES.SUSPENDED} sx={{ fontSize: '1rem' }}>معلق</MenuItem>
+                <MenuItem value={MEMBER_STATUSES.TERMINATED} sx={{ fontSize: '1rem' }}>منتهي</MenuItem>
               </Select>
             </FormControl>
 
@@ -700,7 +785,7 @@ const UnifiedMembersList = () => {
               rowsPerPageOptions={[8, 16, 24, 32]}
             />
           </Box>
-        </MainCard >
+        </ MainCard >
       </Stack >
 
       < Drawer
@@ -727,7 +812,7 @@ const UnifiedMembersList = () => {
             <Button variant="outlined" onClick={() => setDrawerOpen(false)}>إغلاق</Button>
           </Stack>
         )}
-      </Drawer >
+      </ Drawer >
 
       {/* Import Wizard */}
       < DataImportWizard open={importDialogOpen} onClose={handleCloseImportDialog} />
@@ -747,7 +832,7 @@ const UnifiedMembersList = () => {
             {confirmDialog.confirmText}
           </Button>
         </DialogActions>
-      </Dialog >
+      </ Dialog >
 
       <DataExportWizard
         open={exportWizardOpen}

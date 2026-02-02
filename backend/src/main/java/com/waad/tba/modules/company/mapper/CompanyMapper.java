@@ -32,6 +32,8 @@ public class CompanyMapper {
                 .taxNumber(entity.getTaxNumber())
                 .currency(entity.getCurrency())
                 .cardNumberFormat(entity.getCardNumberFormat())
+                .claimSlaDays(entity.getClaimSlaDays())
+                .preApprovalSlaDays(entity.getPreApprovalSlaDays())
                 .fontFamily(entity.getFontFamily())
                 .fontSize(entity.getFontSize())
                 .barcodePrefix(entity.getBarcodePrefix())
@@ -62,6 +64,8 @@ public class CompanyMapper {
                 .taxNumber(dto.getTaxNumber())
                 .currency(dto.getCurrency())
                 .cardNumberFormat(dto.getCardNumberFormat())
+                .claimSlaDays(dto.getClaimSlaDays())
+                .preApprovalSlaDays(dto.getPreApprovalSlaDays())
                 .fontFamily(dto.getFontFamily())
                 .fontSize(dto.getFontSize())
                 .barcodePrefix(dto.getBarcodePrefix())
@@ -90,6 +94,8 @@ public class CompanyMapper {
         entity.setTaxNumber(dto.getTaxNumber());
         entity.setCurrency(dto.getCurrency());
         entity.setCardNumberFormat(dto.getCardNumberFormat());
+        entity.setClaimSlaDays(dto.getClaimSlaDays());
+        entity.setPreApprovalSlaDays(dto.getPreApprovalSlaDays());
         entity.setFontFamily(dto.getFontFamily());
         entity.setFontSize(dto.getFontSize());
         if (dto.getBarcodePrefix() != null) {

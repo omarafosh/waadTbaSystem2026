@@ -2,7 +2,7 @@ package com.waad.tba.modules.rbac.service;
 
 import com.waad.tba.common.exception.ResourceNotFoundException;
 import com.waad.tba.modules.rbac.dto.*;
-import com.waad.tba.modules.employer.repository.EmployerRepository;
+import com.waad.tba.common.repository.OrganizationRepository;
 import com.waad.tba.modules.rbac.entity.Role;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.modules.rbac.entity.UserAuditLog;
@@ -47,7 +47,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserSecurityService securityService;
     private final RbacGuardService rbacGuard;
-    private final EmployerRepository employerRepository;
+    private final OrganizationRepository organizationRepository;
 
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
@@ -94,7 +94,7 @@ public class UserService {
         
         // Handle permitted companies for Providers
         if (dto.getPermittedCompanyIds() != null && !dto.getPermittedCompanyIds().isEmpty()) {
-            user.setPermittedCompanies(new HashSet<>(employerRepository.findAllById(dto.getPermittedCompanyIds())));
+            user.setPermittedOrganizations(new HashSet<>(organizationRepository.findAllById(dto.getPermittedCompanyIds())));
         }
 
         User savedUser = userRepository.save(user);
@@ -133,9 +133,9 @@ public class UserService {
         // Handle permitted companies for Providers
         if (dto.getPermittedCompanyIds() != null) {
             if (dto.getPermittedCompanyIds().isEmpty()) {
-                user.getPermittedCompanies().clear();
+                user.getPermittedOrganizations().clear();
             } else {
-                user.setPermittedCompanies(new HashSet<>(employerRepository.findAllById(dto.getPermittedCompanyIds())));
+                user.setPermittedOrganizations(new HashSet<>(organizationRepository.findAllById(dto.getPermittedCompanyIds())));
             }
         }
 

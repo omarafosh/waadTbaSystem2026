@@ -68,7 +68,7 @@ export default function PaginationItem(theme) {
         text: {
           '&.Mui-selected': {
             backgroundColor: 'transparent',
-            fontSize: '1rem',
+            fontSize: theme.typography.body1.fontSize,
             fontWeight: 500,
             '&.MuiPaginationItem-text.MuiPaginationItem-colorPrimary': getColorStyle({ variant: 'text', color: 'primary', theme }),
             '&.MuiPaginationItem-text.MuiPaginationItem-colorSecondary': getColorStyle({ variant: 'text', color: 'secondary', theme }),

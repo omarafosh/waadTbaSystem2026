@@ -43,12 +43,12 @@ import { ALL_CLAIM_STATUSES, CLAIM_STATUS_LABELS, DEFAULT_FILTERS } from 'hooks/
  * @param {number|null} selectedProviderId - Currently selected provider
  * @param {Function} onProviderChange - Provider change handler
  */
-const ClaimsFilters = ({ 
-  filters, 
-  onFilterChange, 
-  employers = [], 
-  canSelectEmployer = false, 
-  selectedEmployerId, 
+const ClaimsFilters = ({
+  filters,
+  onFilterChange,
+  employers = [],
+  canSelectEmployer = false,
+  selectedEmployerId,
   onEmployerChange,
   providers = [],
   selectedProviderId,
@@ -115,7 +115,7 @@ const ClaimsFilters = ({
                 <MenuItem value="">
                   <em>جميع الشركاء</em>
                 </MenuItem>
-                {employers.map((employer) => (
+                {Array.isArray(employers) && employers.map((employer) => (
                   <MenuItem key={employer.id} value={employer.id}>
                     {employer.name}
                   </MenuItem>

@@ -43,7 +43,7 @@ export default function HeaderContent() {
   // Check if user is a Provider
   // FIX: Remove URL-based check so Admins retain their Admin UI even when visiting portal pages
   const isProvider = user?.roles?.includes('PROVIDER');
-  
+
   const providerName = user?.providerName || (user?.roles?.includes('SUPER_ADMIN') ? 'مستشفى الرازي - بنغازي' : null);
 
   const localization = useMemo(() => <Localization />, []);
@@ -88,7 +88,7 @@ export default function HeaderContent() {
                   bgcolor: 'primary.main',
                   width: 32,
                   height: 32,
-                  fontSize: '0.8rem',
+                  fontSize: '1rem',
                   display: hasLogo() || waadLogoFallback ? 'none' : 'flex'
                 }}
               >
@@ -101,7 +101,7 @@ export default function HeaderContent() {
                     fontWeight: 700,
                     lineHeight: 1.1,
                     color: 'primary.main',
-                    fontSize: '0.85rem',
+                    fontSize: '1rem',
                     whiteSpace: 'nowrap'
                   }}
                 >
@@ -111,7 +111,7 @@ export default function HeaderContent() {
                   variant="caption"
                   sx={{
                     color: 'text.secondary',
-                    fontSize: '0.6rem',
+                    fontSize: '1rem',
                     lineHeight: 1,
                     whiteSpace: 'nowrap'
                   }}
@@ -126,14 +126,14 @@ export default function HeaderContent() {
 
       {/* ✅ Provider Info Section - Added to restore context while keeping Logo */}
       {!downLG && isProvider && (
-          <Stack spacing={0.5} sx={{ mx: 2, borderRight: '2px solid', borderColor: 'divider', pr: 2, minWidth: 180 }}>
-             <Typography variant="subtitle2" color="primary.dark" fontWeight="800" sx={{ lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
-                {providerName || 'مقدم خدمة'}
-             </Typography>
-             <Typography variant="caption" color="text.secondary" fontWeight="600" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
-                مستشفى / مركز طبي
-             </Typography>
-          </Stack>
+        <Stack spacing={0.5} sx={{ mx: 2, borderRight: '2px solid', borderColor: 'divider', pr: 2, minWidth: 180 }}>
+          <Typography variant="subtitle2" color="primary.dark" fontWeight="800" sx={{ lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
+            {providerName || 'مقدم خدمة'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" fontWeight="600" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
+            مستشفى / مركز طبي
+          </Typography>
+        </Stack>
       )}
 
       {/* ✅ Navigation Horizontal - القائمة الأفقية */}

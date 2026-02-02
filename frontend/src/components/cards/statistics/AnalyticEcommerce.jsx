@@ -13,7 +13,7 @@ import MainCard from 'components/MainCard';
 import RiseOutlined from '@ant-design/icons/RiseOutlined';
 import FallOutlined from '@ant-design/icons/FallOutlined';
 
-const iconSX = { fontSize: '0.75rem', color: 'inherit', marginLeft: 0, marginRight: 0 };
+const iconSX = { fontSize: '1rem', color: 'inherit', marginLeft: 0, marginRight: 0 };
 
 export default function AnalyticEcommerce({ color = 'primary', title, count, percentage, isLoss, extra }) {
   return (

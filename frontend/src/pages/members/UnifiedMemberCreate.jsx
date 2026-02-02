@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   Grid,
@@ -34,7 +34,9 @@ import {
   FormHelperText,
   Alert,
   CircularProgress,
-  Avatar
+  Avatar,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -44,14 +46,17 @@ import {
   PersonAdd as PersonAddIcon,
   Badge as BadgeIcon,
   ContactPhone as ContactPhoneIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  FlashOn as FlashIcon,
+  Star as VIPStarIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { createPrincipalMember, GENDERS } from 'services/api/unified-members.service';
+import { createPrincipalMember, uploadPhoto, GENDERS } from 'services/api/unified-members.service';
+import { getEffectiveBenefitPolicy } from 'services/api/benefit-policies.service';
 import axiosClient from 'utils/axios';
 import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
@@ -62,12 +67,6 @@ import { PERMISSIONS } from 'constants/permissions.constants';
  */
 const UnifiedMemberCreate = () => {
   const navigate = useNavigate();
-
-  // Tab State
-  const [tabValue, setTabValue] = useState(0);
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
 
   const menuProps = {
     PaperProps: {
@@ -89,7 +88,7 @@ const UnifiedMemberCreate = () => {
     nationalNumber: '', // Optional - Civil ID optional as per architecture
     birthDate: null,
     gender: '',
-    maritalStatus: '',
+    gender: '',
     nationality: 'ليبي',
     phone: '',
     email: '',
@@ -102,8 +101,25 @@ const UnifiedMemberCreate = () => {
     status: 'ACTIVE',
     startDate: dayjs(),
     endDate: null,
-    notes: ''
+    notes: '',
+    isFastTrack: false,
+    isVip: false,
+    isUrgent: false,
+    emergencyNotes: '',
+    noEmployer: false
   });
+
+  // Tab State
+  const [tabValue, setTabValue] = useState(0);
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  useEffect(() => {
+    if (principalForm.isFastTrack && tabValue !== 0) {
+      setTabValue(0);
+    }
+  }, [principalForm.isFastTrack, tabValue]);
 
   // Lookup Data
   const [employers, setEmployers] = useState([]);
@@ -125,11 +141,22 @@ const UnifiedMemberCreate = () => {
     return 0;
   };
 
+  const [searchParams] = useSearchParams();
+
   // Fetch lookup data
   useEffect(() => {
     fetchEmployers();
-    fetchBenefitPolicies();
-  }, []);
+
+    // Check for mode=fast-track in URL
+    if (searchParams.get('mode') === 'fast-track') {
+      setPrincipalForm(prev => ({
+        ...prev,
+        isFastTrack: true,
+        isVip: true,
+        isUrgent: true
+      }));
+    }
+  }, [searchParams]);
 
   const fetchEmployers = async () => {
     try {
@@ -175,6 +202,11 @@ const UnifiedMemberCreate = () => {
       if (field === 'phone' && value.length > 10) return; // Max 10
     }
 
+    if (field === 'employerOrganizationId') {
+      handleEmployerChange(value);
+      return;
+    }
+
     setPrincipalForm((prev) => ({
       ...prev,
       [field]: value
@@ -186,16 +218,66 @@ const UnifiedMemberCreate = () => {
   };
 
   /**
-   * Validate principal form
+   * Handle Employer Selection & Auto-Link Policy
    */
+  const handleEmployerChange = async (employerId) => {
+    // Update employer ID
+    setPrincipalForm((prev) => ({
+      ...prev,
+      employerOrganizationId: employerId,
+      benefitPolicyId: null, // Reset first
+      benefitPolicyName: null
+    }));
+
+    if (errors.employerOrganizationId) {
+      setErrors((prev) => ({ ...prev, employerOrganizationId: null }));
+    }
+
+    if (!employerId) return;
+
+    try {
+      // Auto-fetch effective policy
+      const policy = await getEffectiveBenefitPolicy(employerId);
+
+      if (policy && policy.id) {
+        setPrincipalForm((prev) => ({
+          ...prev,
+          benefitPolicyId: policy.id,
+          benefitPolicyName: policy.name, // For display if needed
+          policyNumber: policy.policyNumber // Use policy number from effective policy
+        }));
+
+        openSnackbar({
+          open: true,
+          message: `تم ربط الوثيقة تلقائياً: ${policy.name}`,
+          variant: 'alert',
+          alert: { color: 'info' }
+        });
+      }
+    } catch (error) {
+      console.warn('No effective policy found or error fetching:', error);
+      // Silent fail is okay, just means no auto-link
+    }
+  };
+
   const validatePrincipalForm = () => {
     const newErrors = {};
-
     // Required fields
     if (!principalForm.fullName?.trim()) newErrors.fullName = 'الاسم الكامل مطلوب';
-    if (!principalForm.birthDate) newErrors.birthDate = 'تاريخ الميلاد مطلوب';
-    if (!principalForm.gender) newErrors.gender = 'الجنس مطلوب';
-    if (!principalForm.employerOrganizationId) newErrors.employerOrganizationId = 'جهة العمل مطلوبة';
+
+    // Bypass minor validations in Fast Track
+    if (!principalForm.isFastTrack) {
+      if (!principalForm.birthDate) newErrors.birthDate = 'تاريخ الميلاد مطلوب';
+      if (!principalForm.gender) newErrors.gender = 'الجنس مطلوب';
+      if (!principalForm.noEmployer && !principalForm.employerOrganizationId) {
+        newErrors.employerOrganizationId = 'جهة العمل مطلوبة';
+      }
+    } else {
+      // In Fast Track, we only need the employer
+      if (!principalForm.employerOrganizationId) {
+        newErrors.employerOrganizationId = 'جهة العمل مطلوبة';
+      }
+    }
 
     // 🛡️ SECURITY & DATA INTEGRITY VALIDATION
     // 1. National ID: Must be exactly 12 digits
@@ -208,11 +290,6 @@ const UnifiedMemberCreate = () => {
       if (!/^(091|092|094|093|095|096)\d{7}$/.test(principalForm.phone)) {
         newErrors.phone = 'رقم الهاتف غير صحيح (يجب أن يبدأ بـ 09x ويتكون من 10 أرقام)';
       }
-    }
-
-    // Optional validations
-    if (principalForm.email && !principalForm.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      newErrors.email = 'البريد الإلكتروني غير صحيح';
     }
 
     setErrors(newErrors);
@@ -249,14 +326,15 @@ const UnifiedMemberCreate = () => {
     try {
       // Prepare payload
       const payload = {
-        // Principal data
         fullName: principalForm.fullName.trim(),
         nationalNumber: principalForm.nationalNumber?.trim() || null,
-        birthDate: principalForm.birthDate ? dayjs(principalForm.birthDate).format('YYYY-MM-DD') : null,
-        gender: principalForm.gender || 'UNDEFINED',  // Default to UNDEFINED if not selected
-        maritalStatus: principalForm.maritalStatus || null,
-        nationality: principalForm.nationality || null,
-        phone: principalForm.phone || null,
+        birthDate: principalForm.birthDate
+          ? dayjs(principalForm.birthDate).format('YYYY-MM-DD')
+          : (principalForm.isFastTrack ? '1900-01-01' : null),
+        gender: principalForm.gender || (principalForm.isFastTrack ? 'UNDEFINED' : ''),
+        maritalStatus: principalForm.maritalStatus || (principalForm.isFastTrack ? 'SINGLE' : null),
+        nationality: principalForm.nationality || 'ليبي',
+        phone: principalForm.phone?.trim() || null,
         email: principalForm.email || null,
         address: principalForm.address || null,
         employerId: principalForm.employerOrganizationId,  // ✅ FIXED: Send as employerId
@@ -264,13 +342,17 @@ const UnifiedMemberCreate = () => {
         joinDate: principalForm.joinDate ? dayjs(principalForm.joinDate).format('YYYY-MM-DD') : null,
         occupation: principalForm.occupation || null,
         policyNumber: principalForm.policyNumber || null,
-        status: principalForm.status || 'ACTIVE',
+        status: principalForm.isFastTrack ? 'PENDING_VERIFICATION' : (principalForm.status || 'ACTIVE'),
         startDate: principalForm.startDate ? dayjs(principalForm.startDate).format('YYYY-MM-DD') : null,
         endDate: principalForm.endDate ? dayjs(principalForm.endDate).format('YYYY-MM-DD') : null,
         notes: principalForm.notes || null,
+        isVip: principalForm.isVip || (principalForm.isFastTrack ? true : false),
+        isUrgent: principalForm.isUrgent || (principalForm.isFastTrack ? true : false),
+        isFastTrack: principalForm.isFastTrack,
+        emergencyNotes: principalForm.emergencyNotes || null
       };
 
-      console.log('Creating principal member with payload:', payload);
+      console.log('Creating principal member with payload:', JSON.stringify(payload, null, 2));
 
       // Call API
       const response = await createPrincipalMember(payload);
@@ -288,21 +370,6 @@ const UnifiedMemberCreate = () => {
       // Upload Photo if selected
       if (principalForm.photoFile) {
         try {
-          // Import implicitly since we are in the same file as imports (need to import at top if separated)
-          // But here we need to import it. Let's assume it's imported or available.
-          // Actually, we imported createPrincipalMember, strict separation.
-          // We need to import uploadPhoto in import section.
-
-          // Using the function directly if imported (I will update imports in next step or assume user does it)
-          // WAIT! I need to ensure uploadPhoto is imported.
-          // For now, I will assume it's added to imports or I will add it.
-          // Let's modify the import line in next call if needed.
-          // Actually, let's verify imports first.
-          // I'll proceed with logic using a dynamic import or assumption for now, but better to import it.
-
-          // To be safe, I'll use the service import if available, or just use the function name 
-          // assuming I update imports.
-          const { uploadPhoto } = await import('services/api/unified-members.service');
           await uploadPhoto(createdMember.id, principalForm.photoFile);
         } catch (uploadError) {
           console.error('Photo upload failed', uploadError);
@@ -338,17 +405,42 @@ const UnifiedMemberCreate = () => {
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_MEMBERS]}>
       <ModernPageHeader
-        title="إضافة منتفع رئيسي جديد"
-        icon={<PersonAddIcon />}
+        title={principalForm.isFastTrack ? "تسجيل طارئ / VIP (مسار سريع)" : "إضافة منتفع رئيسي جديد"}
+        icon={principalForm.isFastTrack ? <FlashIcon sx={{ color: '#ff9100' }} /> : <PersonAddIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
           { label: 'المنتفعين', href: '/members' },
-          { label: 'إضافة منتفع رئيسي' }
+          { label: principalForm.isFastTrack ? 'تسجيل طارئ' : 'إضافة منتفع' }
         ]}
         actions={
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/members')}>
-            رجوع
-          </Button>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <FormControlLabel
+              control={
+                <Switch
+                  color="warning"
+                  checked={principalForm.isFastTrack}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setTabValue(0); // Reset to first tab for fast track
+                    setPrincipalForm(prev => ({
+                      ...prev,
+                      isFastTrack: checked,
+                      isVip: checked ? true : prev.isVip,
+                      isUrgent: checked ? true : prev.isUrgent
+                    }));
+                  }}
+                />
+              }
+              label={
+                <Typography variant="subtitle2" sx={{ color: principalForm.isFastTrack ? 'warning.main' : 'text.secondary', fontWeight: 600 }}>
+                  وضع التسجيل السريع (طوارئ)
+                </Typography>
+              }
+            />
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/members')}>
+              رجوع
+            </Button>
+          </Stack>
         }
       />
 
@@ -389,39 +481,48 @@ const UnifiedMemberCreate = () => {
               }
             }}
           >
-            <Tab
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <span>البيانات الشخصية</span>
-                  {getTabErrorCount(0) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
-                </Stack>
-              }
-              icon={<PersonIcon />}
-              iconPosition="start"
-              sx={{ color: getTabErrorCount(0) > 0 ? 'error.main' : 'inherit' }}
-            />
-            <Tab
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <span>بيانات العمل</span>
-                  {getTabErrorCount(1) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
-                </Stack>
-              }
-              icon={<BadgeIcon />}
-              iconPosition="start"
-              sx={{ color: getTabErrorCount(1) > 0 ? 'error.main' : 'inherit' }}
-            />
-            <Tab
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <span>معلومات الاتصال</span>
-                  {getTabErrorCount(2) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
-                </Stack>
-              }
-              icon={<ContactPhoneIcon />}
-              iconPosition="start"
-              sx={{ color: getTabErrorCount(2) > 0 ? 'error.main' : 'inherit' }}
-            />
+            {[
+              <Tab
+                key="personal"
+                label={
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <span>البيانات الشخصية</span>
+                    {getTabErrorCount(0) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                  </Stack>
+                }
+                icon={<PersonIcon />}
+                iconPosition="start"
+                sx={{ color: getTabErrorCount(0) > 0 ? 'error.main' : 'inherit' }}
+              />,
+              !principalForm.isFastTrack && (
+                <Tab
+                  key="employment"
+                  label={
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <span>بيانات العمل</span>
+                      {getTabErrorCount(1) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                    </Stack>
+                  }
+                  icon={<BadgeIcon />}
+                  iconPosition="start"
+                  sx={{ color: getTabErrorCount(1) > 0 ? 'error.main' : 'inherit' }}
+                />
+              ),
+              !principalForm.isFastTrack && (
+                <Tab
+                  key="contact"
+                  label={
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <span>معلومات الاتصال</span>
+                      {getTabErrorCount(2) > 0 && <span style={{ color: '#f44336', fontSize: '16px' }}>●</span>}
+                    </Stack>
+                  }
+                  icon={<ContactPhoneIcon />}
+                  iconPosition="start"
+                  sx={{ color: getTabErrorCount(2) > 0 ? 'error.main' : 'inherit' }}
+                />
+              )
+            ].filter(Boolean)}
           </Tabs>
         </Box>
 
@@ -477,60 +578,100 @@ const UnifiedMemberCreate = () => {
                         inputProps={{ maxLength: 12 }}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, md: 4 }}>
-                      <DatePicker
-                        label="تاريخ الميلاد *"
-                        value={principalForm.birthDate}
-                        onChange={handlePrincipalChange('birthDate')}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            required: true,
-                            error: !!errors.birthDate,
-                            helperText: errors.birthDate,
-                            size: "small"
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 4 }}>
-                      <FormControl fullWidth required error={!!errors.gender} size="small">
-                        <InputLabel id="gender-label">الجنس</InputLabel>
-                        <Select
-                          labelId="gender-label"
-                          value={principalForm.gender}
-                          onChange={handlePrincipalChange('gender')}
-                          label="الجنس"
-                          MenuProps={menuProps}
-                        >
-                          <MenuItem value=""><em>اختر...</em></MenuItem>
-                          <MenuItem value={GENDERS.MALE}>ذكر</MenuItem>
-                          <MenuItem value={GENDERS.FEMALE}>أنثى</MenuItem>
-                        </Select>
-                        {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 4 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel id="marital-label">الحالة الاجتماعية</InputLabel>
-                        <Select
-                          labelId="marital-label"
-                          value={principalForm.maritalStatus}
-                          onChange={handlePrincipalChange('maritalStatus')}
-                          label="الحالة الاجتماعية"
-                          MenuProps={menuProps}
-                        >
-                          <MenuItem value=""><em>غير محدد</em></MenuItem>
-                          <MenuItem value="SINGLE">أعزب</MenuItem>
-                          <MenuItem value="MARRIED">متزوج</MenuItem>
-                          <MenuItem value="DIVORCED">مطلق</MenuItem>
-                          <MenuItem value="WIDOWED">أرمل</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <TextField fullWidth label="الجنسية" value={principalForm.nationality} onChange={handlePrincipalChange('nationality')} size="small" />
-                    </Grid>
+                    {!principalForm.isFastTrack ? (
+                      <>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <DatePicker
+                            label="تاريخ الميلاد *"
+                            value={principalForm.birthDate}
+                            onChange={handlePrincipalChange('birthDate')}
+                            slotProps={{
+                              textField: {
+                                fullWidth: true,
+                                required: true,
+                                error: !!errors.birthDate,
+                                helperText: errors.birthDate,
+                                size: "small"
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <FormControl fullWidth required error={!!errors.gender} size="small">
+                            <InputLabel id="gender-label">الجنس</InputLabel>
+                            <Select
+                              labelId="gender-label"
+                              value={principalForm.gender}
+                              onChange={handlePrincipalChange('gender')}
+                              label="الجنس"
+                              MenuProps={menuProps}
+                            >
+                              <MenuItem value=""><em>اختر...</em></MenuItem>
+                              <MenuItem value={GENDERS.MALE}>ذكر</MenuItem>
+                              <MenuItem value={GENDERS.FEMALE}>أنثى</MenuItem>
+                            </Select>
+                            {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+                          </FormControl>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, md: 12 }}>
+                          <TextField fullWidth label="الجنسية" value={principalForm.nationality} onChange={handlePrincipalChange('nationality')} size="small" />
+                        </Grid>
+                      </>
+                    ) : (
+                      <>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <TextField
+                            fullWidth
+                            label="رقم الهاتف"
+                            value={principalForm.phone}
+                            onChange={handlePrincipalChange('phone')}
+                            error={!!errors.phone}
+                            helperText={errors.phone}
+                            size="small"
+                            inputProps={{ maxLength: 10 }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <FormControl fullWidth required error={!!errors.employerOrganizationId} size="small">
+                            <InputLabel id="employer-label">جهة العمل</InputLabel>
+                            <Select
+                              labelId="employer-label"
+                              value={principalForm.employerOrganizationId}
+                              onChange={handlePrincipalChange('employerOrganizationId')}
+                              label="جهة العمل"
+                            >
+                              <MenuItem value=""><em>اختر جهة العمل...</em></MenuItem>
+                              {employers.map(emp => <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>)}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                      </>
+                    )}
+
+                    {principalForm.isFastTrack && (
+                      <Grid size={{ xs: 12 }}>
+                        <Paper sx={{ p: 2, mt: 1, bgcolor: 'warning.lighter', border: '1px dashed', borderColor: 'warning.main' }}>
+                          <Typography variant="subtitle2" color="warning.main" sx={{ mb: 1, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <FlashIcon fontSize="small" /> تفاصيل حالة الطوارئ / VIP
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid size={{ xs: 12 }}>
+                              <TextField
+                                fullWidth
+                                label="ملاحظات سريعة للجراحين/المقدمين"
+                                multiline
+                                rows={2}
+                                value={principalForm.emergencyNotes}
+                                onChange={(e) => setPrincipalForm(prev => ({ ...prev, emergencyNotes: e.target.value }))}
+                                placeholder="هذا الحقل يظهر فوراً لمقدمي الخدمة عند مسح الباركود..."
+                                size="small"
+                              />
+                            </Grid>
+                          </Grid>
+                        </Paper>
+                      </Grid>
+                    )}
                   </Grid>
                 </Grid>
 
@@ -591,32 +732,42 @@ const UnifiedMemberCreate = () => {
                     <Select
                       labelId="employer-label"
                       value={principalForm.employerOrganizationId}
-                      onChange={handlePrincipalChange('employerOrganizationId')}
+                      onChange={(e) => handlePrincipalChange('employerOrganizationId')(e)}
                       label="جهة العمل"
                       MenuProps={menuProps}
                     >
                       <MenuItem value=""><em>اختر جهة العمل...</em></MenuItem>
-                      {employers.map((emp) => (
+                      {Array.isArray(employers) && employers.map((emp) => (
                         <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>
                       ))}
                     </Select>
                     {errors.employerOrganizationId && <FormHelperText>{errors.employerOrganizationId}</FormHelperText>}
+                    {principalForm.benefitPolicyName && (
+                      <FormHelperText sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                        تم الربط بالوثيقة: {principalForm.benefitPolicyName}
+                      </FormHelperText>
+                    )}
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth label="رقم الموظف" value={principalForm.employeeNumber} onChange={handlePrincipalChange('employeeNumber')} size="small" />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <DatePicker
-                    label="تاريخ الالتحاق"
-                    value={principalForm.joinDate}
-                    onChange={handlePrincipalChange('joinDate')}
-                    slotProps={{ textField: { fullWidth: true, size: "small" } }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth label="المهنة" value={principalForm.occupation} onChange={handlePrincipalChange('occupation')} size="small" />
-                </Grid>
+
+                {!principalForm.isFastTrack && (
+                  <>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField fullWidth label="رقم الموظف" value={principalForm.employeeNumber} onChange={handlePrincipalChange('employeeNumber')} size="small" />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <DatePicker
+                        label="تاريخ الالتحاق"
+                        value={principalForm.joinDate}
+                        onChange={handlePrincipalChange('joinDate')}
+                        slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField fullWidth label="المهنة" value={principalForm.occupation} onChange={handlePrincipalChange('occupation')} size="small" />
+                    </Grid>
+                  </>
+                )}
 
                 <Grid size={{ xs: 12 }}><Divider sx={{ my: 1 }} /></Grid>
 
@@ -628,17 +779,57 @@ const UnifiedMemberCreate = () => {
                     slotProps={{ textField: { fullWidth: true, size: "small" } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <DatePicker
-                    label="تاريخ النهاية"
-                    value={principalForm.endDate}
-                    onChange={handlePrincipalChange('endDate')}
-                    slotProps={{ textField: { fullWidth: true, size: "small" } }}
-                  />
-                </Grid>
+                {!principalForm.isFastTrack && (
+                  <>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <DatePicker
+                        label="تاريخ النهاية"
+                        value={principalForm.endDate}
+                        onChange={handlePrincipalChange('endDate')}
+                        slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                      />
+                    </Grid>
+                  </>
+                )}
                 <Grid size={{ xs: 12 }}>
-                  <TextField fullWidth label="ملاحظات" value={principalForm.notes} onChange={handlePrincipalChange('notes')} multiline rows={3} size="small" />
+                  <TextField fullWidth label="ملاحظات عامة" value={principalForm.notes} onChange={handlePrincipalChange('notes')} multiline rows={2} size="small" />
                 </Grid>
+
+                {(!principalForm.isFastTrack && (principalForm.isVip || principalForm.isUrgent)) && (
+                  <Grid size={{ xs: 12 }}>
+                    <Paper sx={{ p: 2, bgcolor: 'warning.lighter', border: '1px dashed', borderColor: 'warning.main' }}>
+                      <Typography variant="subtitle2" color="warning.main" sx={{ mb: 1, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FlashIcon fontSize="small" /> تفاصيل حالة الطوارئ / VIP
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Stack direction="row" spacing={3}>
+                            <FormControlLabel
+                              control={<Switch checked={principalForm.isVip} onChange={(e) => setPrincipalForm(prev => ({ ...prev, isVip: e.target.checked }))} />}
+                              label="تصنيف VIP"
+                            />
+                            <FormControlLabel
+                              control={<Switch checked={principalForm.isUrgent} onChange={(e) => setPrincipalForm(prev => ({ ...prev, isUrgent: e.target.checked }))} />}
+                              label="حالة مستعجلة"
+                            />
+                          </Stack>
+                        </Grid>
+                        <Grid size={{ xs: 12 }}>
+                          <TextField
+                            fullWidth
+                            label="ملاحظات سريعة للجراحين/المقدمين"
+                            multiline
+                            rows={2}
+                            value={principalForm.emergencyNotes}
+                            onChange={(e) => setPrincipalForm(prev => ({ ...prev, emergencyNotes: e.target.value }))}
+                            placeholder="هذا الحقل يظهر فوراً لمقدمي الخدمة عند مسح الباركود..."
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                )}
               </Grid>
             )}
           </div>
@@ -659,12 +850,16 @@ const UnifiedMemberCreate = () => {
                     inputProps={{ maxLength: 10 }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth label="البريد الإلكتروني" type="email" value={principalForm.email} onChange={handlePrincipalChange('email')} error={!!errors.email} helperText={errors.email} size="small" />
-                </Grid>
-                <Grid size={{ xs: 12 }}>
-                  <TextField fullWidth label="العنوان" value={principalForm.address} onChange={handlePrincipalChange('address')} multiline rows={2} size="small" />
-                </Grid>
+                {!principalForm.isFastTrack && (
+                  <>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField fullWidth label="البريد الإلكتروني" type="email" value={principalForm.email} onChange={handlePrincipalChange('email')} error={!!errors.email} helperText={errors.email} size="small" />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <TextField fullWidth label="العنوان" value={principalForm.address} onChange={handlePrincipalChange('address')} multiline rows={2} size="small" />
+                    </Grid>
+                  </>
+                )}
               </Grid>
             )}
           </div>

@@ -94,7 +94,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
-           "LEFT JOIN FETCH m.employer e " +
+           "LEFT JOIN FETCH m.employerOrganization e " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +

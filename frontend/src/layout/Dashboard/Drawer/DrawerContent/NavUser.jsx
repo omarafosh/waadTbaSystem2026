@@ -90,7 +90,7 @@ export default function NavUser() {
               onClick={handleClick}
               aria-label="show more"
             >
-              <RightOutlined style={{ fontSize: '0.625rem' }} />
+              <RightOutlined style={{ fontSize: '1rem' }} />
             </ExpandMore>
           }
           sx={{ '& .MuiListItemSecondaryAction-root': { right: !drawerOpen ? -20 : -16 } }}

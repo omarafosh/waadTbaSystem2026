@@ -46,6 +46,24 @@ public class DiagnosticController {
         return ResponseEntity.ok(result);
     }
     
+    @GetMapping("/whoami")
+    public ResponseEntity<Map<String, Object>> whoAmI() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> map = new HashMap<>();
+        if (auth == null) {
+            map.put("authenticated", false);
+            return ResponseEntity.ok(map);
+        }
+        
+        map.put("authenticated", auth.isAuthenticated());
+        map.put("principal", auth.getName());
+        map.put("authorities", auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .collect(Collectors.toList()));
+        
+        return ResponseEntity.ok(map);
+    }
+    
     // Copy of our normalization logic to test strict matching
     private String normalizeArabicText(String text) {
         if (text == null) return "";

@@ -259,7 +259,7 @@ const ContractFormDialog = ({ open, onClose, onSuccess, contract = null, mode = 
                   <MenuItem value="">
                     <em>اختر الشريك</em>
                   </MenuItem>
-                  {employers.map((employer) => (
+                  {Array.isArray(employers) && employers.map((employer) => (
                     <MenuItem key={employer.id} value={employer.id}>
                       {employer.nameAr || employer.name}
                     </MenuItem>

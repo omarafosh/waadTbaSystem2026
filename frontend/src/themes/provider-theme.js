@@ -320,7 +320,7 @@ export const providerStyles = {
     '& .MuiTableCell-head': {
       color: '#FFFFFF',
       fontWeight: 600,
-      fontSize: '0.875rem',
+      fontSize: '1rem',
       borderBottom: 'none'
     }
   },
@@ -331,7 +331,7 @@ export const providerStyles = {
     '& .MuiTableCell-head': {
       color: '#FFFFFF',
       fontWeight: 600,
-      fontSize: '0.875rem',
+      fontSize: '1rem',
       borderBottom: 'none'
     }
   }),
@@ -398,7 +398,7 @@ export const providerStyles = {
       bgcolor: colors.bg,
       color: colors.color,
       fontWeight: 600,
-      fontSize: '0.75rem',
+      fontSize: '1rem',
       borderRadius: 1
     };
   }

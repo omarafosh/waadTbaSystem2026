@@ -40,8 +40,8 @@ public class UserMapper {
                 .canViewBenefitPolicies(user.getCanViewBenefitPolicies())
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
-                .permittedCompanies(user.getPermittedCompanies() != null ?
-                        user.getPermittedCompanies().stream()
+                .permittedCompanies(user.getPermittedOrganizations() != null ?
+                        user.getPermittedOrganizations().stream()
                                 .map(this::toEmployerResponseDto)
                                 .collect(Collectors.toSet()) : null)
                 .createdAt(user.getCreatedAt())
@@ -49,13 +49,13 @@ public class UserMapper {
                 .build();
     }
 
-    private UserEmployerResponseDto toEmployerResponseDto(com.waad.tba.modules.employer.entity.Employer employer) {
-        if (employer == null) return null;
+    private UserEmployerResponseDto toEmployerResponseDto(com.waad.tba.common.entity.Organization org) {
+        if (org == null) return null;
         return UserEmployerResponseDto.builder()
-                .id(employer.getId())
-                .name(employer.getNameAr()) // Use nameAr as name by default for UI mapping
-                .nameAr(employer.getNameAr())
-                .code(employer.getCode())
+                .id(org.getId())
+                .name(org.getName()) // Use unified name field
+                .nameAr(org.getName())
+                .code(org.getCode())
                 .build();
     }
 

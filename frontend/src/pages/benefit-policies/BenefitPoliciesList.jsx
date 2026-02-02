@@ -21,6 +21,7 @@ import dayjs from 'dayjs';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import PolicyIcon from '@mui/icons-material/Policy';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import AddIcon from '@mui/icons-material/Add';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
@@ -34,7 +35,7 @@ import GenericDataTable from 'components/GenericDataTable';
 import TableErrorBoundary from 'components/TableErrorBoundary';
 import RBACGuard from 'components/tba/RBACGuard';
 import useTableState from 'hooks/useTableState';
-import { getBenefitPolicies, deleteBenefitPolicy, restoreBenefitPolicy } from 'services/api/benefit-policies.service';
+import { getBenefitPolicies, deleteBenefitPolicy, restoreBenefitPolicy, activateBenefitPolicy } from 'services/api/benefit-policies.service';
 
 const QUERY_KEY = 'benefit-policies';
 
@@ -140,6 +141,34 @@ const BenefitPoliciesList = () => {
     });
   }, [restoreMutation]);
 
+  // Activate Mutation
+  const activateMutation = useMutation({
+    mutationFn: activateBenefitPolicy,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['employers'] }); // Refresh employer active policy too
+      enqueueSnackbar('تم تفعيل الوثيقة بنجاح', { variant: 'success' });
+      closeDialog();
+    },
+    onError: (err) => {
+      enqueueSnackbar(err.response?.data?.message || 'فشل التفعيل', { variant: 'error' });
+      closeDialog();
+    }
+  });
+
+  const handleActivate = useCallback((id) => {
+    setConfirmDialog({
+      open: true,
+      title: 'تأكيد التفعيل',
+      content: "هل أنت متأكد من تفعيل هذه الوثيقة؟ سيتم تعطيل أي وثيقة نشطة أخرى لنفس جهة العمل.",
+      confirmText: 'نعم، تفعيل',
+      severity: 'success',
+      onConfirm: () => {
+        activateMutation.mutate(id);
+      }
+    });
+  }, [activateMutation]);
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showDeleted],
     queryFn: async () => {
@@ -156,8 +185,7 @@ const BenefitPoliciesList = () => {
         if (value !== '' && value !== null && value !== undefined) params[key] = value;
       });
       return await getBenefitPolicies(params);
-    },
-    keepPreviousData: true
+    }
   });
 
   const columns = useMemo(() => [
@@ -251,6 +279,16 @@ const BenefitPoliciesList = () => {
               </RBACGuard>
             ) : (
               <>
+                <RBACGuard requiredPermissions={['benefit_policies.activate']}>
+                  {row.original.status === 'DRAFT' && (
+                    <Tooltip title="تفعيل">
+                      <IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleActivate(row.original?.id); }}>
+                        <PolicyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </RBACGuard>
+
                 <Tooltip title="عرض">
                   <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleNavigateView(row.original?.id); }}>
                     <VisibilityIcon fontSize="small" />
@@ -290,6 +328,10 @@ const BenefitPoliciesList = () => {
           breadcrumbs={[{ label: 'الرئيسية', path: '/dashboard' }, { label: 'سياسات المنافع' }]}
           actions={
             <Stack direction="row" spacing={2} alignItems="center">
+              <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: [QUERY_KEY] })} color="primary">
+                <RefreshIcon />
+              </IconButton>
+
               <ToggleButton
                 value="check"
                 selected={showDeleted}

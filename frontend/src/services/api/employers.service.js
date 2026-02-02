@@ -140,7 +140,10 @@ export const normalizeEmployerResponse = (backendDto) => {
     activePolicyName: backendDto.activePolicyName,
     activePolicyId: backendDto.activePolicyId,
     createdAt: backendDto.createdAt,
-    updatedAt: backendDto.updatedAt
+    updatedAt: backendDto.updatedAt,
+    // Statistics fields
+    totalMembers: backendDto.totalMembers || 0,
+    activePoliciesCount: backendDto.activePoliciesCount || 0
   };
 
   console.debug('[EmployerService] Response normalized:', {
@@ -596,6 +599,8 @@ export const getEmployerCount = async () => {
     throw handleEmployerErrors(error);
   }
 };
+
+
 
 // ============================================================================
 // DEFAULT EXPORT

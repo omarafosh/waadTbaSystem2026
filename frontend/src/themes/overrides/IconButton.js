@@ -27,7 +27,7 @@ export default function IconButton(theme) {
         sizeSmall: {
           width: theme.spacing(3.75),
           height: theme.spacing(3.75),
-          fontSize: '0.75rem'
+          fontSize: '1rem'
         }
       }
     }

@@ -203,3 +203,32 @@ export const useDeleteCompany = () => {
     },
   });
 };
+
+/**
+ * Hook to update system default company
+ * CONTRACT: PUT /api/companies/default
+ * @returns {Object} Mutation result
+ */
+export const useUpdateSystemCompany = () => {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  return useMutation({
+    mutationFn: async (data) => {
+      return await companyService.updateDefaultCompany(data);
+    },
+    onSuccess: (data) => {
+      // Invalidate system company query to trigger refresh
+      queryClient.invalidateQueries(['system', 'company']);
+
+      enqueueSnackbar('تم تحديث إعدادات الشركة بنجاح', { variant: 'success' });
+      return data;
+    },
+    onError: (error) => {
+      console.error('Error updating system company:', error);
+      enqueueSnackbar(error.response?.data?.message || 'حدث خطأ أثناء تحديث إعدادات الشركة', {
+        variant: 'error'
+      });
+    },
+  });
+};

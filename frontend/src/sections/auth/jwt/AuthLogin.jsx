@@ -229,7 +229,7 @@ export default function AuthLogin({ isDemo = false }) {
                   <FormHelperText
                     error
                     sx={{
-                      fontSize: '0.875rem',
+                      fontSize: '1rem',
                       textAlign: 'center',
                       bgcolor: alpha(theme.palette.error.main, 0.1),
                       p: 1.5,

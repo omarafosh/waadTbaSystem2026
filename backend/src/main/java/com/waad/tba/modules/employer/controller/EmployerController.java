@@ -9,6 +9,8 @@ import com.waad.tba.modules.employer.service.EmployerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,31 +25,32 @@ public class EmployerController {
     private final EmployerService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<EmployerResponseDto>>> getAll(
             @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Boolean deleted) {
-        org.springframework.data.domain.Page<EmployerResponseDto> employers = service.getAll(pageable, search, deleted);
+            @RequestParam(required = false) Boolean deleted,
+            @RequestParam(required = false) Boolean active) {
+        org.springframework.data.domain.Page<EmployerResponseDto> employers = service.getAll(pageable, search, deleted, active);
         return ResponseEntity.ok(ApiResponse.success(employers));
     }
 
     @GetMapping({ "/selectors", "/selector" })
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN', 'EMPLOYER_ADMIN', 'PROVIDER') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<List<EmployerSelectorDto>>> selectors() {
         List<EmployerSelectorDto> selectors = service.getSelectors();
         return ResponseEntity.ok(ApiResponse.success(selectors));
     }
 
     @GetMapping("/{id:\\d+}")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> getById(@PathVariable Long id) {
         EmployerResponseDto employer = service.getById(id);
         return ResponseEntity.ok(ApiResponse.success("Employer retrieved successfully", employer));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> create(@Valid @RequestBody EmployerCreateDto dto) {
         EmployerResponseDto created = service.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -55,7 +58,7 @@ public class EmployerController {
     }
 
     @PutMapping("/{id:\\d+}")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> update(
             @PathVariable Long id,
             @Valid @RequestBody EmployerUpdateDto dto) {
@@ -64,7 +67,7 @@ public class EmployerController {
     }
 
     @DeleteMapping("/{id:\\d+}")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Employer deleted successfully", null));
@@ -75,7 +78,7 @@ public class EmployerController {
      * Sets archived=true, hiding from default lists while preserving all data
      */
     @PostMapping("/{id:\\d+}/archive")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> archive(@PathVariable Long id) {
         EmployerResponseDto archived = service.archive(id);
         return ResponseEntity.ok(ApiResponse.success("Employer archived successfully", archived));
@@ -86,14 +89,14 @@ public class EmployerController {
      * Sets archived=false, making employer visible again
      */
     @PostMapping("/{id:\\d+}/restore")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('MANAGE_EMPLOYERS')")
     public ResponseEntity<ApiResponse<EmployerResponseDto>> restore(@PathVariable Long id) {
         EmployerResponseDto restored = service.restore(id);
         return ResponseEntity.ok(ApiResponse.success("Employer restored successfully", restored));
     }
 
     @GetMapping("/count")
-    @PreAuthorize("hasAuthority('SUPER_ADMIN') or hasRole('SUPER_ADMIN') or hasRole('ROLE_SUPER_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'INSURANCE_ADMIN') or hasAuthority('VIEW_EMPLOYERS')")
     public ResponseEntity<ApiResponse<Long>> count() {
         long total = service.count();
         return ResponseEntity.ok(ApiResponse.success(total));

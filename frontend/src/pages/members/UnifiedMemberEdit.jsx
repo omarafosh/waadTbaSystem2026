@@ -30,7 +30,10 @@ import {
   Typography,
   Divider,
   IconButton,
-  Tooltip
+  IconButton,
+  Tooltip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -90,7 +93,7 @@ const UnifiedMemberEdit = () => {
     nationalNumber: '',
     birthDate: null,
     gender: '',
-    maritalStatus: '',
+    gender: '',
     nationality: 'ليبي',
     phone: '',
     email: '',
@@ -148,7 +151,7 @@ const UnifiedMemberEdit = () => {
         nationalNumber: data.nationalNumber || '',
         birthDate: data.birthDate ? dayjs(data.birthDate) : null,
         gender: data.gender || '',
-        maritalStatus: data.maritalStatus || '',
+        gender: data.gender || '',
         nationality: data.nationality || 'ليبي',
         phone: data.phone || '',
         email: data.email || '',
@@ -241,6 +244,10 @@ const UnifiedMemberEdit = () => {
     }
   };
 
+  const handleStatusToggle = (event) => {
+    setForm(prev => ({ ...prev, status: event.target.checked ? 'ACTIVE' : 'SUSPENDED' }));
+  };
+
   /**
    * Validation
    */
@@ -287,7 +294,7 @@ const UnifiedMemberEdit = () => {
         nationalNumber: form.nationalNumber?.trim() || null,
         birthDate: form.birthDate ? dayjs(form.birthDate).format('YYYY-MM-DD') : null,
         gender: form.gender || 'UNDEFINED',
-        maritalStatus: form.maritalStatus || null,
+        gender: form.gender || 'UNDEFINED',
         nationality: form.nationality || 'ليبي',
         phone: form.phone || null,
         email: form.email || null,
@@ -498,23 +505,7 @@ const UnifiedMemberEdit = () => {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid size={{ xs: 12, md: 4 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>الحالة الاجتماعية</InputLabel>
-                        <Select
-                          value={form.maritalStatus}
-                          onChange={handleChange('maritalStatus')}
-                          label="الحالة الاجتماعية"
-                          MenuProps={menuProps}
-                        >
-                          <MenuItem value=""><em>غير محدد</em></MenuItem>
-                          <MenuItem value="SINGLE">أعزب</MenuItem>
-                          <MenuItem value="MARRIED">متزوج</MenuItem>
-                          <MenuItem value="DIVORCED">مطلق</MenuItem>
-                          <MenuItem value="WIDOWED">أرمل</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
+
                     {!isPrincipal && (
                       <Grid size={{ xs: 12, md: 4 }}>
                         <FormControl fullWidth required error={!!errors.relationship} size="small">
@@ -596,7 +587,7 @@ const UnifiedMemberEdit = () => {
                       <FormControl fullWidth required error={!!errors.employerId} size="small">
                         <InputLabel>جهة العمل</InputLabel>
                         <Select value={form.employerId} onChange={handleChange('employerId')} label="جهة العمل" MenuProps={menuProps}>
-                          {employers.map(emp => <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>)}
+                          {Array.isArray(employers) && employers.map(emp => <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>)}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -613,14 +604,17 @@ const UnifiedMemberEdit = () => {
                     <Grid size={{ xs: 12 }}><Divider sx={{ my: 1 }} /></Grid>
 
                     <Grid size={{ xs: 12, md: 4 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>الحالة</InputLabel>
-                        <Select value={form.status} onChange={handleChange('status')} label="الحالة">
-                          <MenuItem value="ACTIVE">نشط</MenuItem>
-                          <MenuItem value="SUSPENDED">معلق</MenuItem>
-                          <MenuItem value="TERMINATED">منتهي</MenuItem>
-                        </Select>
-                      </FormControl>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={form.status === 'ACTIVE'}
+                            onChange={handleStatusToggle}
+                            color="success"
+                          />
+                        }
+                        label={form.status === 'ACTIVE' ? 'نشط' : 'غير نشط'}
+                        sx={{ ml: 1, mt: 0.5 }}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
                       <DatePicker label="تاريخ البدء" value={form.startDate} onChange={handleChange('startDate')} slotProps={{ textField: { fullWidth: true, size: "small" } }} />

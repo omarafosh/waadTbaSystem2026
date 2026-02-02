@@ -245,7 +245,7 @@ const GenericDataTable = memo(({
                   maxWidth: header.column.columnDef.maxWidth,
                   verticalAlign: 'middle', // User request: Center elements vertically
                   borderBottom: headerVariant === 'primary' ? 'none' : undefined,
-                  fontSize: '0.875rem', // Match body font size
+                  fontSize: '1rem', // Match body font size
                   // SORT ICON COLOR OVERRIDE
                   '& .MuiTableSortLabel-icon': {
                     color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
@@ -473,7 +473,12 @@ const GenericDataTable = memo(({
           onRowsPerPageChange={handlePageSizeChange}
           rowsPerPageOptions={rowsPerPageOptions}
           labelRowsPerPage="عدد الصفوف:"
-          labelDisplayedRows={({ from, to, count }) => `${from}–${to} من ${count !== -1 ? count : `أكثر من ${to}`}`}
+          labelDisplayedRows={({ from, to, count }) => {
+            const f = from.toLocaleString('en-US');
+            const t = to.toLocaleString('en-US');
+            const c = count !== -1 ? count.toLocaleString('en-US') : `أكثر من ${to.toLocaleString('en-US')}`;
+            return `${f}–${t} من ${c}`;
+          }}
           sx={{
             borderTop: 1,
             borderColor: 'divider',

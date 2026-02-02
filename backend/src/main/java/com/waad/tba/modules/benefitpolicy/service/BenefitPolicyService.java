@@ -34,6 +34,8 @@ public class BenefitPolicyService {
 
     private final BenefitPolicyRepository benefitPolicyRepository;
     private final OrganizationRepository organizationRepository;
+    private final com.waad.tba.modules.member.repository.MemberRepository memberRepository;
+    private final com.waad.tba.modules.claim.repository.ClaimRepository claimRepository;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // READ OPERATIONS
@@ -74,7 +76,7 @@ public class BenefitPolicyService {
     public BenefitPolicyResponseDto findById(Long id) {
         log.debug("Finding benefit policy by ID: {}", id);
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
         return BenefitPolicyResponseDto.fromEntity(policy);
     }
 
@@ -85,7 +87,7 @@ public class BenefitPolicyService {
     public BenefitPolicyResponseDto findByPolicyCode(String policyCode) {
         log.debug("Finding benefit policy by code: {}", policyCode);
         BenefitPolicy policy = benefitPolicyRepository.findByPolicyCode(policyCode)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + policyCode));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة للرمز: " + policyCode));
         return BenefitPolicyResponseDto.fromEntity(policy);
     }
 
@@ -208,15 +210,27 @@ public class BenefitPolicyService {
         // Validate dates
         validateDates(dto.getStartDate(), dto.getEndDate());
 
+        // Validate name uniqueness GLOBALLY
+        if (benefitPolicyRepository.existsByNameAndActiveTrue(dto.getName())) {
+            throw new BusinessRuleException("اسم الوثيقة '" + dto.getName() + "' موجود مسبقاً في النظام");
+        }
+
+        // Validate code uniqueness GLOBALLY if provided
+        if (dto.getPolicyCode() != null && !dto.getPolicyCode().trim().isEmpty()) {
+            if (benefitPolicyRepository.existsByPolicyCodeAndActiveTrue(dto.getPolicyCode())) {
+                throw new BusinessRuleException("رمز الوثيقة '" + dto.getPolicyCode() + "' موجود مسبقاً في النظام");
+            }
+        }
+
         // Get employer organization
         Organization employer = organizationRepository.findById(dto.getEmployerOrgId())
-                .orElseThrow(() -> new BusinessRuleException("Employer organization not found: " + dto.getEmployerOrgId()));
+                .orElseThrow(() -> new BusinessRuleException("جهة العمل غير موجودة: " + dto.getEmployerOrgId()));
 
         // Get insurance organization (optional)
         Organization insurance = null;
         if (dto.getInsuranceOrgId() != null) {
             insurance = organizationRepository.findById(dto.getInsuranceOrgId())
-                    .orElseThrow(() -> new BusinessRuleException("Insurance organization not found: " + dto.getInsuranceOrgId()));
+                    .orElseThrow(() -> new BusinessRuleException("شركة التأمين غير موجودة: " + dto.getInsuranceOrgId()));
         }
 
         // Determine initial status
@@ -225,7 +239,7 @@ public class BenefitPolicyService {
             try {
                 status = BenefitPolicyStatus.valueOf(dto.getStatus().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new BusinessRuleException("Invalid status: " + dto.getStatus());
+                throw new BusinessRuleException("حالة غير صالحة: " + dto.getStatus());
             }
         }
 
@@ -242,11 +256,11 @@ public class BenefitPolicyService {
         } else {
             // Validate format if provided
             if (!policyCode.matches("POL-\\d{4}-\\d{3}")) {
-                throw new BusinessRuleException("Policy code must follow format POL-YYYY-XXX (e.g., POL-2025-001)");
+                throw new BusinessRuleException("يجب أن يتبع رمز الوثيقة التنسيق POL-YYYY-XXX (مثال: POL-2025-001)");
             }
             // Check uniqueness
             if (benefitPolicyRepository.findByPolicyCode(policyCode).isPresent()) {
-                throw new BusinessRuleException("Policy code already exists: " + policyCode);
+                throw new BusinessRuleException("رمز الوثيقة موجود مسبقاً: " + policyCode);
             }
         }
 
@@ -286,13 +300,23 @@ public class BenefitPolicyService {
         log.info("Updating benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         // Update fields if provided
         if (dto.getName() != null) {
+            // Validate name uniqueness GLOBALLY if changing
+            if (!dto.getName().equals(policy.getName()) && 
+                benefitPolicyRepository.existsByNameAndIdNotAndActiveTrue(dto.getName(), policy.getId())) {
+                throw new BusinessRuleException("اسم الوثيقة '" + dto.getName() + "' موجود مسبقاً في النظام");
+            }
             policy.setName(dto.getName());
         }
         if (dto.getPolicyCode() != null) {
+            // Validate code uniqueness GLOBALLY if changing
+            if (!dto.getPolicyCode().equals(policy.getPolicyCode()) && 
+                benefitPolicyRepository.existsByPolicyCodeAndIdNotAndActiveTrue(dto.getPolicyCode(), policy.getId())) {
+                throw new BusinessRuleException("رمز الوثيقة '" + dto.getPolicyCode() + "' موجود مسبقاً في النظام");
+            }
             policy.setPolicyCode(dto.getPolicyCode());
         }
         if (dto.getDescription() != null) {
@@ -350,7 +374,7 @@ public class BenefitPolicyService {
         log.info("Activating benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         // Check for overlapping active policies
         checkOverlappingActivePolicy(
@@ -363,6 +387,12 @@ public class BenefitPolicyService {
         policy = benefitPolicyRepository.save(policy);
         log.info("✅ Activated benefit policy: {}", id);
 
+        // Re-assign all members of this employer to the newly activated policy
+        int updatedCount = memberRepository.updateBenefitPolicyForEmployer(
+                policy.getEmployerOrganization().getId(), 
+                policy);
+        log.info("🔄 Auto-assigned {} members to the new active policy", updatedCount);
+
         return BenefitPolicyResponseDto.fromEntity(policy);
     }
 
@@ -374,7 +404,7 @@ public class BenefitPolicyService {
         log.info("Deactivating benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         policy.deactivate();
         policy = benefitPolicyRepository.save(policy);
@@ -391,7 +421,7 @@ public class BenefitPolicyService {
         log.info("Suspending benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         policy.suspend();
         policy = benefitPolicyRepository.save(policy);
@@ -408,7 +438,7 @@ public class BenefitPolicyService {
         log.info("Cancelling benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         policy.setStatus(BenefitPolicyStatus.CANCELLED);
         policy = benefitPolicyRepository.save(policy);
@@ -429,7 +459,7 @@ public class BenefitPolicyService {
         log.info("Deleting benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         // Soft delete
         policy.setActive(false);
@@ -447,7 +477,7 @@ public class BenefitPolicyService {
         log.info("Restoring benefit policy: {}", id);
 
         BenefitPolicy policy = benefitPolicyRepository.findById(id)
-                .orElseThrow(() -> new BusinessRuleException("Benefit policy not found: " + id));
+                .orElseThrow(() -> new BusinessRuleException("وثيقة المنافع غير موجودة: " + id));
 
         // Restore
         policy.setActive(true);
@@ -506,10 +536,10 @@ public class BenefitPolicyService {
      */
     private void validateDates(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
-            throw new BusinessRuleException("Start date and end date are required");
+            throw new BusinessRuleException("تاريخ البدء وتاريخ الانتهاء مطلوبان");
         }
         if (!startDate.isBefore(endDate)) {
-            throw new BusinessRuleException("Start date must be before end date");
+            throw new BusinessRuleException("يجب أن يكون تاريخ البدء قبل تاريخ الانتهاء");
         }
     }
 
@@ -532,10 +562,18 @@ public class BenefitPolicyService {
                     continue;
                 }
 
-                log.info("Auto-deactivating policy '{}' (ID: {}) to enforce single active policy rule", 
+                log.info("Auto-deactivating policy '{}' (ID: {}) to DRAFT to enforce single active policy rule", 
                         conflict.getName(), conflict.getId());
                 
-                conflict.setStatus(BenefitPolicyStatus.INACTIVE);
+                // Safety Scenario: Check for pending claims before deactivating
+                long pendingClaims = claimRepository.countByStatus(com.waad.tba.modules.claim.entity.ClaimStatus.UNDER_REVIEW);
+                if (pendingClaims > 0) {
+                    log.warn("⚠️ Policy '{}' has {} pending claims. Moving to DRAFT may affect these claims.", 
+                            conflict.getName(), pendingClaims);
+                }
+
+                // Requirement: Convert old ACTIVE to DRAFT
+                conflict.setStatus(BenefitPolicyStatus.DRAFT);
                 benefitPolicyRepository.save(conflict);
             }
         }

@@ -27,7 +27,7 @@ export default function Alert(theme) {
       styleOverrides: {
         root: {
           color: varsPalette.text?.primary ?? theme.palette.text?.primary,
-          fontSize: '0.875rem',
+          fontSize: theme.typography.body1.fontSize,
           variants: [
             {
               props: { variant: 'standard' },
@@ -74,7 +74,7 @@ export default function Alert(theme) {
           ]
         },
         icon: {
-          fontSize: '1rem'
+          fontSize: theme.typography.body1.fontSize
         },
         message: {
           padding: 0,
@@ -95,7 +95,7 @@ export default function Alert(theme) {
           '& .MuiButton-root': {
             padding: 2,
             height: 'auto',
-            fontSize: '0.75rem',
+            fontSize: theme.typography.button.fontSize,
             marginTop: -2
           },
           '& .MuiIconButton-root': {
@@ -104,7 +104,7 @@ export default function Alert(theme) {
             padding: 2,
             marginRight: 6,
             '& .MuiSvgIcon-root': {
-              fontSize: '1rem'
+              fontSize: theme.typography.body1.fontSize
             }
           }
         }

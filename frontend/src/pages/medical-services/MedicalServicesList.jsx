@@ -421,7 +421,7 @@ const MedicalServicesList = () => {
                 sx={{
                   '& .MuiSelect-select': {
                     py: 0.5,
-                    fontSize: '0.875rem'
+                    fontSize: '1rem'
                   }
                 }}
                 disabled={updateCategoryMutation.isPending}

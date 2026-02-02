@@ -112,7 +112,7 @@ const tailwindColors = {
 const tailwindTheme = createTheme({
   palette: {
     mode: 'light',
-    
+
     // Primary - Tailwind Blue
     primary: {
       lighter: tailwindColors.blue[50],
@@ -214,7 +214,7 @@ const tailwindTheme = createTheme({
       '"Segoe UI Emoji"',
       '"Segoe UI Symbol"'
     ].join(','),
-    
+
     // Tailwind font sizes
     h1: {
       fontSize: '2.25rem', // text-4xl
@@ -251,15 +251,15 @@ const tailwindTheme = createTheme({
       lineHeight: 1.6
     },
     body2: {
-      fontSize: '0.875rem', // text-sm
+      fontSize: '1rem', // text-sm -> 1rem
       lineHeight: 1.5
     },
     caption: {
-      fontSize: '0.75rem', // text-xs
+      fontSize: '1rem', // text-xs -> 1rem
       lineHeight: 1.4
     },
     button: {
-      fontSize: '0.875rem',
+      fontSize: '1rem',
       fontWeight: 600,
       textTransform: 'none' // Tailwind style - no uppercase
     }
@@ -365,7 +365,7 @@ const tailwindTheme = createTheme({
 
 export const tw = {
   colors: tailwindColors,
-  
+
   // Common Tailwind utilities
   shadow: {
     sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',

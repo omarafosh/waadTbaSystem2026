@@ -82,7 +82,7 @@ export default function ComponentsOverrides(theme) {
     Fab(theme),
     FormHelperText(),
     IconButton(theme),
-    InputBase(),
+    InputBase(theme),
     InputLabel(theme),
     LinearProgress(),
     Link(),

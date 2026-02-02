@@ -185,7 +185,7 @@ export default function HorizontalNavigation() {
                 px: 2,
                 height: 48,
                 fontWeight: groupActive ? 700 : 500,
-                fontSize: '0.8125rem',
+                fontSize: '1rem',
                 textTransform: 'none',
                 minWidth: 'auto',
                 transition: 'all 0.2s ease',

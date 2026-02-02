@@ -53,13 +53,13 @@ public class ProviderContractValidRule implements EligibilityRule {
 
         Member principal = member.getPrincipalMember();
 
-        if (principal.getEmployer() == null) {
+        if (principal.getEmployerOrganization() == null) {
             log.warn("Member {} (Principal {}) has no employer linked.", member.getId(), principal.getId());
             return RuleResult.fail(EligibilityReason.OTHER, "المشترك غير مرتبط بأي جهة عمل", null);
         }
 
-        Long employerId = principal.getEmployer().getId();
-        String employerName = principal.getEmployer().getNameAr();
+        Long employerId = principal.getEmployerOrganization().getId();
+        String employerName = principal.getEmployerOrganization().getName();
 
         List<ProviderContract> contracts = contractRepository.findValidContracts(providerId, employerId, serviceDate);
 

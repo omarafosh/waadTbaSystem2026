@@ -134,7 +134,7 @@ export default function NavGroup({
   const isSelected = selectedID === currentItem.id;
 
   const Icon = currentItem?.icon ? currentItem.icon : null;
-  const itemIcon = Icon ? <Icon style={{ fontSize: 20, stroke: '1.5' }} /> : null;
+  const itemIcon = Icon ? <Icon style={{ fontSize: '1.25rem', stroke: '1.5' }} /> : null;
 
   const navCollapse = item.children?.map((menuItem, index) => {
     switch (menuItem.type) {
@@ -279,7 +279,7 @@ export default function NavGroup({
           >
             {(itemIcon || currentItem.id === lastItemId) && (
               <ListItemIcon sx={{ minWidth: 28 }}>
-                {currentItem.id === lastItemId ? <GroupOutlined style={{ fontSize: 20, stroke: '1.5' }} /> : itemIcon}
+                {currentItem.id === lastItemId ? <GroupOutlined style={{ fontSize: '1.25rem', stroke: '1.5' }} /> : itemIcon}
               </ListItemIcon>
             )}
             <ListItemText
@@ -291,9 +291,9 @@ export default function NavGroup({
               }
             />
             {openMini ? (
-              <DownOutlined style={{ fontSize: 16, stroke: '1.5' }} />
+              <DownOutlined style={{ fontSize: '1rem', stroke: '1.5' }} />
             ) : (
-              <RightOutlined style={{ fontSize: 16, stroke: '1.5' }} />
+              <RightOutlined style={{ fontSize: '1rem', stroke: '1.5' }} />
             )}
             {anchorEl && (
               <PopperStyled id={popperId} open={openMini} anchorEl={anchorEl} placement="bottom-start" style={{ zIndex: 2001 }}>

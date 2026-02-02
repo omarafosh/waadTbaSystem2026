@@ -37,7 +37,8 @@ export const useTableState = (config = {}) => {
     initialPageSize = 10,
     defaultSort = null,
     initialFilters = {},
-    storageKey = 'table_page_size' // Default generic key, but can be overridden
+    storageKey = 'table_page_size', // Default generic key, but can be overridden
+    allowedPageSizes = [5, 10, 15, 25, 50, 100] // Default MUI options
   } = config;
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,14 +52,20 @@ export const useTableState = (config = {}) => {
   // Size Priority: URL -> localStorage -> Config
   const pageSize = useMemo(() => {
     const fromUrl = searchParams.get('size');
-    if (fromUrl) return parseInt(fromUrl, 10);
+    if (fromUrl) {
+      const parsed = parseInt(fromUrl, 10);
+      if (allowedPageSizes.includes(parsed)) return parsed;
+    }
 
     // Only verify localStorage if storageKey is provided
     const fromStorage = localStorage.getItem(storageKey);
-    if (fromStorage) return parseInt(fromStorage, 10);
+    if (fromStorage) {
+      const parsed = parseInt(fromStorage, 10);
+      if (allowedPageSizes.includes(parsed)) return parsed;
+    }
 
     return initialPageSize;
-  }, [searchParams, initialPageSize, storageKey]);
+  }, [searchParams, initialPageSize, storageKey, allowedPageSizes]);
 
   const setPage = useCallback((newPage) => {
     setSearchParams(prev => {

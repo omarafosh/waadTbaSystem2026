@@ -42,7 +42,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  FormHelperText
+  FormHelperText,
+  useTheme
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -60,22 +61,38 @@ import {
   Wc as WcIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  DeleteOutline as DeleteOutlineIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { TablePagination } from '@mui/material';
 import dayjs from 'dayjs';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { getMember, deleteMember, addDependent, MEMBER_TYPES, GENDERS, RELATIONSHIPS } from 'services/api/unified-members.service';
+import { getMember, deleteMember, addDependent, uploadPhoto, MEMBER_TYPES, GENDERS, RELATIONSHIPS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
 import { RBACGuard, MemberAvatar } from '../../components/tba';
 import { PERMISSIONS } from 'constants/permissions.constants';
+import DependentEditDrawer from './DependentEditDrawer';
+
+// Relationship Translation Map
+export const RELATIONSHIP_AR = {
+  WIFE: 'زوجة',
+  HUSBAND: 'زوج',
+  SON: 'ابن',
+  DAUGHTER: 'ابنة',
+  FATHER: 'أب',
+  MOTHER: 'أم',
+  BROTHER: 'أخ',
+  SISTER: 'أخت'
+};
 
 /**
  * Unified Member View Component
  */
 const UnifiedMemberView = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -87,6 +104,10 @@ const UnifiedMemberView = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMember, setDeletingMember] = useState(null);
 
+  // Edit Drawer State
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [selectedDependent, setSelectedDependent] = useState(null);
+
   // Inline Add Dependent State
   const [addingDependent, setAddingDependent] = useState(false);
   const [depErrors, setDepErrors] = useState({});
@@ -97,8 +118,22 @@ const UnifiedMemberView = () => {
     gender: '',
     relationship: '',
     nationality: 'ليبي',
-    maritalStatus: ''
   });
+  const [dependentPhoto, setDependentPhoto] = useState(null);
+  const [dependentPhotoPreview, setDependentPhotoPreview] = useState(null);
+
+  // Dependents Pagination
+  const [pg, setPg] = useState(0);
+  const [rpp, setRpp] = useState(3);
+
+  const handleChangePage = (event, newPage) => {
+    setPg(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRpp(parseInt(event.target.value, 10));
+    setPg(0);
+  };
 
   useEffect(() => {
     if (id) {
@@ -169,6 +204,15 @@ const UnifiedMemberView = () => {
     }
   };
 
+  const handleEditClick = (dep) => {
+    setSelectedDependent(dep);
+    setEditDrawerOpen(true);
+  };
+
+  const handleEditSave = () => {
+    fetchMember();
+  };
+
   // Inline Add Dependent Handlers
   const handleDepFieldChange = (field) => (event) => {
     const value = event.target.value;
@@ -182,6 +226,18 @@ const UnifiedMemberView = () => {
     setNewDependent((prev) => ({ ...prev, [field]: date }));
     if (depErrors[field]) {
       setDepErrors((prev) => ({ ...prev, [field]: null }));
+    }
+  };
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setDependentPhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDependentPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -208,10 +264,25 @@ const UnifiedMemberView = () => {
         gender: newDependent.gender,
         relationship: newDependent.relationship,
         nationality: newDependent.nationality || 'ليبي',
-        maritalStatus: newDependent.maritalStatus || 'SINGLE' // Default to SINGLE if not specified
+        nationality: newDependent.nationality || 'ليبي',
       };
 
-      await addDependent(member.id, payload);
+      const newDepResponse = await addDependent(member.id, payload);
+
+      // Upload Photo if exists
+      if (dependentPhoto && newDepResponse.id) {
+        try {
+          await uploadPhoto(newDepResponse.id, dependentPhoto);
+        } catch (photoError) {
+          console.error("Failed to upload photo for new dependent", photoError);
+          openSnackbar({
+            open: true,
+            message: 'تم إضافة التابع ولكن فشل رفع الصورة',
+            variant: 'alert',
+            alert: { color: 'warning' }
+          });
+        }
+      }
 
       openSnackbar({
         open: true,
@@ -228,8 +299,10 @@ const UnifiedMemberView = () => {
         gender: '',
         relationship: '',
         nationality: 'ليبي',
-        maritalStatus: ''
+        nationality: 'ليبي',
       });
+      setDependentPhoto(null);
+      setDependentPhotoPreview(null);
       fetchMember();
 
     } catch (error) {
@@ -271,7 +344,7 @@ const UnifiedMemberView = () => {
     <RBACGuard requiredPermissions={[PERMISSIONS.VIEW_MEMBERS]}>
       <ModernPageHeader
         title={member.fullName}
-        subtitle={isPrincipal ? 'منتفع رئيسي (Principal)' : 'منتفع تابع (Dependent)'}
+        subtitle={isPrincipal ? 'منتفع رئيسي' : 'منتفع تابع'}
         icon={isPrincipal ? <BadgeIcon /> : <FamilyRestroomIcon />}
         breadcrumbs={[
           { label: 'الرئيسية', href: '/' },
@@ -322,7 +395,7 @@ const UnifiedMemberView = () => {
               minHeight: 48,
               '& .MuiTab-root': {
                 minHeight: 48,
-                fontSize: '13px',
+                fontSize: theme.typography.body2.fontSize,
                 fontWeight: 500,
                 color: 'text.secondary',
                 transition: 'all 0.2s',
@@ -339,9 +412,7 @@ const UnifiedMemberView = () => {
               }
             }}
           >
-            <Tab label="البيانات الشخصية" icon={<PersonIcon />} iconPosition="start" />
-            {isPrincipal && <Tab label="بيانات العمل" icon={<BadgeIcon />} iconPosition="start" />}
-            <Tab label="معلومات الاتصال" icon={<ContactPhoneIcon />} iconPosition="start" />
+            <Tab label="بيانات المستفيد" icon={<PersonIcon />} iconPosition="start" />
             {isPrincipal && <Tab label={`التابعون (${dependents.length})`} icon={<FamilyRestroomIcon />} iconPosition="start" />}
           </Tabs>
         </Box>
@@ -352,244 +423,180 @@ const UnifiedMemberView = () => {
           {/* Tab 0: Personal Info */}
           <div role="tabpanel" hidden={tabValue !== 0}>
             {tabValue === 0 && (
-              <Grid container spacing={3}>
-                {/* Column 1 (Right in RTL): Photo & Status */}
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', height: '100%', bgcolor: 'grey.50' }}>
-                    <Stack alignItems="center" spacing={2} justifyContent="center" sx={{ height: '100%' }}>
-                      <MemberAvatar member={member} size={140} />
-                      <Stack direction="row" spacing={1} justifyContent="center" sx={{ width: '100%' }}>
-                        <Chip
-                          label={isPrincipal ? 'رئيسي' : 'تابع'}
-                          color={isPrincipal ? 'primary' : 'secondary'}
-                          size="small"
-                        />
-                        <Chip
-                          label={member.status === 'ACTIVE' ? 'نشط' : member.status}
-                          color={member.status === 'ACTIVE' ? 'success' : member.status === 'SUSPENDED' ? 'warning' : 'error'}
-                          size="small"
-                        />
+              <Grid container spacing={2} sx={{ height: '100%' }}>
+                {/* Left Sidebar: Photo & IDs (Compact) */}
+                <Grid size={{ xs: 12, md: 3 }} sx={{ height: '100%' }}>
+                  <Paper variant="outlined" sx={{ p: 2, height: '100%', bgcolor: 'grey.50', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <MemberAvatar member={member} size={100} sx={{ mb: 1.5 }} />
+
+                    <Stack spacing={1} alignItems="center" width="100%">
+                      <Stack direction="row" spacing={1}>
+                        <Chip label={isPrincipal ? 'رئيسي' : 'تابع'} color={isPrincipal ? 'primary' : 'secondary'} size="small" />
+                        <Chip label={member.status === 'ACTIVE' ? 'نشط' : member.status} color={member.status === 'ACTIVE' ? 'success' : 'default'} size="small" />
                       </Stack>
+
+                      <Divider flexItem sx={{ width: '100%', my: 1.5 }} />
+
+                      <Box sx={{ width: '100%', textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" display="block">رقم البطاقة</Typography>
+                        <Typography variant="subtitle1" fontFamily="monospace" fontWeight="bold">{member.cardNumber || '-'}</Typography>
+                      </Box>
+
+                      {isPrincipal && member.barcode && (
+                        <Box sx={{ width: '100%', textAlign: 'center', mt: 1, p: 1, bgcolor: 'primary.lighter', borderRadius: 1 }}>
+                          <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                            <QrCodeIcon color="primary" fontSize="small" />
+                            <Typography variant="caption" color="primary.main">Barcode</Typography>
+                          </Stack>
+                          <Typography variant="subtitle2" color="primary.main" fontWeight="bold">{member.barcode}</Typography>
+                        </Box>
+                      )}
                     </Stack>
                   </Paper>
                 </Grid>
 
-                {/* Column 2 (Center in RTL): Personal Details (Wider) */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack spacing={3} sx={{ height: '100%', justifyContent: 'center', py: 1 }}>
-                    <Grid container spacing={3}>
-                      {/* Row 1 */}
-                      <Grid size={{ xs: 12, md: 8 }}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>الاسم الكامل</Typography>
-                          <Typography variant="h5" fontWeight="bold">{member.fullName}</Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>الرقم الوطني</Typography>
-                          <Typography variant="h6" fontFamily="monospace" sx={{ letterSpacing: 1 }}>{member.nationalNumber || '-'}</Typography>
-                        </Box>
-                      </Grid>
+                {/* Right Content Area: Personal + Emp + Contact */}
+                <Grid size={{ xs: 12, md: 9 }} sx={{ height: '100%' }}>
+                  <Stack spacing={2} sx={{ height: '100%' }}>
 
-                      <Grid size={{ xs: 12 }}><Divider /></Grid>
+                    {/* Top: Personal Info Box */}
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>البيانات الشخصية</Typography>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, md: 5 }}>
+                          <Typography variant="caption" color="text.secondary">الاسم الكامل</Typography>
+                          <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{member.fullName}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 2 }}>
+                          <Typography variant="caption" color="text.secondary">الرقم الوطني</Typography>
+                          <Typography variant="body2" fontFamily="monospace">{member.nationalNumber || '-'}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 2 }}>
+                          <Typography variant="caption" color="text.secondary">الجنسية</Typography>
+                          <Typography variant="body2">{member.nationality || '-'}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 3 }}>
+                          <Typography variant="caption" color="text.secondary">تاريخ الميلاد</Typography>
+                          <Typography variant="body2">{member.birthDate || '-'}</Typography>
+                        </Grid>
 
-                      {/* Row 2 */}
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary">تاريخ الميلاد</Typography>
-                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                            <CakeIcon fontSize="small" color="action" />
-                            <Typography variant="subtitle1" fontWeight="medium">{member.birthDate || '-'}</Typography>
-                          </Stack>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary">الجنس</Typography>
-                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                            <WcIcon fontSize="small" color="action" />
-                            <Typography variant="subtitle1" fontWeight="medium">
-                              {member.gender === GENDERS.MALE ? 'ذكر' : member.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
+                        <Grid size={{ xs: 6, md: 3 }}>
+                          <Typography variant="caption" color="text.secondary">الجنس</Typography>
+                          <Typography variant="body2">{member.gender === GENDERS.MALE ? 'ذكر' : member.gender === GENDERS.FEMALE ? 'أنثى' : '-'}</Typography>
+                        </Grid>
+
+
+                        <Grid size={{ xs: 12 }}>
+                          {member.notes && (
+                            <Typography variant="caption" sx={{ display: 'block', bgcolor: 'warning.lighter', color: 'warning.dark', p: 0.5, borderRadius: 0.5 }}>
+                              ملاحظات: {member.notes}
                             </Typography>
+                          )}
+                        </Grid>
+                      </Grid>
+                    </Paper>
+
+                    {/* Bottom Split: Employment & Contact */}
+                    <Grid container spacing={2} sx={{ flex: 1 }}>
+                      {/* Employment (if principal) */}
+                      {isPrincipal && (
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+                              <BadgeIcon fontSize="small" color="action" />
+                              <Typography variant="subtitle2" fontWeight="bold">بيانات العمل</Typography>
+                            </Stack>
+                            <Stack spacing={1.5}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">جهة العمل</Typography>
+                                <Typography variant="body2" fontWeight="medium">{member.employerName || '-'}</Typography>
+                              </Box>
+                              <Grid container>
+                                <Grid size={6}>
+                                  <Typography variant="caption" color="text.secondary">الرقم الوظيفي</Typography>
+                                  <Typography variant="body2" fontFamily="monospace">{member.employeeNumber || '-'}</Typography>
+                                </Grid>
+                                <Grid size={6}>
+                                  <Typography variant="caption" color="text.secondary">المهنة</Typography>
+                                  <Typography variant="body2">{member.occupation || '-'}</Typography>
+                                </Grid>
+                              </Grid>
+
+                            </Stack>
+                          </Paper>
+                        </Grid>
+                      )}
+
+                      {/* Contact Info - Takes full width if not principal */}
+                      <Grid size={{ xs: 12, md: isPrincipal ? 6 : 12 }}>
+                        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                          <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+                            <ContactPhoneIcon fontSize="small" color="action" />
+                            <Typography variant="subtitle2" fontWeight="bold">معلومات الاتصال</Typography>
                           </Stack>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary">الحالة الاجتماعية</Typography>
-                          <Box sx={{ mt: 0.5 }}>
-                            <Chip
-                              label={
-                                member.maritalStatus === 'SINGLE' ? 'أعزب' :
-                                  member.maritalStatus === 'MARRIED' ? 'متزوج' :
-                                    member.maritalStatus === 'DIVORCED' ? 'مطلق' :
-                                      member.maritalStatus === 'WIDOWED' ? 'أرمل' :
-                                        member.maritalStatus || 'غير محدد'
-                              }
-                              size="small"
-                              variant="outlined"
-                              color="default"
-                            />
-                          </Box>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary">الجنسية</Typography>
-                          <Typography variant="subtitle1" fontWeight="medium" sx={{ mt: 0.5 }}>{member.nationality || '-'}</Typography>
-                        </Box>
+                          <Stack spacing={2}>
+                            <Grid container>
+                              <Grid size={6}>
+                                <Typography variant="caption" color="text.secondary">رقم الهاتف</Typography>
+                                <Typography variant="body2" dir="ltr">{member.phone || '-'}</Typography>
+                              </Grid>
+                              <Grid size={6}>
+                                <Typography variant="caption" color="text.secondary">البريد الإلكتروني</Typography>
+                                <Typography variant="caption" display="block" sx={{ wordBreak: 'break-all' }}>{member.email || '-'}</Typography>
+                              </Grid>
+                            </Grid>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">العنوان</Typography>
+                              <Typography variant="body2">{member.address || '-'}</Typography>
+                            </Box>
+                          </Stack>
+                        </Paper>
                       </Grid>
                     </Grid>
 
-                    {/* Notes (if any) */}
-                    {member.notes && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>ملاحظات</Typography>
-                        <Typography variant="body2" sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
-                          {member.notes}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Stack>
-                </Grid>
-
-                {/* Column 3 (Left in RTL): Cards */}
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <Stack spacing={2} sx={{ height: '100%' }}>
-                    <Paper elevation={0} variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Stack spacing={1} alignItems="center" sx={{ width: '100%', textAlign: 'center' }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <CreditCardIcon color="secondary" />
-                          <Typography variant="body2" color="text.secondary">رقم البطاقة</Typography>
-                        </Stack>
-                        <Chip
-                          label={member.cardNumber || '-'}
-                          variant="outlined"
-                          color="secondary"
-                          size="medium"
-                          sx={{ fontWeight: 'bold', fontFamily: 'monospace', px: 1 }}
-                        />
-                      </Stack>
-                    </Paper>
-
-                    {isPrincipal && (
-                      <Paper elevation={0} variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: member.barcode ? 'primary.lighter' : 'transparent' }}>
-                        <Stack spacing={1} alignItems="center" sx={{ width: '100%', textAlign: 'center' }}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <QrCodeIcon color="primary" />
-                            <Typography variant="body2" color="text.secondary">Barcode</Typography>
-                          </Stack>
-                          <Typography variant="h6" color="primary.main" fontWeight="bold">{member.barcode || '-'}</Typography>
-                        </Stack>
-                      </Paper>
-                    )}
                   </Stack>
                 </Grid>
               </Grid>
             )}
           </div>
 
-          {/* Tab 1: Employment Info (Principal Only) */}
+          {/* Tab 1: Dependents (Principal Only) */}
           <div role="tabpanel" hidden={tabValue !== 1}>
             {tabValue === 1 && isPrincipal && (
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <BusinessIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">جهة العمل</Typography>
-                      <Typography variant="subtitle1" fontWeight="medium">{member.employerName || '-'}</Typography>
-                    </Box>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="body2" color="text.secondary">البوليصة</Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Chip label={member.benefitPolicyName || 'لا يوجد'} color="primary" variant="outlined" size="small" />
-                      {member.benefitPolicyCode && <Chip label={member.benefitPolicyCode} size="small" />}
-                    </Stack>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="body2" color="text.secondary">الرقم الوظيفي</Typography>
-                    <Typography variant="subtitle1" fontFamily="monospace">{member.employeeNumber || '-'}</Typography>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="body2" color="text.secondary">المهنة</Typography>
-                    <Typography variant="subtitle1" fontWeight="medium">{member.occupation || '-'}</Typography>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="body2" color="text.secondary">تاريخ الالتحاق</Typography>
-                    <Typography variant="subtitle1" fontWeight="medium">{member.joinDate || '-'}</Typography>
-                  </Stack>
-                </Grid>
-              </Grid>
-            )}
-          </div>
-
-          {/* Tab 2: Contact Info */}
-          <div role="tabpanel" hidden={tabValue !== (isPrincipal ? 2 : 1)}>
-            {(tabValue === (isPrincipal ? 2 : 1)) && (
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <PhoneIcon color="action" />
-                    <Stack spacing={0.5}>
-                      <Typography variant="subtitle2" color="text.secondary">رقم الهاتف</Typography>
-                      <Typography variant="subtitle1" fontWeight="medium">{member.phone || '-'}</Typography>
-                    </Stack>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <EmailIcon color="action" />
-                    <Stack spacing={0.5}>
-                      <Typography variant="subtitle2" color="text.secondary">البريد الإلكتروني</Typography>
-                      <Typography variant="subtitle1" fontWeight="medium">{member.email || '-'}</Typography>
-                    </Stack>
-                  </Stack>
-                </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="subtitle2" color="text.secondary">العنوان</Typography>
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{member.address || '-'}</Typography>
-                  </Stack>
-                </Grid>
-              </Grid>
-            )}
-          </div>
-
-          {/* Tab 3: Dependents (Principal Only) */}
-          <div role="tabpanel" hidden={tabValue !== 3}>
-            {tabValue === 3 && isPrincipal && (
               <Stack spacing={3}>
-                {/* Help Info */}
-                <Alert severity="info" sx={{ '& .MuiAlert-message': { width: '100%' } }}>
-                  <Typography variant="body2">
-                    يمكنك إضافة التابعين الآن. التابعون لا يملكون Barcode خاص بهم.
-                  </Typography>
-                </Alert>
+                {/* Inline Form - Single Row */}
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>إضافة تابع جديد</Typography>
+                    <Button variant="outlined" color="error" size="small" startIcon={<DeleteOutlineIcon />}>
+                      المحذوفات
+                    </Button>
+                  </Stack>
 
-                {/* Inline Form */}
-                <Paper variant="outlined" sx={{ p: 3, bgcolor: 'background.paper' }}>
-                  <Typography variant="subtitle2" sx={{ mb: 3, fontWeight: 'bold' }}>إضافة تابع جديد</Typography>
+                  <Grid container spacing={2} alignItems="center">
+                    {/* Photo Upload */}
+                    <Grid size={{ xs: 12, md: 1 }}>
+                      <input
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        id="dependent-photo-upload"
+                        type="file"
+                        onChange={handlePhotoChange}
+                      />
+                      <label htmlFor="dependent-photo-upload">
+                        <IconButton component="span" sx={{ p: 0 }}>
+                          <Avatar
+                            src={dependentPhotoPreview}
+                            sx={{ width: 40, height: 40, border: '1px dashed grey' }}
+                          >
+                            <PersonAddIcon fontSize="small" />
+                          </Avatar>
+                        </IconButton>
+                      </label>
+                    </Grid>
 
-                  <Grid container spacing={2} alignItems="flex-start">
                     {/* Full Name */}
-                    <Grid size={{ xs: 12, md: 4 }}>
+                    <Grid size={{ xs: 12, md: 2.5 }}>
                       <TextField
                         fullWidth
                         required
@@ -597,15 +604,14 @@ const UnifiedMemberView = () => {
                         value={newDependent.fullName}
                         onChange={handleDepFieldChange('fullName')}
                         error={!!depErrors.fullName}
-                        helperText={depErrors.fullName}
                         size="small"
-                        sx={{ minWidth: 220 }}
+                        placeholder="الاسم الثلاثي"
                       />
                     </Grid>
 
                     {/* Relationship */}
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <FormControl fullWidth required error={!!depErrors.relationship} size="small" sx={{ minWidth: 150 }}>
+                    <Grid size={{ xs: 6, md: 2 }}>
+                      <FormControl fullWidth required error={!!depErrors.relationship} size="small">
                         <InputLabel>القرابة</InputLabel>
                         <Select
                           value={newDependent.relationship}
@@ -614,24 +620,16 @@ const UnifiedMemberView = () => {
                         >
                           {Object.entries(RELATIONSHIPS).map(([key, value]) => (
                             <MenuItem key={key} value={value}>
-                              {value === 'WIFE' ? 'زوجة' :
-                                value === 'HUSBAND' ? 'زوج' :
-                                  value === 'SON' ? 'ابن' :
-                                    value === 'DAUGHTER' ? 'ابنة' :
-                                      value === 'FATHER' ? 'أب' :
-                                        value === 'MOTHER' ? 'أم' :
-                                          value === 'BROTHER' ? 'أخ' :
-                                            value === 'SISTER' ? 'أخت' : value}
+                              {RELATIONSHIP_AR[value] || value}
                             </MenuItem>
                           ))}
                         </Select>
-                        {depErrors.relationship && <FormHelperText>{depErrors.relationship}</FormHelperText>}
                       </FormControl>
                     </Grid>
 
                     {/* Gender */}
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <FormControl fullWidth required error={!!depErrors.gender} size="small" sx={{ minWidth: 130 }}>
+                    <Grid size={{ xs: 6, md: 1.5 }}>
+                      <FormControl fullWidth required error={!!depErrors.gender} size="small">
                         <InputLabel>الجنس</InputLabel>
                         <Select
                           value={newDependent.gender}
@@ -644,83 +642,43 @@ const UnifiedMemberView = () => {
                             </MenuItem>
                           ))}
                         </Select>
-                        {depErrors.gender && <FormHelperText>{depErrors.gender}</FormHelperText>}
                       </FormControl>
                     </Grid>
 
-                    {/* Marital Status (Optional) */}
-                    <Grid item xs={12} md={2}>
-                      <FormControl fullWidth size="small" sx={{ minWidth: 130 }}>
-                        <InputLabel>الحالة الاجتماعية</InputLabel>
-                        <Select
-                          value={newDependent.maritalStatus}
-                          onChange={handleDepFieldChange('maritalStatus')}
-                          label="الحالة الاجتماعية"
-                        >
-                          <MenuItem value=""><em>غير محدد</em></MenuItem>
-                          <MenuItem value="SINGLE">أعزب</MenuItem>
-                          <MenuItem value="MARRIED">متزوج</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    {/* Nationality (Default Libyan) */}
-                    <Grid item xs={12} md={2}>
+                    {/* Nationality */}
+                    <Grid size={{ xs: 6, md: 1.5 }}>
                       <TextField
                         fullWidth
                         label="الجنسية"
                         value={newDependent.nationality}
                         onChange={handleDepFieldChange('nationality')}
                         size="small"
-                        sx={{ minWidth: 120 }}
                       />
                     </Grid>
 
                     {/* Birth Date */}
-                    <Grid item xs={12} md={2}>
+                    <Grid size={{ xs: 12, md: 2 }}>
                       <DatePicker
                         label="تاريخ الميلاد *"
                         value={newDependent.birthDate}
                         onChange={handleDepDateChange('birthDate')}
                         maxDate={dayjs()}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            error: !!depErrors.birthDate,
-                            helperText: depErrors.birthDate,
-                            sx: { minWidth: 150 }
-                          }
-                        }}
-                      />
-                    </Grid>
-
-                    {/* National ID */}
-                    <Grid item xs={12} md={2}>
-                      <TextField
-                        fullWidth
-                        label="الرقم الوطني"
-                        value={newDependent.nationalNumber}
-                        onChange={handleDepFieldChange('nationalNumber')}
-                        placeholder="اختياري"
-                        size="small"
-                        sx={{ minWidth: 150 }}
+                        slotProps={{ textField: { fullWidth: true, size: 'small', error: !!depErrors.birthDate } }}
                       />
                     </Grid>
 
                     {/* Action Button */}
-                    <Grid item xs={12} md={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button
-                          variant="contained"
-                          startIcon={addingDependent ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                          onClick={handleAddDependentSubmit}
-                          disabled={addingDependent}
-                          sx={{ height: 40, px: 4 }}
-                        >
-                          إضافة التابع
-                        </Button>
-                      </Box>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        startIcon={addingDependent ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                        onClick={handleAddDependentSubmit}
+                        disabled={addingDependent}
+                        size="medium"
+                      >
+                        إضافة
+                      </Button>
                     </Grid>
                   </Grid>
                 </Paper>
@@ -734,77 +692,92 @@ const UnifiedMemberView = () => {
                       لا يوجد تابعين مسجلين حالياً.
                     </Typography>
                   ) : (
-                    <TableContainer component={Paper} elevation={0} variant="outlined">
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>#</TableCell>
-                            <TableCell>الاسم</TableCell>
-                            <TableCell>القرابة</TableCell>
-                            <TableCell>رقم البطاقة</TableCell>
-                            <TableCell>الجنس</TableCell>
-                            <TableCell>تاريخ الميلاد</TableCell>
-                            <TableCell>الحالة</TableCell>
-                            <TableCell align="center">إجراءات</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {dependents.map((dep, index) => (
-                            <TableRow key={dep.id} hover>
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell>
-                                <Typography variant="body2" fontWeight="medium">{dep.fullName}</Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={dep.relationship} size="small" variant="outlined" color="primary" />
-                              </TableCell>
-                              <TableCell>{dep.cardNumber || '-'}</TableCell>
-                              <TableCell>
-                                {dep.gender === GENDERS.MALE ? 'ذكر' : dep.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
-                              </TableCell>
-                              <TableCell>{dep.birthDate || '-'}</TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={dep.status === 'ACTIVE' ? 'نشط' : dep.status}
-                                  color={dep.status === 'ACTIVE' ? 'success' : 'default'}
-                                  size="small"
-                                  sx={{ height: 24 }}
-                                />
-                              </TableCell>
-                              <TableCell align="center">
-                                <Stack direction="row" spacing={1} justifyContent="center">
-                                  <Tooltip title="عرض التفاصيل">
-                                    <IconButton size="small" color="primary" onClick={() => navigate(`/members/${dep.id}`)}>
-                                      <BadgeIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="تعديل">
-                                    <IconButton size="small" color="secondary" onClick={() => navigate(`/members/${dep.id}/edit`)}>
-                                      <EditIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="حذف">
-                                    <IconButton size="small" color="error" onClick={() => handleDeleteConfirm(dep)}>
-                                      <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Stack>
-                              </TableCell>
+                    <>
+                      <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ minHeight: 230 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell align="center">#</TableCell>
+                              <TableCell align="right">الاسم</TableCell>
+                              <TableCell align="center">القرابة</TableCell>
+                              <TableCell align="center">رقم البطاقة</TableCell>
+                              <TableCell align="center">الجنس</TableCell>
+                              <TableCell align="center">تاريخ الميلاد</TableCell>
+                              <TableCell align="center">الحالة</TableCell>
+                              <TableCell align="center">إجراءات</TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                          </TableHead>
+                          <TableBody>
+                            {dependents
+                              .slice(pg * rpp, pg * rpp + rpp)
+                              .map((dep, index) => (
+                                <TableRow key={dep.id} hover>
+                                  <TableCell align="center">{pg * rpp + index + 1}</TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2" fontWeight="medium">{dep.fullName}</Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Chip label={RELATIONSHIP_AR[dep.relationship] || dep.relationship} size="small" variant="outlined" color="primary" />
+                                  </TableCell>
+                                  <TableCell align="center">{dep.cardNumber || '-'}</TableCell>
+                                  <TableCell align="center">
+                                    {dep.gender === GENDERS.MALE ? 'ذكر' : dep.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
+                                  </TableCell>
+                                  <TableCell align="center">{dep.birthDate || '-'}</TableCell>
+                                  <TableCell align="center">
+                                    <Chip
+                                      label={dep.status === 'ACTIVE' ? 'نشط' : dep.status}
+                                      color={dep.status === 'ACTIVE' ? 'success' : 'default'}
+                                      size="small"
+                                      sx={{ height: 24 }}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Stack direction="row" spacing={1} justifyContent="center">
+                                      <Tooltip title="عرض التفاصيل">
+                                        <IconButton size="small" color="primary" onClick={() => navigate(`/members/${dep.id}`)}>
+                                          <BadgeIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title="تعديل">
+                                        <IconButton size="small" color="secondary" onClick={() => handleEditClick(dep)}>
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title="حذف">
+                                        <IconButton size="small" color="error" onClick={() => handleDeleteConfirm(dep)}>
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </Stack>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      <TablePagination
+                        rowsPerPageOptions={[3, 6, 9]}
+                        component="div"
+                        count={dependents.length}
+                        rowsPerPage={rpp}
+                        page={pg}
+                        onPageChange={handleChangePage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                        labelRowsPerPage="صفوف لكل صفحة:"
+                        labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
+                      />
+                    </>
                   )}
                 </Box>
               </Stack>
             )}
           </div>
         </Box>
-      </MainCard>
+      </MainCard >
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      < Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle sx={{ fontWeight: 600 }}>تأكيد الحذف</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -828,8 +801,16 @@ const UnifiedMemberView = () => {
             تأكيد الحذف
           </Button>
         </DialogActions>
-      </Dialog>
-    </RBACGuard>
+
+      </Dialog >
+
+      <DependentEditDrawer
+        open={editDrawerOpen}
+        onClose={() => setEditDrawerOpen(false)}
+        dependent={selectedDependent}
+        onSave={handleEditSave}
+      />
+    </RBACGuard >
   );
 };
 

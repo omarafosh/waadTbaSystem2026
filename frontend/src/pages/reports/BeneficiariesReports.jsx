@@ -883,7 +883,7 @@ const BeneficiariesReports = () => {
                                             <TableCell
                                                 key={col.id || col.accessorKey}
                                                 align={col.align || 'right'}
-                                                sx={{ minWidth: col.minWidth, fontSize: '0.85rem' }}
+                                                sx={{ minWidth: col.minWidth, fontSize: '1rem' }}
                                             >
                                                 {col.header}
                                             </TableCell>

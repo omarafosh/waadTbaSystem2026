@@ -11,7 +11,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.waad.tba.common.entity.Organization;
 import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy;
-import com.waad.tba.modules.employer.entity.Employer;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -130,12 +129,6 @@ public class Member {
     @JoinColumn(name = "insurance_org_id")
     private Organization insuranceOrganization;
 
-    // LEGACY: Old Employer relationship (kept for backwards compatibility)
-    @Deprecated
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employer_id", insertable = false, updatable = false)
-    private Employer employer;
-
     /**
      * BenefitPolicy for coverage rules (CANONICAL - Single Source of Truth).
      * This is the source of truth for what benefits the member is entitled to.
@@ -171,6 +164,18 @@ public class Member {
 
     @Column(name = "profile_photo_path", length = 1000)
     private String profilePhotoPath;
+
+    // Fast-Track / VIP Features
+    @Column(name = "is_vip")
+    @Builder.Default
+    private Boolean isVip = false;
+
+    @Column(name = "is_urgent")
+    @Builder.Default
+    private Boolean isUrgent = false;
+
+    @Column(name = "emergency_notes", length = 1000)
+    private String emergencyNotes;
 
     // Personal Information
     @NotBlank(message = "Full name is required")

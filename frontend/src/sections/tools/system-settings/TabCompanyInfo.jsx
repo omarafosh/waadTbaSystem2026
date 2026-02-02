@@ -159,7 +159,7 @@ export default function TabCompanyInfo() {
             <Grid size={12}>
               <Stack direction="row" spacing={3} alignItems="center">
                 <Avatar variant="rounded" sx={{ width: 120, height: 120, bgcolor: 'primary.lighter' }} src={logoPreview}>
-                  <BankOutlined style={{ fontSize: 48 }} />
+                  <BankOutlined style={{ fontSize: '3rem' }} />
                 </Avatar>
                 <Box>
                   <Stack direction="row" spacing={1} alignItems="center">

@@ -3,7 +3,6 @@ package com.waad.tba.modules.eligibility.domain;
 import com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.provider.entity.Provider;
-import com.waad.tba.modules.employer.entity.Employer;
 import com.waad.tba.common.entity.Organization;
 
 import lombok.Builder;

@@ -463,24 +463,24 @@ const menuItem = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // �🏢 EMPLOYERS (PARTNERS)
+  // 🏢 EMPLOYERS (PARTNERS)
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-employers',
-    title: 'الشركاء (جهات العمل)',
-    titleEn: 'Employers (Partners)',
+    title: 'جهات العمل',
+    titleEn: 'Employers',
     type: 'group',
     children: [
       {
         id: 'employers',
-        title: 'إدارة الشركاء',
+        title: 'إدارة جهات العمل',
         titleEn: 'Employers Management',
         type: 'collapse',
         icon: BusinessIcon,
         children: [
           {
             id: 'employers-list',
-            title: 'قائمة الشركاء',
+            title: 'قائمة جهات العمل',
             titleEn: 'Employers List',
             type: 'item',
             url: '/employers',
@@ -499,33 +499,6 @@ const menuItem = [
             url: '/benefit-policies',
             icon: PolicyIcon,
             permission: ['benefit_policies.view'],
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          },
-          {
-            id: 'employer-contracts',
-            title: 'عقود الشركاء',
-            titleEn: 'Employer Contracts',
-            type: 'item',
-            url: '/employers/contracts',
-            icon: HandshakeIcon,
-            permission: ['benefit_policies.view'],
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
-          },
-          {
-            id: 'employer-analytics',
-            title: 'تحليلات الشركاء',
-            titleEn: 'Employer Analytics',
-            type: 'item',
-            url: '/reports/employer-dashboard',
-            icon: AssessmentIcon,
             chip: {
               label: '✅',
               color: 'success',
@@ -735,7 +708,7 @@ const menuItem = [
           },
           {
             id: 'employer-reports',
-            title: 'تقارير الشركاء',
+            title: 'تقارير جهات العمل',
             titleEn: 'Employer Reports',
             type: 'item',
             url: '/reports/employer-dashboard',

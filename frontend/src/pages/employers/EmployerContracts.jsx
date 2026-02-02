@@ -98,8 +98,8 @@ const EmployerContracts = () => {
   useEffect(() => {
     const loadEmployers = async () => {
       try {
-        const employers = await getEmployers();
-        setEmployers(employers || []);
+        const response = await getEmployers();
+        setEmployers(response?.content || response?.data?.content || (Array.isArray(response) ? response : []));
       } catch (error) {
         console.error('Error loading employers:', error);
       }
@@ -437,7 +437,7 @@ const EmployerContracts = () => {
                 onChange={(e) => setFilters({ ...filters, employerId: e.target.value })}
               >
                 <MenuItem value="">الكل</MenuItem>
-                {employers.map((employer) => (
+                {(Array.isArray(employers) ? employers : []).map((employer) => (
                   <MenuItem key={employer.id} value={employer.id}>
                     {employer.name}
                   </MenuItem>

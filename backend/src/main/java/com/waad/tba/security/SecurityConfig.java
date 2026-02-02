@@ -1,4 +1,5 @@
 package com.waad.tba.security;
+import org.springframework.http.HttpMethod;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -51,19 +52,9 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // ENTERPRISE FIX: Disable CSRF for REST API
-                // ========================================
-                // Reasoning for disabling CSRF in this enterprise system:
-                // ENTERPRISE SECURITY: Enable CSRF Protection
-                // ========================================
-                // Using CookieCsrfTokenRepository with HttpOnly=false allows the frontend (React/Axios)
-                // to read the XSRF-TOKEN cookie and send it back in the X-XSRF-TOKEN header.
-                // The Session cookie (JSESSIONID) remains HttpOnly for security.
-                .csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers("/api/auth/**", "/api/unified-members/import/**", "/api/diagnostic/**") // Allow login and import without CSRF token
-                )
+                // ENTERPRISE FIX: Disable CSRF for REST API (2026-02-02)
+                // Rest API is protected by CORS and Authority checks.
+                .csrf(AbstractHttpConfigurer::disable)
 
                 // CORS configuration with credentials support (required for session cookies)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -71,7 +62,8 @@ public class SecurityConfig {
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints - Authentication & Branding
-                        .requestMatchers("/api/auth/**", "/api/companies/default").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/companies/default").permitAll()
                         // Diagnostic Endpoint (Temporary)
                         .requestMatchers("/api/diagnostic/**").permitAll()
                         // Swagger / OpenAPI endpoints

@@ -49,7 +49,7 @@ const TbaDetailField = ({
         variant="caption"
         color="text.secondary"
         display="block"
-        sx={{ mb: 0.75, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem' }}
+        sx={{ mb: 0.75, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '1rem' }}
       >
         {label}
       </Typography>
@@ -59,7 +59,7 @@ const TbaDetailField = ({
         children
       ) : (
         <Stack direction="row" alignItems="center" spacing={1}>
-          {Icon && <Icon sx={{ fontSize: 18 }} color={isEmpty ? 'disabled' : 'action'} />}
+          {Icon && <Icon sx={{ fontSize: 20 }} color={isEmpty ? 'disabled' : 'action'} />}
 
           {chip ? (
             <Chip label={displayValue} color={chipColor} size="small" variant="light" />

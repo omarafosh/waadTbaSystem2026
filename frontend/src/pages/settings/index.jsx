@@ -75,8 +75,8 @@ const SettingsPage = () => {
     {
       id: 'company',
       icon: BankOutlined,
-      title: 'معلومات الشركة',
-      description: 'إدارة بيانات الشركة الأساسية والمعلومات العامة',
+      title: 'تكوين النظام',
+      description: 'إدارة الإعدادات العامة والهوية البصرية للنظام',
       color: '#1890ff',
       route: '/settings/company',
       roles: ['SUPER_ADMIN', 'ADMIN']
@@ -138,10 +138,10 @@ const SettingsPage = () => {
             border: 'none',
             borderRadius: 0,
             height: '100vh',
-            '& .MuiCardHeader-root': { 
-              bgcolor: 'primary.main', 
+            '& .MuiCardHeader-root': {
+              bgcolor: 'primary.main',
               color: 'background.paper',
-              '& .MuiTypography-root': { fontSize: '1rem', color: 'background.paper' } 
+              '& .MuiTypography-root': { fontSize: '1rem', color: 'background.paper' }
             }
           }}
           content={false}

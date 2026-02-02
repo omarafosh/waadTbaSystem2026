@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +49,7 @@ public class EmployerService {
     private final OrganizationRepository organizationRepository;
     private final EmployerMapper mapper;
     private final com.waad.tba.modules.benefitpolicy.repository.BenefitPolicyRepository benefitPolicyRepository;
+    private final com.waad.tba.modules.member.repository.MemberRepository memberRepository;
 
     /**
      * Get all active, non-archived employers
@@ -58,15 +58,23 @@ public class EmployerService {
      * Get all active, non-archived employers (Paginated & Searchable)
      */
     @Transactional(readOnly = true)
-    public org.springframework.data.domain.Page<EmployerResponseDto> getAll(org.springframework.data.domain.Pageable pageable, String search, Boolean deleted) {
+    public org.springframework.data.domain.Page<EmployerResponseDto> getAll(org.springframework.data.domain.Pageable pageable, String search, Boolean deleted, Boolean active) {
         boolean isArchived = Boolean.TRUE.equals(deleted);
         
         org.springframework.data.domain.Page<Organization> page;
         
         if (search != null && !search.trim().isEmpty()) {
-            page = organizationRepository.searchByTypeAndArchived(search.trim(), OrganizationType.EMPLOYER, isArchived, pageable);
+            if (active != null) {
+                page = organizationRepository.searchByTypeAndArchivedAndActive(search.trim(), OrganizationType.EMPLOYER, isArchived, active, pageable);
+            } else {
+                page = organizationRepository.searchByTypeAndArchived(search.trim(), OrganizationType.EMPLOYER, isArchived, pageable);
+            }
         } else {
-            page = organizationRepository.findByTypeAndArchived(OrganizationType.EMPLOYER, isArchived, pageable);
+            if (active != null) {
+                page = organizationRepository.findByTypeAndArchivedAndActive(OrganizationType.EMPLOYER, isArchived, active, pageable);
+            } else {
+                page = organizationRepository.findByTypeAndArchived(OrganizationType.EMPLOYER, isArchived, pageable);
+            }
         }
 
         return page.map(this::mapToResponseWithPolicy);
@@ -76,21 +84,11 @@ public class EmployerService {
      * Get all active, non-archived employers (Legacy List)
      */
     @Transactional(readOnly = true)
-    public List<EmployerResponseDto> getAll(Boolean deleted) {
-        if (Boolean.TRUE.equals(deleted)) {
-            // Return ONLY archived
-            // Fetch everything and filter in memory to be 100% sure we catch them
-            return organizationRepository.findByType(OrganizationType.EMPLOYER)
-                    .stream()
-                    .filter(org -> org.isArchived())
-                    .map(this::mapToResponseWithPolicy)
-                    .toList();
-        }
-
-        // Return ONLY active (non-archived)
+    public List<EmployerResponseDto> getAll(Boolean deleted, Boolean active) {
         return organizationRepository.findByType(OrganizationType.EMPLOYER)
                 .stream()
-                .filter(org -> !org.isArchived())
+                .filter(org -> (deleted == null || org.isArchived() == deleted))
+                .filter(org -> (active == null || org.isActive() == active))
                 .map(this::mapToResponseWithPolicy)
                 .toList();
     }
@@ -151,8 +149,9 @@ public class EmployerService {
         String employerCode = normalizeAndGenerateCode(dto.getCode());
         log.debug("[EmployerService] Normalized/Generated code: {}", employerCode);
 
-        // Step 2: Validate code uniqueness
+        // Step 2: Validate code and name uniqueness
         validateCodeUniqueness(employerCode, null);
+        validateNameUniqueness(dto.getName(), null);
 
         // Step 3: Build Organization entity (Arabic name only)
         Organization org = Organization.builder()
@@ -192,11 +191,15 @@ public class EmployerService {
         Organization org = findEmployerById(id);
         String oldCode = org.getCode();
 
-        // Step 2: Validate code change (if applicable)
         if (!oldCode.equals(dto.getCode())) {
             log.warn("[EmployerService] Changing employer code from {} to {} for ID: {}",
                     oldCode, dto.getCode(), id);
             validateCodeUniqueness(dto.getCode(), id);
+        }
+
+        // Validate name uniqueness if changed
+        if (!org.getName().equals(dto.getName())) {
+            validateNameUniqueness(dto.getName(), id);
         }
 
         // Step 3: Update mutable fields (Arabic name only)
@@ -314,7 +317,7 @@ public class EmployerService {
     private Organization findEmployerById(Long id) {
         return organizationRepository.findById(id)
                 .filter(o -> o.getType() == OrganizationType.EMPLOYER)
-                .orElseThrow(() -> new ResourceNotFoundException("Employer not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("جهة العمل غير موجودة للمعرف: " + id));
     }
 
     /**
@@ -388,18 +391,53 @@ public class EmployerService {
             }
 
             log.error("[EmployerService] Code already exists: {}", code);
-            throw new BusinessRuleException("Employer code already exists: " + code);
+            throw new BusinessRuleException("رمز جهة العمل موجود مسبقاً: " + code);
         }
     }
 
     /**
-     * Helper to map Organization to EmployerResponseDto with active policy info
+     * Validate name uniqueness
+     * 
+     * @param name      Name to validate
+     * @param excludeId ID to exclude from check (for updates)
+     * @throws BusinessRuleException if name already exists
+     */
+    private void validateNameUniqueness(String name, Long excludeId) {
+        // Query as case-insensitive to prevent subtle duplicates
+        Optional<Organization> existing = organizationRepository.findByType(OrganizationType.EMPLOYER)
+                .stream()
+                .filter(org -> org.getName().equalsIgnoreCase(name.trim()))
+                .findFirst();
+
+        if (existing.isPresent()) {
+            Organization existingOrg = existing.get();
+
+            // If updating, allow same name for same ID
+            if (excludeId != null && existingOrg.getId().equals(excludeId)) {
+                return;
+            }
+
+            log.error("[EmployerService] Employer name already exists (case-insensitive): {}", name);
+            throw new BusinessRuleException("اسم جهة العمل موجود مسبقاً (بنفس الأحرف): " + name);
+        }
+    }
+
+    /**
+     * Helper to map Organization to EmployerResponseDto with active policy info and statistics
      */
     private EmployerResponseDto mapToResponseWithPolicy(Organization org) {
         if (org == null) return null;
         EmployerResponseDto dto = mapper.toResponse(org);
 
         try {
+            // ========================================
+            // STATISTICS: Count members with ACTIVE benefit policies
+            // ========================================
+            long membersCount = memberRepository.countByEmployerOrganizationIdAndBenefitPolicyStatusAndBenefitPolicyActiveTrue(
+                    org.getId(), 
+                    com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy.BenefitPolicyStatus.ACTIVE);
+            dto.setTotalMembers(membersCount);
+
             // Strategy 1: Find by ID (Primary)
             List<com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy> policies = 
                     benefitPolicyRepository.findByEmployerOrganizationIdAndActiveTrue(org.getId());
@@ -410,8 +448,15 @@ public class EmployerService {
                 policies = benefitPolicyRepository.findByEmployerOrganizationNameAndActiveTrue(org.getName());
             }
 
+            // Count active policies (ACTIVE status and within effective dates)
+            int activePoliciesCount = (int) policies.stream()
+                    .filter(p -> p.getStatus() == com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy.BenefitPolicyStatus.ACTIVE)
+                    .filter(com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy::isEffective)
+                    .count();
+            dto.setActivePoliciesCount(activePoliciesCount);
+
             // Filter for ACTIVE status and Effective dates
-            policies.stream()
+            Optional<com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy> activePolicy = policies.stream()
                     .filter(p -> p.getStatus() == com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy.BenefitPolicyStatus.ACTIVE)
                     .filter(com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy::isEffective)
                     .sorted((p1, p2) -> {
@@ -419,15 +464,32 @@ public class EmployerService {
                         if (p2.getCreatedAt() == null) return -1;
                         return p2.getCreatedAt().compareTo(p1.getCreatedAt());
                     })
-                    .findFirst()
-                    .ifPresent(policy -> {
-                        dto.setActivePolicyName(policy.getName());
-                        dto.setActivePolicyId(policy.getId());
-                    });
+                    .findFirst();
+            
+            // If no ACTIVE policy found, fallback to DRAFT (most recent)
+            if (activePolicy.isEmpty()) {
+                activePolicy = policies.stream()
+                        .filter(p -> p.getStatus() == com.waad.tba.modules.benefitpolicy.entity.BenefitPolicy.BenefitPolicyStatus.DRAFT)
+                        .sorted((p1, p2) -> {
+                            if (p1.getCreatedAt() == null) return 1;
+                            if (p2.getCreatedAt() == null) return -1;
+                            return p2.getCreatedAt().compareTo(p1.getCreatedAt());
+                        })
+                        .findFirst();
+            }
+            
+            activePolicy.ifPresent(policy -> {
+                dto.setActivePolicyName(policy.getName());
+                dto.setActivePolicyId(policy.getId());
+            });
         } catch (Exception e) {
-            log.error("[EmployerService] Failed to map policy for employer {}: {}", org.getId(), e.getMessage());
+            log.error("[EmployerService] Failed to map policy/statistics for employer {}: {}", org.getId(), e.getMessage());
+            // Set defaults on error
+            dto.setTotalMembers(0L);
+            dto.setActivePoliciesCount(0);
         }
 
         return dto;
     }
+
 }

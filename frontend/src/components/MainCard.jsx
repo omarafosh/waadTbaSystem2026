@@ -47,7 +47,7 @@ export default function MainCard({
           ':hover': { boxShadow: shadow || theme.vars.customShadows.z1 }
         }),
         ...(codeHighlight && {
-          '& pre': { margin: 0, padding: '12px !important', fontFamily: theme.typography.fontFamily, fontSize: '0.75rem' }
+          '& pre': { margin: 0, padding: '12px !important', fontFamily: theme.typography.fontFamily, fontSize: '1rem' }
         }),
         ...(modal && {
           position: 'absolute',

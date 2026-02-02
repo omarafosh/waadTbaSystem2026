@@ -31,12 +31,12 @@ import { DEFAULT_FILTERS } from 'hooks/useVisitsReport';
  * @param {number|null} selectedProviderId - Currently selected provider
  * @param {Function} onProviderChange - Provider change handler
  */
-const VisitsFilters = ({ 
-  filters, 
-  onFilterChange, 
-  employers = [], 
-  canSelectEmployer = false, 
-  selectedEmployerId, 
+const VisitsFilters = ({
+  filters,
+  onFilterChange,
+  employers = [],
+  canSelectEmployer = false,
+  selectedEmployerId,
   onEmployerChange,
   providers = [],
   selectedProviderId,
@@ -108,7 +108,7 @@ const VisitsFilters = ({
                 <MenuItem value="">
                   <em>جميع الشركاء</em>
                 </MenuItem>
-                {employers.map((employer) => (
+                {Array.isArray(employers) && employers.map((employer) => (
                   <MenuItem key={employer.id} value={employer.id}>
                     {employer.name}
                   </MenuItem>

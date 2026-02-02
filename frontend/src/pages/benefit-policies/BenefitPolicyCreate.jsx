@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import dayjs from 'dayjs';
@@ -75,33 +75,33 @@ const validationSchema = Yup.object().shape({
     .required('اسم الوثيقة مطلوب')
     .min(5, 'الاسم يجب أن يكون 5 أحرف على الأقل')
     .max(255, 'الاسم يجب أن لا يتجاوز 255 حرفاً'),
-  
+
   employerOrgId: Yup.mixed()
     .required('يجب اختيار الشريك (صاحب العمل)'),
-  
+
   policyCode: Yup.string().nullable(),
 
   startDate: Yup.date()
     .nullable()
     .required('تاريخ البدء مطلوب')
     .typeError('تاريخ غير صالح'),
-  
+
   endDate: Yup.date()
     .nullable()
     .required('تاريخ الانتهاء مطلوب')
     .min(Yup.ref('startDate'), 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء')
     .typeError('تاريخ غير صالح'),
-  
+
   annualLimit: Yup.number()
     .required('السقف السنوي مطلوب')
     .positive('يجب أن يكون أكبر من صفر')
     .max(10000000, 'قيمة السقف السنوي كبيرة جداً'),
-  
+
   defaultCoveragePercent: Yup.number()
     .required('نسبة التغطية مطلوبة')
     .min(0, 'النسبة لا تقل عن 0%')
     .max(100, 'النسبة لا تزيد عن 100%'),
-  
+
   perMemberLimit: Yup.mixed()
     .test('is-positive', 'يجب أن يكون رقماً موجباً', (val) => !val || (!isNaN(val) && Number(val) > 0))
     .nullable(),
@@ -109,7 +109,7 @@ const validationSchema = Yup.object().shape({
   perFamilyLimit: Yup.mixed()
     .test('is-positive', 'يجب أن يكون رقماً موجباً', (val) => !val || (!isNaN(val) && Number(val) > 0))
     .nullable(),
-    
+
   status: Yup.string().required('الحالة مطلوبة'),
 
   description: Yup.string().max(1000, 'الوصف طويل جداً')
@@ -121,22 +121,26 @@ const validationSchema = Yup.object().shape({
  */
 const BenefitPolicyCreate = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [employers, setEmployers] = useState([]);
   const [loadingEmployers, setLoadingEmployers] = useState(true);
   const [generalError, setGeneralError] = useState(null);
-  
+
   // Tab State
   const [activeTab, setActiveTab] = useState(0);
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
+  // Get employerId from URL if provided
+  const employerIdFromUrl = searchParams.get('employerId');
+
   // Initial Form Values
   const initialValues = {
     name: '',
     policyCode: '',
     description: '',
-    employerOrgId: '',
+    employerOrgId: employerIdFromUrl || '',
     startDate: dayjs(),
     endDate: dayjs().add(1, 'year'),
     annualLimit: '60000',
@@ -188,7 +192,7 @@ const BenefitPolicyCreate = () => {
       };
 
       await createBenefitPolicy(payload);
-      
+
       // Success - Navigate back
       navigate('/benefit-policies');
     } catch (err) {
@@ -230,31 +234,31 @@ const BenefitPolicyCreate = () => {
               <Form autoComplete="off">
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
                   <Tabs value={activeTab} onChange={handleTabChange} aria-label="benefit policy tabs">
-                    <Tab 
-                      icon={<BusinessIcon />} 
-                      iconPosition="start" 
-                      label="البيانات الأساسية" 
+                    <Tab
+                      icon={<BusinessIcon />}
+                      iconPosition="start"
+                      label="البيانات الأساسية"
                       id="benefit-policy-tab-0"
                       aria-controls="benefit-policy-tabpanel-0"
                     />
-                    <Tab 
-                      icon={<AttachMoneyIcon />} 
-                      iconPosition="start" 
-                      label="التغطية والحدود المالية" 
+                    <Tab
+                      icon={<AttachMoneyIcon />}
+                      iconPosition="start"
+                      label="التغطية والحدود المالية"
                       id="benefit-policy-tab-1"
                       aria-controls="benefit-policy-tabpanel-1"
                     />
-                    <Tab 
-                      icon={<CalendarTodayIcon />} 
-                      iconPosition="start" 
-                      label="فترة السريان" 
+                    <Tab
+                      icon={<CalendarTodayIcon />}
+                      iconPosition="start"
+                      label="فترة السريان"
                       id="benefit-policy-tab-2"
                       aria-controls="benefit-policy-tabpanel-2"
                     />
-                    <Tab 
-                      icon={<DescriptionIcon />} 
-                      iconPosition="start" 
-                      label="توضيحات إضافية" 
+                    <Tab
+                      icon={<DescriptionIcon />}
+                      iconPosition="start"
+                      label="توضيحات إضافية"
                       id="benefit-policy-tab-3"
                       aria-controls="benefit-policy-tabpanel-3"
                     />
@@ -303,7 +307,7 @@ const BenefitPolicyCreate = () => {
                             <CircularProgress size={20} sx={{ mr: 1 }} /> جارٍ التحميل...
                           </MenuItem>
                         ) : employers.length > 0 ? (
-                          employers.map((emp) => (
+                          Array.isArray(employers) && employers.map((emp) => (
                             <MenuItem key={emp.id} value={emp.id}>
                               {emp.label || emp.nameAr || emp.name}
                             </MenuItem>
@@ -315,16 +319,21 @@ const BenefitPolicyCreate = () => {
                     </Grid>
 
                     <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="رمز الوثيقة (اختياري)"
-                        name="policyCode"
-                        value={values.policyCode}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.policyCode && Boolean(errors.policyCode)}
-                        helperText={touched.policyCode && errors.policyCode || "اتركه فارغاً للتوليد التلقائي"}
-                      />
+                      <Box sx={{
+                        p: 2,
+                        bgcolor: 'primary.lighter',
+                        border: '1px dashed',
+                        borderColor: 'primary.main',
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '100%',
+                        minHeight: 56
+                      }}>
+                        <Typography variant="body2" color="primary.main" sx={{ fontWeight: 'medium' }}>
+                          ℹ️ سيتم توليد رمز الوثيقة تلقائياً بواسطة النظام فور الحفظ.
+                        </Typography>
+                      </Box>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
@@ -475,25 +484,25 @@ const BenefitPolicyCreate = () => {
 
                 {/* === Actions === */}
                 <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end', gap: 2, px: 3, pb: 2 }}>
-                      <Button 
-                        variant="outlined" 
-                        color="inherit" 
-                        onClick={() => navigate('/benefit-policies')} 
-                        startIcon={<CancelIcon />}
-                        disabled={isSubmitting}
-                      >
-                        إلغاء
-                      </Button>
-                      <LoadingButton
-                        type="submit"
-                        variant="contained"
-                        loading={isSubmitting}
-                        loadingPosition="start"
-                        startIcon={<SaveIcon />}
-                        sx={{ minWidth: 120 }}
-                      >
-                        حفظ الوثيقة
-                      </LoadingButton>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => navigate('/benefit-policies')}
+                    startIcon={<CancelIcon />}
+                    disabled={isSubmitting}
+                  >
+                    إلغاء
+                  </Button>
+                  <LoadingButton
+                    type="submit"
+                    variant="contained"
+                    loading={isSubmitting}
+                    loadingPosition="start"
+                    startIcon={<SaveIcon />}
+                    sx={{ minWidth: 120 }}
+                  >
+                    حفظ الوثيقة
+                  </LoadingButton>
                 </Box>
               </Form>
             )}

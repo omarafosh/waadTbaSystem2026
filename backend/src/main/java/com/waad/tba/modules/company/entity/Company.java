@@ -115,6 +115,18 @@ public class Company {
     private String cardNumberFormat;
 
     /**
+     * Claim processing SLA in business days.
+     */
+    @Column(name = "claim_sla_days")
+    private Integer claimSlaDays;
+
+    /**
+     * Pre-approval processing SLA in business days.
+     */
+    @Column(name = "pre_approval_sla_days")
+    private Integer preApprovalSlaDays;
+
+    /**
      * Preferred system font family.
      */
     @Column(name = "font_family", length = 50)

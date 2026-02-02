@@ -1,6 +1,6 @@
 /**
- * Employers List Page - SPLIT VIEW IMPLEMENTATION
- * Pattern: Form (Right) + Table (Left)
+ * Employers List Page
+ * Pattern: Modern unified design matching UnifiedMembersList
  */
 
 import { useMemo, useCallback, useState, useEffect } from 'react';
@@ -28,7 +28,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Drawer
 } from '@mui/material';
 
 // MUI Icons
@@ -40,16 +45,28 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PolicyIcon from '@mui/icons-material/Policy';
-import DescriptionIcon from '@mui/icons-material/Description';
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import UndoIcon from '@mui/icons-material/Undo';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DownloadIcon from '@mui/icons-material/Download';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PeopleIcon from '@mui/icons-material/People';
 
 // Project Components
 import MainCard from 'components/MainCard';
-import UnifiedPageHeader from 'components/UnifiedPageHeader';
+import { ModernPageHeader } from 'components/tba';
 import GenericDataTable from 'components/GenericDataTable';
 import PermissionGuard from 'components/PermissionGuard';
 import useTableState from 'hooks/useTableState';
+
+// Components
+import PolicySelectionModal from './components/PolicySelectionModal';
+
+// Constants
+import { PERMISSIONS } from 'constants/permissions.constants';
 
 // Services
 import { getEmployers, createEmployer, updateEmployer, archiveEmployer, restoreEmployer } from 'services/api/employers.service';
@@ -78,9 +95,14 @@ const EmployersList = () => {
   // Local State
   const [formMode, setFormMode] = useState('create');
   const [formData, setFormData] = useState(emptyForm);
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
+
+  // Drawer State for Add/Edit Form
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Dialog State
   const [confirmDialog, setConfirmDialog] = useState({
@@ -93,21 +115,80 @@ const EmployersList = () => {
     severity: 'warning'
   });
 
-  // Persist pagination size
-  const savedPageSize = localStorage.getItem('employers_pageSize');
+  // Policy Modal State
+  const [policyModal, setPolicyModal] = useState({
+    open: false,
+    employer: null,
+    currentPolicyId: null
+  });
+
+  // Common Header Button Style matching UnifiedMembersList
+
+  // Common Header Button Style matching UnifiedMembersList
+  const headerButtonStyle = (type) => {
+    const isExcel = type === 'excel';
+    const isDelete = type === 'delete';
+    const isAdd = type === 'add';
+    const color = isExcel ? '#1b5e20' : (isDelete ? '#d32f2f' : undefined);
+
+    return {
+      minWidth: isExcel ? '135px' : '155px',
+      color: color || (isAdd ? '#fff' : 'primary.main'),
+      borderColor: color || 'primary.main',
+      '&:hover': {
+        backgroundColor: color ? `${color}10` : (isAdd ? '#144316' : undefined),
+        borderColor: color || 'primary.main',
+        color: isDelete && showArchived ? '#fff' : (color || (isAdd ? '#fff' : 'primary.main'))
+      },
+      '&.MuiButton-contained': {
+        color: '#fff'
+      },
+      '& .MuiButton-startIcon': {
+        '& .MuiSvgIcon-root': {
+          fontSize: '1.375rem' // 22px relative to root
+        }
+      },
+      fontSize: '1rem', // 12px relative to root
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      px: 1.5,
+      height: '40px'
+    };
+  };
+
+  // Pagination Settings
+  const PAGE_SIZE_OPTIONS = [8, 16, 24, 32];
+  const storageKey = 'employers_pageSize';
+
+  // Sync with UnifiedMembersList logic: Validate saved size against options
+  const initialSize = useMemo(() => {
+    const saved = localStorage.getItem(storageKey);
+    const parsed = saved ? parseInt(saved, 10) : 8;
+    return PAGE_SIZE_OPTIONS.includes(parsed) ? parsed : 8;
+  }, [storageKey]);
 
   const tableState = useTableState({
-    initialPageSize: savedPageSize ? parseInt(savedPageSize, 10) : 15,
+    initialPageSize: initialSize,
+    storageKey: storageKey,
+    allowedPageSizes: PAGE_SIZE_OPTIONS,
     defaultSort: { field: 'id', direction: 'desc' },
     initialFilters: {}
   });
 
-  // Save page size when it changes
+  // Debounce search term to avoid excessive API calls
   useEffect(() => {
-    localStorage.setItem('employers_pageSize', tableState.pageSize);
-  }, [tableState.pageSize]);
+    const timer = setTimeout(() => {
+      setSearchTerm(localSearchTerm);
+      if (localSearchTerm !== searchTerm) {
+        tableState.setPage(0); // Reset to first page on search
+      }
+    }, 500); // 500ms delay
 
-  // Debounced Search Handler
+    return () => clearTimeout(timer);
+  }, [localSearchTerm, searchTerm, tableState]);
+
+
+  // Debounced Search Handler (kept for compatibility)
   const handleSearchChange = useMemo(
     () =>
       debounce((value) => {
@@ -166,12 +247,12 @@ const EmployersList = () => {
       // Refresh Data
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       resetForm();
+      setDrawerOpen(false); // Close drawer on success
     } catch (err) {
       console.error('Employer save error:', err);
-      enqueueSnackbar(
-        err.response?.data?.message || 'فشل حفظ البيانات',
-        { variant: 'error' }
-      );
+      // Use the exact message from backend (duplicates, etc.)
+      const errorMessage = err.response?.data?.message || 'فشل حفظ البيانات';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -185,6 +266,7 @@ const EmployersList = () => {
       name: row.name || '',
       active: row.active ?? true
     });
+    setDrawerOpen(true);
   }, []);
 
   // ========================================
@@ -242,17 +324,43 @@ const EmployersList = () => {
     tableState.setPage(0);
   };
 
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+  };
+
+  const handleResetFilters = () => {
+    setLocalSearchTerm('');
+    setSearchTerm('');
+    setStatusFilter('all');
+    tableState.setPage(0);
+  };
+
+  const openPolicyModal = (employer) => {
+    setPolicyModal({
+      open: true,
+      employer: { id: employer.id, name: employer.name },
+      currentPolicyId: employer.activePolicyId
+    });
+  };
+
+  const handlePolicyLinkSuccess = () => {
+    enqueueSnackbar('تم تحديث الوثيقة النشطة بنجاح', { variant: 'success' });
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    queryClient.invalidateQueries({ queryKey: ['benefit-policies'] });
+  };
+
   // ========================================
   // DATA FETCHING
   // ========================================
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showArchived, searchTerm],
+    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showArchived, searchTerm, statusFilter],
     queryFn: async () => {
       const params = {
         page: tableState.page,
         size: tableState.pageSize,
-        deleted: showArchived
+        deleted: showArchived,
+        active: statusFilter === 'all' ? undefined : (statusFilter === 'active')
       };
 
       if (searchTerm) {
@@ -301,7 +409,7 @@ const EmployersList = () => {
       header: 'الاسم',
       enableSorting: true,
       size: 200,
-      cell: ({ getValue }) => <Typography variant="body2" fontWeight="medium">{getValue()}</Typography>
+      cell: ({ getValue }) => <Typography sx={{ fontSize: '1rem' }} fontWeight="medium">{getValue()}</Typography>
     },
     {
       accessorKey: 'active',
@@ -311,30 +419,76 @@ const EmployersList = () => {
       cell: ({ getValue }) => (
         <Chip
           label={getValue() ? 'نشط' : 'غير نشط'}
-          color={getValue() ? 'success' : 'default'}
+          color={getValue() ? 'success' : 'error'}
           size="small"
         />
       )
     },
     {
-      id: 'contracts',
-      header: 'العقود',
-      size: 80,
+      accessorKey: 'totalMembers',
+      header: 'المستفيدين',
+      enableSorting: true,
+      size: 110,
+      cell: ({ row }) => {
+        const count = row.original.totalMembers || 0;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Chip
+              label={count}
+              size="small"
+              color={count > 0 ? 'info' : 'default'}
+              variant={count > 0 ? 'filled' : 'outlined'}
+            />
+            {count > 0 && (
+              <Tooltip title="عرض المستفيدين">
+                <IconButton
+                  size="small"
+                  color="info"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/members?organizationId=${row.original.id}`);
+                  }}
+                >
+                  <PeopleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        );
+      }
+    },
+    {
+      id: 'policy',
+      header: 'الوثيقة',
+      size: 200,
       enableSorting: false,
-      cell: ({ row }) => (
-        <Tooltip title="العقود">
-          <IconButton
+      cell: ({ row }) => {
+        const policyId = row.original.activePolicyId;
+        const policyName = row.original.activePolicyName;
+        const employerId = row.original.id;
+
+        return (
+          <Button
             size="small"
-            color="primary"
+            variant={policyId ? "text" : "outlined"}
+            color={policyId ? "primary" : "info"}
+            startIcon={<PolicyIcon />}
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/employers/${row.original.id}/contracts`);
+              openPolicyModal(row.original);
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              textTransform: 'none',
+              justifyContent: 'flex-start',
+              fontWeight: policyId ? 'bold' : 'normal',
+              borderStyle: policyId ? 'none' : 'dashed'
             }}
           >
-            <PolicyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )
+            {policyName || 'ربط وثيقة تأمين'}
+          </Button>
+        );
+      }
     },
     {
       id: 'actions',
@@ -347,7 +501,7 @@ const EmployersList = () => {
         return (
           <Stack direction="row" spacing={0.5} justifyContent="center" onClick={(e) => e.stopPropagation()}>
             {showArchived ? (
-              <PermissionGuard permission="employers.delete">
+              <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS}>
                 <Tooltip title="استعادة">
                   <IconButton
                     color="success"
@@ -360,7 +514,7 @@ const EmployersList = () => {
               </PermissionGuard>
             ) : (
               <>
-                <PermissionGuard permission="employers.update">
+                <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS}>
                   <Tooltip title="تعديل">
                     <IconButton
                       color="primary"
@@ -372,7 +526,7 @@ const EmployersList = () => {
                   </Tooltip>
                 </PermissionGuard>
 
-                <PermissionGuard permission="employers.delete">
+                <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS}>
                   <Tooltip title="حذف">
                     <IconButton
                       color="error"
@@ -393,44 +547,109 @@ const EmployersList = () => {
 
   return (
     <Box>
-      <UnifiedPageHeader
+      <ModernPageHeader
         title="إدارة جهات العمل"
-        subtitle="عرض وإدارة جهات العمل في النظام"
         icon={<BusinessCenterIcon />}
+        breadcrumbs={[
+          { label: 'الرئيسية', href: '/' },
+          { label: 'جهات العمل' }
+        ]}
         actions={
-          <Button
-            variant={showArchived ? "contained" : "outlined"}
-            color={showArchived ? "warning" : "inherit"}
-            startIcon={showArchived ? <KeyboardArrowLeftIcon /> : <RestoreFromTrashIcon />}
-            onClick={toggleShowArchived}
-          >
-            {showArchived ? 'العودة للقائمة' : 'المحذوفات'}
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ '& .MuiButton-root': { transition: 'all 0.2s' } }}>
+
+            {/* View/Action Group */}
+            <Button
+              variant={showArchived ? "contained" : "outlined"}
+              startIcon={showArchived ? <VisibilityIcon /> : <DeleteIcon />}
+              onClick={toggleShowArchived}
+              sx={{
+                ...headerButtonStyle('delete'),
+                backgroundColor: showArchived ? '#d32f2f' : 'transparent',
+                color: showArchived ? '#fff' : '#d32f2f',
+                '&:hover': {
+                  backgroundColor: showArchived ? '#b71c1c' : '#d32f2f10',
+                  color: showArchived ? '#fff' : '#d32f2f',
+                }
+              }}
+            >
+              {showArchived ? 'العودة للقائمة النشطة' : 'المحذوفات'}
+            </Button>
+            <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  resetForm();
+                  setDrawerOpen(true);
+                }}
+                sx={headerButtonStyle('add')}
+              >
+                إضافة جهة عمل
+              </Button>
+            </PermissionGuard>
+          </Stack>
         }
+        sx={{ mb: 0.5 }}
       />
 
-      <Grid container spacing={3}>
-        {/* Left Side: Table */}
-        <Grid item xs={12} md={8}>
-          <MainCard>
-            <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
-              <TextField
-                placeholder="بحث..."
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  )
-                }}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                sx={{ width: 250 }}
-              />
-            </Box>
+      <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: 'hidden', height: '100%' }}>
+        {/* Filters - Top Bar */}
+        <MainCard sx={{ p: 1, flexShrink: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <TextField
+              size="small"
+              label="البحث"
+              placeholder="البحث بالاسم أو الكود..."
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+              sx={{ minWidth: 200, flexGrow: 1 }}
+              InputProps={{ sx: { height: 36, fontSize: '1rem' } }}
+              InputLabelProps={{ sx: { fontSize: '1rem' } }}
+            />
 
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel id="status-filter-label" sx={{ fontSize: '1rem' }}>حالة الجهة</InputLabel>
+              <Select
+                labelId="status-filter-label"
+                value={statusFilter}
+                label="حالة الجهة"
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  tableState.setPage(0);
+                }}
+                sx={{ height: 36, fontSize: '1rem' }}
+              >
+                <MenuItem value="all" sx={{ fontSize: '1rem' }}>الكل</MenuItem>
+                <MenuItem value="active" sx={{ fontSize: '1rem' }}>نشط فقط</MenuItem>
+                <MenuItem value="inactive" sx={{ fontSize: '1rem' }}>غير نشط</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Tooltip title="تحديث">
+              <IconButton onClick={handleRefresh} size="small" color="primary">
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="إعادة تعيين">
+              <IconButton onClick={handleResetFilters} size="small">
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </MainCard>
+
+        {/* Data Table with Flexible Height */}
+        <MainCard content={false} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+              height: '100%',
+              overflow: 'hidden'
+            }}
+          >
             {isError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity="error" sx={{ m: 2 }}>
                 {error?.response?.data?.message || 'فشل تحميل البيانات'}
               </Alert>
             )}
@@ -441,78 +660,93 @@ const EmployersList = () => {
               totalCount={totalCount}
               isLoading={isLoading}
               tableState={tableState}
-              onRowClick={(row) => handleEditClick(row)}
+              cellPadding="dense"
+              enableFiltering={false}
+              rowsPerPageOptions={[8, 16, 24, 32]}
             />
-          </MainCard>
-        </Grid>
+          </Box>
+        </MainCard>
+      </Stack>
 
-        {/* Right Side: Form */}
-        <Grid item xs={12} md={4}>
-          <MainCard title={formMode === 'create' ? 'إضافة جهة عمل' : 'تعديل جهة عمل'}>
-            <PermissionGuard permission={formMode === 'create' ? "employers.create" : "employers.update"}>
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={3}>
-                  <TextField
-                    name="code"
-                    label="الكود"
-                    value={formData.code}
-                    onChange={handleInputChange}
-                    size="small"
-                    fullWidth
-                  />
+      {/* Drawer for Add/Edit Form */}
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          resetForm();
+        }}
+        PaperProps={{ sx: { width: 400, p: 3 } }}
+      >
+        <Stack spacing={3}>
+          <Typography variant="h5" fontWeight="bold">
+            {formMode === 'create' ? 'إضافة جهة عمل' : 'تعديل جهة عمل'}
+          </Typography>
 
-                  <TextField
-                    name="name"
-                    label="الاسم"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    size="small"
-                    fullWidth
-                  />
+          <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS}>
+            <form onSubmit={handleSubmit}>
+              <Stack spacing={3}>
+                <TextField
+                  name="code"
+                  label="الكود"
+                  value={formData.code}
+                  onChange={handleInputChange}
+                  size="small"
+                  fullWidth
+                />
 
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        name="active"
-                        checked={formData.active}
-                        onChange={handleInputChange}
-                        color="primary"
-                      />
-                    }
-                    label="نشط"
-                  />
+                <TextField
+                  name="name"
+                  label="الاسم"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  size="small"
+                  fullWidth
+                />
 
-                  <Stack direction="row" spacing={2} justifyContent="flex-end">
-                    {formMode === 'edit' && (
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        startIcon={<CancelIcon />}
-                        onClick={resetForm}
-                      >
-                        إلغاء
-                      </Button>
-                    )}
-                    <Button
-                      type="submit"
-                      variant="contained"
+                <FormControlLabel
+                  control={
+                    <Switch
+                      name="active"
+                      checked={formData.active}
+                      onChange={handleInputChange}
                       color="primary"
-                      startIcon={formMode === 'create' ? <AutoFixHighIcon /> : <SaveIcon />}
-                      disabled={isSubmitting}
-                    >
-                      {formMode === 'create' ? 'إضافة' : 'حفظ'}
-                    </Button>
-                  </Stack>
+                    />
+                  }
+                  label="نشط"
+                />
+
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<CancelIcon />}
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    إلغاء
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    startIcon={formMode === 'create' ? <AutoFixHighIcon /> : <SaveIcon />}
+                    disabled={isSubmitting}
+                  >
+                    {formMode === 'create' ? 'إضافة' : 'حفظ'}
+                  </Button>
                 </Stack>
-              </form>
-            </PermissionGuard>
-            <PermissionGuard permission={formMode === 'create' ? "employers.create" : "employers.update"} inverse>
-              <Alert severity="info">ليس لديك صلاحية {formMode === 'create' ? 'إضافة' : 'تعديل'} جهات العمل</Alert>
-            </PermissionGuard>
-          </MainCard>
-        </Grid>
-      </Grid>
+              </Stack>
+            </form>
+          </PermissionGuard>
+          <PermissionGuard permission={PERMISSIONS.MANAGE_EMPLOYERS} inverse>
+            <Alert severity="info">ليس لديك صلاحية {formMode === 'create' ? 'إضافة' : 'تعديل'} جهات العمل</Alert>
+          </PermissionGuard>
+        </Stack>
+      </Drawer>
 
       {/* Confirmation Dialog */}
       <Dialog
@@ -538,6 +772,15 @@ const EmployersList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Policy Selection Modal */}
+      <PolicySelectionModal
+        open={policyModal.open}
+        onClose={() => setPolicyModal(prev => ({ ...prev, open: false }))}
+        employer={policyModal.employer}
+        currentPolicyId={policyModal.currentPolicyId}
+        onSuccess={handlePolicyLinkSuccess}
+      />
     </Box>
   );
 };

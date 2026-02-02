@@ -48,7 +48,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
     <Icon
       style={{
         fontSize: drawerOpen ? '1rem' : '1.25rem',
-        ...(state.menuOrientation === MenuOrientation.HORIZONTAL && isParents && { fontSize: 20, stroke: '1.5' })
+        ...(state.menuOrientation === MenuOrientation.HORIZONTAL && isParents && { fontSize: '1.25rem', stroke: '1.5' })
       }}
     />
   ) : (
@@ -179,7 +179,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                     '&:hover': { borderColor: isSelected ? 'primary.main' : 'secondary.main' }
                   }}
                 >
-                  <ActionIcon style={{ fontSize: '0.625rem' }} />
+                  <ActionIcon style={{ fontSize: '1rem' }} />
                 </IconButton>
               );
             })}

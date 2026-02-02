@@ -27,12 +27,12 @@ import { ALL_PREAUTH_STATUSES, PREAUTH_STATUS_LABELS, DEFAULT_FILTERS } from 'ho
  *
  * Client-side filter controls for Pre-Approvals Operational Report
  */
-const PreApprovalsFilters = ({ 
-  filters, 
-  onFilterChange, 
-  employers = [], 
-  canSelectEmployer = false, 
-  selectedEmployerId, 
+const PreApprovalsFilters = ({
+  filters,
+  onFilterChange,
+  employers = [],
+  canSelectEmployer = false,
+  selectedEmployerId,
   onEmployerChange,
   providers = [],
   selectedProviderId,
@@ -99,7 +99,7 @@ const PreApprovalsFilters = ({
                 <MenuItem value="">
                   <em>جميع الشركاء</em>
                 </MenuItem>
-                {employers.map((employer) => (
+                {Array.isArray(employers) && employers.map((employer) => (
                   <MenuItem key={employer.id} value={employer.id}>
                     {employer.name}
                   </MenuItem>

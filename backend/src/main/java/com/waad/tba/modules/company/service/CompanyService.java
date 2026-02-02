@@ -1,6 +1,7 @@
 package com.waad.tba.modules.company.service;
 
 import com.waad.tba.common.exception.ResourceNotFoundException;
+import com.waad.tba.common.service.SystemSettingsService;
 import com.waad.tba.modules.company.dto.CompanyDto;
 import com.waad.tba.modules.company.entity.Company;
 import com.waad.tba.modules.company.mapper.CompanyMapper;
@@ -33,6 +34,7 @@ public class CompanyService {
 
     private final CompanyRepository companyRepository;
     private final CompanyMapper companyMapper;
+    private final SystemSettingsService systemSettingsService;
 
     /**
      * Create a new company
@@ -241,8 +243,47 @@ public class CompanyService {
         companyMapper.updateEntityFromDto(companyDto, company);
         Company updated = companyRepository.save(company);
         
+        // Sync with SystemSettings table
+        log.info("Synchronizing company updates with system_settings table");
+        try {
+            String updatedBy = "SYSTEM_ADMIN"; // Could be current user if available
+            
+            if (companyDto.getName() != null) 
+                syncSystemSetting("SYSTEM_NAME", companyDto.getName(), updatedBy);
+            
+            if (companyDto.getLogoUrl() != null) 
+                syncSystemSetting("SYSTEM_LOGO_URL", companyDto.getLogoUrl(), updatedBy);
+            
+            if (companyDto.getCurrency() != null) 
+                syncSystemSetting("SYSTEM_CURRENCY", companyDto.getCurrency(), updatedBy);
+            
+            if (companyDto.getCardNumberFormat() != null) 
+                syncSystemSetting("CARD_NUMBER_FORMAT", companyDto.getCardNumberFormat(), updatedBy);
+            
+            if (companyDto.getClaimSlaDays() != null) 
+                syncSystemSetting("CLAIM_SLA_DAYS", String.valueOf(companyDto.getClaimSlaDays()), updatedBy);
+            
+            if (companyDto.getPreApprovalSlaDays() != null) 
+                syncSystemSetting("PRE_APPROVAL_SLA_DAYS", String.valueOf(companyDto.getPreApprovalSlaDays()), updatedBy);
+                
+        } catch (Exception e) {
+            log.error("Failed to sync company updates with system_settings table: {}", e.getMessage());
+        }
+        
         log.info("Default company updated: {}", updated.getId());
         return companyMapper.toDto(updated);
+    }
+
+    /**
+     * Helper to sync a single system setting safely
+     */
+    private void syncSystemSetting(String key, String value, String updatedBy) {
+        try {
+            systemSettingsService.updateSetting(key, value, updatedBy);
+            log.debug("Synced system setting: {} = {}", key, value);
+        } catch (IllegalArgumentException e) {
+            log.warn("System setting key not found, skipping sync: {}", key);
+        }
     }
 
     /**

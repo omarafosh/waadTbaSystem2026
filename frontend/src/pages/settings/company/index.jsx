@@ -1,36 +1,18 @@
 /**
  * ============================================================================
- * Company Settings Page - System Branding & Identity
+ * Professional Settings Page - Enterprise System Configuration
  * ============================================================================
  *
- * Page for managing TBA company information, branding, and identity.
- *
- * Features:
- * - Edit company name, code, and status
- * - Branding: logo, business type
- * - Contact info: phone, email, address, website
- * - Tax/registration details
- * - Form validation
- * - Auto-save with success/error notifications
- * - RTL support
- *
- * Architecture:
- * - Single company context (no multi-tenant)
- * - Uses useSystemCompany() hook (no hardcoded codes)
- * - All branding fields optional (if empty, not displayed)
- *
- * Permissions Required:
- * - SUPER_ADMIN or MANAGE_COMPANIES
- *
- * @created 2026-01-02
- * @updated 2026-01-02 - Added branding fields
+ * Optimized no-scroll layout with visual harmony
+ * 
+ * @created 2026-02-01
+ * @updated 2026-02-01 - Layout refinement
  */
 
 import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
-  CardContent,
   TextField,
   Button,
   Grid,
@@ -44,49 +26,49 @@ import {
   FormControl,
   RadioGroup,
   FormControlLabel,
-  Radio
+  Radio,
+  Slider,
+  Chip,
+  Paper,
+  alpha
 } from '@mui/material';
 import {
   Save as SaveIcon,
   CloudUpload as CloudUploadIcon,
   Business as BusinessIcon,
-  ContactSupport as ContactIcon,
-  Palette as PaletteIcon,
-  SettingsApplications as AdvancedIcon
+  Speed as SpeedIcon,
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import RBACGuard from 'components/tba/RBACGuard';
-import { useSystemCompany, useUpdateCompany } from 'hooks/useCompany';
+import { useSystemCompany, useUpdateSystemCompany } from 'hooks/useCompany';
 import { useCompanySettings } from 'contexts/CompanySettingsContext';
 import useConfig from 'hooks/useConfig';
-
-// Default static logo fallback
 import waadLogoFallback from 'assets/images/waad-logo.png';
 
-/**
- * TabPanel Component - Controls visibility of tab content
- */
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`settings-tabpanel-${index}`}
-      aria-labelledby={`settings-tab-${index}`}
-      {...other}
-      style={{ height: '100%', overflow: 'auto' }}
-    >
-      {value === index && (
-        <Box sx={{ p: 2 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-};
+const TabPanel = ({ children, value, index }) => (
+  <Box
+    role="tabpanel"
+    hidden={value !== index}
+    sx={{ height: '100%', display: value === index ? 'flex' : 'none', flexDirection: 'column' }}
+  >
+    {children}
+  </Box>
+);
 
-const CompanySettingsPage = () => {
+const FieldGroup = ({ title, children, icon: Icon, color = 'primary.main' }) => (
+  <Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      {Icon && <Icon sx={{ fontSize: 20, color }} />}
+      <Typography variant="subtitle2" fontWeight={600} color={color}>
+        {title}
+      </Typography>
+    </Box>
+    {children}
+  </Box>
+);
+
+const ProfessionalSettingsPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const { refreshSettings } = useCompanySettings();
   const { setField } = useConfig();
@@ -103,14 +85,17 @@ const CompanySettingsPage = () => {
     taxNumber: '',
     currency: 'SAR',
     cardNumberFormat: '[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]',
+    claimSlaDays: 10,
+    preApprovalSlaDays: 3,
     fontSize: 12,
-    barcodePrefix: 'WAAD'
+    fontFamily: 'Tajawal',
+    barcodePrefix: 'WAAD',
+    logoUrl: ''
   });
 
   const [errors, setErrors] = useState({});
-
   const { data: company, isLoading, error } = useSystemCompany();
-  const updateCompanyMutation = useUpdateCompany();
+  const updateCompanyMutation = useUpdateSystemCompany();
 
   useEffect(() => {
     if (company?.data) {
@@ -127,6 +112,8 @@ const CompanySettingsPage = () => {
         taxNumber: companyData.taxNumber || '',
         currency: companyData.currency || 'SAR',
         cardNumberFormat: companyData.cardNumberFormat || '[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]',
+        claimSlaDays: companyData.claimSlaDays || 10,
+        preApprovalSlaDays: companyData.preApprovalSlaDays || 3,
         logoUrl: companyData.logoUrl || '',
         fontFamily: companyData.fontFamily || 'Tajawal',
         fontSize: companyData.fontSize || 12,
@@ -137,19 +124,12 @@ const CompanySettingsPage = () => {
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: null }));
-    }
-  };
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name?.trim()) newErrors.name = 'اسم الشركة مطلوب';
-    if (!formData.code?.trim()) newErrors.code = 'كود الشركة مطلوب';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -157,12 +137,10 @@ const CompanySettingsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     const { id, ...updateData } = formData;
-    updateCompanyMutation.mutate({ id, data: updateData }, {
+    updateCompanyMutation.mutate(updateData, {
       onSuccess: () => {
         refreshSettings();
-        // Update local config to reflect changes immediately for the admin
         if (formData.fontFamily) setField('fontFamily', formData.fontFamily);
         if (formData.fontSize) setField('fontSize', formData.fontSize);
       }
@@ -182,193 +160,269 @@ const CompanySettingsPage = () => {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', px: 0 }}>
       <ModernPageHeader
-        title="إعدادات الشركة"
-        subtitle="إدارة الهوية والمعلومات الأساسية للنظام"
+        title="إعدادات النظام"
+        subtitle="التحكم الشامل في هوية وسلوك المنظومة"
         icon={<img src={formData.logoUrl || waadLogoFallback} alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} onError={(e) => e.target.src = waadLogoFallback} />}
       />
 
-      <Card sx={{ mt: 2, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', mb: 1 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 48 }}>
-            <Tab icon={<BusinessIcon fontSize="small" />} label="بيانات المؤسسة والتواصل" iconPosition="start" sx={{ minHeight: 48, fontSize: '12px' }} />
-            <Tab icon={<PaletteIcon fontSize="small" />} label="الهوية والنمط" iconPosition="start" sx={{ minHeight: 48, fontSize: '12px' }} />
-            <Tab icon={<AdvancedIcon fontSize="small" />} label="إعدادات متقدمة" iconPosition="start" sx={{ minHeight: 48, fontSize: '12px' }} />
-          </Tabs>
-        </Box>
+      <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 0 }}>
+        <Tabs
+          value={tabValue}
+          onChange={(e, val) => setTabValue(val)}
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            minHeight: 52,
+            '& .MuiTab-root': {
+              minHeight: 52,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              textTransform: 'none'
+            }
+          }}
+        >
+          <Tab icon={<BusinessIcon fontSize="small" />} iconPosition="start" label="معلومات المؤسسة" />
+          <Tab icon={<SpeedIcon fontSize="small" />} iconPosition="start" label="المحرك التشغيلي" />
+          <Tab icon={<SecurityIcon fontSize="small" />} iconPosition="start" label="الحماية" disabled />
+        </Tabs>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto' }}>
-            {/* General & Contact Combined Tab */}
+        <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', py: 2.5, pl: 2.5 }}>
+
+            {/* Tab 1: معلومات المؤسسة */}
             <TabPanel value={tabValue} index={0}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth size="small" label="اسم الشركة" value={formData.name} onChange={handleChange('name')} error={!!errors.name} helperText={errors.name} required />
-                </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField fullWidth size="small" label="كود الشركة" value={formData.code} onChange={handleChange('code')} error={!!errors.code} helperText={errors.code} required />
-                </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField fullWidth size="small" label="نوع النشاط" value={formData.businessType} onChange={handleChange('businessType')} />
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth size="small" label="الهاتف" value={formData.phone} onChange={handleChange('phone')} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth size="small" label="البريد الإلكتروني" value={formData.email} onChange={handleChange('email')} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth size="small" label="الموقع الإلكتروني" value={formData.website} onChange={handleChange('website')} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
-                  <TextField fullWidth size="small" label="العنوان" value={formData.address} onChange={handleChange('address')} />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth size="small" label="الرقم الضريبي" value={formData.taxNumber} onChange={handleChange('taxNumber')} />
-                </Grid>
-              </Grid>
-            </TabPanel>
-
-            {/* Branding & Scaling Tab */}
-            <TabPanel value={tabValue} index={1}>
-              <Grid container spacing={4}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="h5" gutterBottom color="primary">خط النظام المفضل</Typography>
-                  <FormControl component="fieldset">
-                    <RadioGroup row value={formData.fontFamily} onChange={handleChange('fontFamily')}>
-                      <FormControlLabel value="Tajawal" control={<Radio size="small" />} label={<span style={{ fontFamily: 'Tajawal' }}>خط تجوال (Tajawal)</span>} />
-                      <FormControlLabel value="Cairo" control={<Radio size="small" />} label={<span style={{ fontFamily: 'Cairo' }}>خط كايرو (Cairo)</span>} />
-                    </RadioGroup>
-                  </FormControl>
-
-                  <Typography variant="h5" gutterBottom color="primary" sx={{ mt: 3 }}>حجم خط المنظومة (Scaling)</Typography>
-                  <FormControl component="fieldset">
-                    <RadioGroup row value={formData.fontSize} onChange={(e) => setFormData(p => ({ ...p, fontSize: parseInt(e.target.value) }))}>
-                      <FormControlLabel value={12} control={<Radio size="small" />} label={<span>صغير (12px)</span>} />
-                      <FormControlLabel value={14} control={<Radio size="small" />} label={<span>متوسط (14px)</span>} />
-                      <FormControlLabel value={16} control={<Radio size="small" />} label={<span>كبير (16px)</span>} />
-                      <FormControlLabel value={18} control={<Radio size="small" />} label={<span>ضخم (18px)</span>} />
-                    </RadioGroup>
-                  </FormControl>
-                  <Alert severity="info" sx={{ mt: 2 }}>سيتم ضبط العناوين لتكون أكبر بدرجتين (+2px) من الحجم المختار تلقائياً.</Alert>
+              <Grid container spacing={2.5} sx={{ height: '100%' }}>
+                <Grid item xs={12} md={7}>
+                  <Paper variant="outlined" sx={{ p: 2.5, height: '100%', borderRadius: 2 }}>
+                    <FieldGroup title="المعلومات الأساسية" icon={BusinessIcon}>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField fullWidth size="small" label="اسم المؤسسة" value={formData.name} onChange={handleChange('name')} error={!!errors.name} helperText={errors.name} required />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField fullWidth size="small" label="نوع النشاط" value={formData.businessType} onChange={handleChange('businessType')} />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField fullWidth size="small" label="الهاتف" value={formData.phone} onChange={handleChange('phone')} />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField fullWidth size="small" label="البريد" value={formData.email} onChange={handleChange('email')} />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField fullWidth size="small" label="الموقع" value={formData.website} onChange={handleChange('website')} />
+                        </Grid>
+                        <Grid item xs={12} sm={8}>
+                          <TextField fullWidth size="small" label="العنوان" value={formData.address} onChange={handleChange('address')} />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField fullWidth size="small" label="الرقم الضريبي" value={formData.taxNumber} onChange={handleChange('taxNumber')} />
+                        </Grid>
+                      </Grid>
+                    </FieldGroup>
+                  </Paper>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="h5" gutterBottom color="primary">شعار المؤسسة</Typography>
-                  <Box display="flex" alignItems="center" gap={3}>
-                    <Box sx={{ width: 80, height: 80, borderRadius: '12px', border: '1px solid', borderColor: 'divider', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
-                      <img src={formData.logoUrl || waadLogoFallback} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%' }} onError={(e) => e.target.src = waadLogoFallback} />
-                    </Box>
-                    <Stack spacing={1} flex={1}>
-                      <TextField fullWidth size="small" label="رابط الشعار" value={formData.logoUrl} onChange={handleChange('logoUrl')} />
-                      <Button variant="outlined" component="label" size="small" startIcon={<CloudUploadIcon />}>
-                        رفع من الجهاز
-                        <input type="file" hidden accept="image/*" onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setFormData(p => ({ ...p, logoUrl: reader.result }));
-                            reader.readAsDataURL(e.target.files[0]);
-                          }
-                        }} />
-                      </Button>
-                    </Stack>
-                  </Box>
-                </Grid>
-              </Grid>
-            </TabPanel>
-
-            {/* Advanced Numbering Tab */}
-            <TabPanel value={tabValue} index={2}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="h5" gutterBottom color="primary" sx={{ mb: 0.5 }}>العملة والمالية</Typography>
-                  <Box sx={{ maxWidth: 300 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="عملة النظام"
-                      value={formData.currency}
-                      onChange={handleChange('currency')}
-                      helperText="مثال: SAR, USD, JOD"
-                    />
-                  </Box>
-                </Grid>
-
-
-                <Grid size={{ xs: 12 }}>
-                  <Divider sx={{ my: 0.5 }} />
-                  <Typography variant="h5" gutterBottom color="primary" sx={{ mt: 0.5, mb: 0.5 }}>إعدادات الترقيم المتقدم</Typography>
-                  {/* Admin Only Barcode Prefix */},
-                  <Grid container spacing={2} alignItems="flex-start">
-                    {/* Card Number Format (Right in RTL) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Alert severity="info" sx={{ mb: 1 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>الرموز المتاحة:</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <code>[PRO]</code>: <span>رمز المزود (أول 3 حروف)</span>
+                <Grid item xs={12} md={5}>
+                  <Grid container spacing={2.5}>
+                    <Grid item xs={12} sm={6} md={12}>
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                        <FieldGroup title="الشعار">
+                          <Box display="flex" flexDirection="column" gap={1.5}>
+                            <Box sx={{
+                              width: '100%',
+                              height: 100,
+                              borderRadius: 2,
+                              border: '2px dashed',
+                              borderColor: 'divider',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: alpha('#000', 0.02)
+                            }}>
+                              <img src={formData.logoUrl || waadLogoFallback} alt="Logo" style={{ maxWidth: '90%', maxHeight: '90%' }} onError={(e) => e.target.src = waadLogoFallback} />
+                            </Box>
+                            <TextField fullWidth size="small" label="رابط الشعار" value={formData.logoUrl} onChange={handleChange('logoUrl')} />
+                            <Button variant="outlined" component="label" size="small" startIcon={<CloudUploadIcon />} fullWidth>
+                              رفع من الجهاز
+                              <input type="file" hidden accept="image/*" onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => setFormData(p => ({ ...p, logoUrl: reader.result }));
+                                  reader.readAsDataURL(e.target.files[0]);
+                                }
+                              }} />
+                            </Button>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <code>[YEAR]</code>: <span>السنة الحالية</span>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <code>[EMP_NO]</code>: <span>الرقم الوظيفي</span>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <code>[REL_SUFFIX]</code>: <span>لاحقة القرابة (W=زوجة, S=ابن, D=ابنة, F=أب, M=أم, H=زوج)</span>
-                          </Box>
-                        </Box>
-                      </Alert>
-                      <Alert severity="warning" sx={{ mb: 1 }}>
-                        تغيير هذا التنسيق سيؤثر على جميع أرقام البطاقات التي سيتم إصدارها مستقبلاً.
-                      </Alert>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="تنسيق رقم البطاقة"
-                        value={formData.cardNumberFormat}
-                        onChange={handleChange('cardNumberFormat')}
-                        placeholder="[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]"
-                      />
+                        </FieldGroup>
+                      </Paper>
                     </Grid>
 
-                    {/* Admin Only Barcode Prefix (Left in RTL) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <RBACGuard requiredRoles={['SUPER_ADMIN']}>
-                        <Box sx={{ p: 2, bgcolor: 'error.lighter', borderRadius: 1, border: '1px dashed', borderColor: 'error.main' }}>
-                          <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: 'bold', mb: 1 }}>
-                            ⚠️ منطقة إدارة النظام (System Manager Only)
-                          </Typography>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="بادئة الباركود المعتمدة (System Prefix)"
-                            value={formData.barcodePrefix}
-                            onChange={handleChange('barcodePrefix')}
-                            helperText="يظهر في بداية الباركود (مثل: WAAD-XXXX)."
-                          />
-                        </Box>
-                      </RBACGuard>
+                    <Grid item xs={12} sm={6} md={12}>
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                        <FieldGroup title="الخط والحجم">
+                          <FormControl fullWidth size="small">
+                            <RadioGroup row value={formData.fontFamily} onChange={handleChange('fontFamily')}>
+                              <FormControlLabel value="Tajawal" control={<Radio size="small" />} label={<span style={{ fontFamily: 'Tajawal', fontSize: '0.875rem' }}>تجوال</span>} />
+                              <FormControlLabel value="Cairo" control={<Radio size="small" />} label={<span style={{ fontFamily: 'Cairo', fontSize: '0.875rem' }}>كايرو</span>} />
+                            </RadioGroup>
+                          </FormControl>
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="caption" color="text.secondary" gutterBottom display="block">حجم الخط</Typography>
+                            <Slider
+                              value={formData.fontSize}
+                              onChange={(e, val) => setFormData(p => ({ ...p, fontSize: val }))}
+                              min={12}
+                              max={18}
+                              step={1}
+                              marks={[
+                                { value: 12, label: '12' },
+                                { value: 14, label: '14' },
+                                { value: 16, label: '16' },
+                                { value: 18, label: '18' }
+                              ]}
+                              valueLabelDisplay="auto"
+                              size="small"
+                            />
+                          </Box>
+                        </FieldGroup>
+                      </Paper>
                     </Grid>
                   </Grid>
                 </Grid>
               </Grid>
             </TabPanel>
+
+            {/* Tab 2: المحرك التشغيلي */}
+            <TabPanel value={tabValue} index={1}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Box sx={{ maxWidth: 900, width: '100%' }}>
+                  <Grid container spacing={2.5}>
+                    <Grid item xs={12} lg={7}>
+                      <Stack spacing={2.5}>
+                        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                          <FieldGroup title="الإعدادات المالية والزمنية" icon={SpeedIcon}>
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} sm={4}>
+                                <TextField fullWidth size="small" label="العملة" value={formData.currency} onChange={handleChange('currency')} helperText="SAR, USD" />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <Paper sx={{ p: 1.5, bgcolor: alpha('#1890ff', 0.08), border: '1px solid', borderColor: alpha('#1890ff', 0.2), borderRadius: 1 }}>
+                                  <Typography variant="caption" color="primary" fontWeight={600} display="block" gutterBottom>SLA المطالبات</Typography>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="number"
+                                    value={formData.claimSlaDays}
+                                    onChange={(e) => setFormData(p => ({ ...p, claimSlaDays: parseInt(e.target.value) || 10 }))}
+                                    InputProps={{ endAdornment: <Typography variant="caption">يوم</Typography> }}
+                                  />
+                                </Paper>
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <Paper sx={{ p: 1.5, bgcolor: alpha('#52c41a', 0.08), border: '1px solid', borderColor: alpha('#52c41a', 0.2), borderRadius: 1 }}>
+                                  <Typography variant="caption" color="success.dark" fontWeight={600} display="block" gutterBottom>SLA الموافقات</Typography>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="number"
+                                    value={formData.preApprovalSlaDays}
+                                    onChange={(e) => setFormData(p => ({ ...p, preApprovalSlaDays: parseInt(e.target.value) || 3 }))}
+                                    InputProps={{ endAdornment: <Typography variant="caption">يوم</Typography> }}
+                                  />
+                                </Paper>
+                              </Grid>
+                            </Grid>
+                          </FieldGroup>
+                        </Paper>
+
+                        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                          <FieldGroup title="صيغة الترقيم الذكي">
+                            <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                              <Typography variant="caption" fontWeight={600}>الرموز:</Typography>
+                              <Typography variant="caption" sx={{ ml: 1 }}><code>[PRO]</code> المزود | <code>[YEAR]</code> السنة | <code>[EMP_NO]</code> الرقم | <code>[REL_SUFFIX]</code> القرابة</Typography>
+                            </Alert>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="تنسيق رقم البطاقة"
+                              value={formData.cardNumberFormat}
+                              onChange={handleChange('cardNumberFormat')}
+                              placeholder="[PRO]-[YEAR]-[EMP_NO][REL_SUFFIX]"
+                            />
+                          </FieldGroup>
+                        </Paper>
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} lg={5}>
+                      <RBACGuard requiredRoles={['SUPER_ADMIN']}>
+                        <Paper sx={{ p: 2.5, bgcolor: alpha('#ff4d4f', 0.05), border: '2px solid', borderColor: 'error.main', borderRadius: 2, height: '100%' }}>
+                          <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <Chip label="Admin Only" size="small" color="error" />
+                            <Typography variant="subtitle2" fontWeight={700} color="error.main">منطقة النظام</Typography>
+                          </Box>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="بادئة الباركود"
+                            value={formData.barcodePrefix}
+                            onChange={handleChange('barcodePrefix')}
+                            helperText="مثل: WAAD-XXXX"
+                            sx={{ mb: 2 }}
+                          />
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>معلومات النظام</Typography>
+                          <Stack spacing={1}>
+                            <Box display="flex" justifyContent="space-between">
+                              <Typography variant="caption">البادئة:</Typography>
+                              <Chip label={formData.barcodePrefix} size="small" color="primary" />
+                            </Box>
+                          </Stack>
+                        </Paper>
+                      </RBACGuard>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Box>
+            </TabPanel>
+
+            {/* Tab 3: Security */}
+            <TabPanel value={tabValue} index={2}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Alert severity="info">
+                  <Typography variant="h6">قريباً</Typography>
+                  <Typography variant="body2">إعدادات الحماية والوصول قيد التطوير</Typography>
+                </Alert>
+              </Box>
+            </TabPanel>
           </Box>
 
           <Divider />
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', bgcolor: 'background.paper' }}>
+          <Box sx={{
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            borderTop: 1,
+            borderColor: 'divider'
+          }}>
+            <Box>
+              {updateCompanyMutation.isSuccess && (
+                <Typography variant="caption" color="success.main" fontWeight={600}>✓ تم الحفظ بنجاح</Typography>
+              )}
+            </Box>
             <Button
               type="submit"
               variant="contained"
               color="primary"
               size="medium"
-              startIcon={updateCompanyMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
+              startIcon={updateCompanyMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
               disabled={updateCompanyMutation.isPending}
               onClick={handleSubmit}
-              sx={{ minWidth: 150, borderRadius: 1.5, height: 40 }}
+              sx={{ minWidth: 160, height: 40, borderRadius: 1.5, fontWeight: 600 }}
             >
               {updateCompanyMutation.isPending ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
             </Button>
@@ -379,4 +433,4 @@ const CompanySettingsPage = () => {
   );
 };
 
-export default CompanySettingsPage;
+export default ProfessionalSettingsPage;

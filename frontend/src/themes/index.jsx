@@ -30,6 +30,22 @@ export default function ThemeCustomization({ children }) {
   // Use company primary color if available
   const primaryColor = settings?.primaryColor;
 
+  // Apply Font and Scaling to document root for global rem consistency
+  useMemo(() => {
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      // Set Font Family
+      const fontValue = fontFamily === 'Cairo'
+        ? `'Cairo', 'Segoe UI Arabic', sans-serif`
+        : `'Tajawal', 'Segoe UI Arabic', sans-serif`;
+      root.style.setProperty('--app-font-family', fontValue);
+      root.style.fontFamily = fontValue;
+
+      // Set Global Font Size (1rem will equal this size)
+      root.style.fontSize = `${fontSize}px`;
+    }
+  }, [fontFamily, fontSize]);
+
   const themeTypography = useMemo(() => Typography(fontFamily, fontSize), [fontFamily, fontSize]);
 
   const palette = useMemo(() => buildPalette(state.presetColor, primaryColor), [state.presetColor, primaryColor]);

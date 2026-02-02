@@ -1,20 +1,20 @@
 // ==============================|| OVERRIDES - INPUT BASE ||============================== //
 
-export default function InputBase() {
+export default function InputBase(theme) {
   return {
     MuiInputBase: {
       styleOverrides: {
         root: {
-          fontSize: '0.9375rem', // 15px - default input font size
+          fontSize: theme.typography.body1.fontSize,
           lineHeight: 1.6
         },
         sizeSmall: {
-          fontSize: '0.875rem' // 14px - increased from 12px
+          fontSize: theme.typography.body2.fontSize
         },
         input: {
           '&::placeholder': {
             opacity: 0.7,
-            fontSize: '0.9375rem'
+            fontSize: theme.typography.body1.fontSize
           }
         }
       }

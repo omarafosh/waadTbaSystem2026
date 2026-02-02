@@ -71,4 +71,18 @@ public class EmployerResponseDto {
      * Last update timestamp (audit field)
      */
     private LocalDateTime updatedAt;
+
+    // ========================================
+    // STATISTICS FIELDS
+    // ========================================
+
+    /**
+     * Total number of members (beneficiaries) linked to this employer
+     */
+    private Long totalMembers;
+
+    /**
+     * Number of active benefit policies for this employer
+     */
+    private Integer activePoliciesCount;
 }

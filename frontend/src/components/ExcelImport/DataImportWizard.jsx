@@ -34,7 +34,13 @@ import employersService from 'services/api/employers.service';
 // Steps
 const steps = ['رفع الملف', 'التحليل والمطابقة', 'التنفيذ'];
 
-const DataImportWizard = ({ open, onClose }) => {
+const DataImportWizard = ({
+    open,
+    onClose,
+    baseApiUrl = '/api/unified-members/import',
+    entityName = 'المستفيدين',
+    hideContextSelectors = false
+}) => {
     const [activeStep, setActiveStep] = useState(0);
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -103,14 +109,14 @@ const DataImportWizard = ({ open, onClose }) => {
         formData.append('file', file);
 
         try {
-            // Using MemberExcelTemplateController endpoint
-            const response = await axios.post('/api/unified-members/import/preview', formData, {
+            // Using parameterized baseApiUrl
+            const response = await axios.post(`${baseApiUrl}/preview`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             // NEW: Extract data from ApiResponse wrapper correctly
             const data = response.data?.data || response.data?.result || response.data;
             setPreviewData(data);
-            console.log("📊 Import Preview Data (Unwrapped):", data);
+            console.log(`📊 Import ${entityName} Preview Data (Unwrapped):`, data);
             setActiveStep(1);
         } catch (err) {
             console.error(err);
@@ -154,14 +160,19 @@ const DataImportWizard = ({ open, onClose }) => {
         formData.append('importPolicy', 'UPDATE');
 
         try {
-            const response = await axios.post('/api/unified-members/import/execute', formData, {
+            const response = await axios.post(`${baseApiUrl}/execute`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            const result = response.data?.result || response.data;
+            const result = response.data?.data || response.data?.result || response.data;
 
-            // Start Background Monitoring
-            startImport(result.batchId || previewData.batchId, file.name);
-            onClose(); // Close Wizard immediately
+            if (result.batchId) {
+                // Start Background Monitoring for long-running imports
+                startImport(result.batchId, file.name);
+            } else {
+                // For simple imports (like employers), just show success and close
+                enqueueSnackbar(result.message || 'تم الاستيراد بنجاح', { variant: 'success' });
+            }
+            onClose(); // Close Wizard
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || err.message || "فشل بدء الاستيراد");
@@ -171,11 +182,11 @@ const DataImportWizard = ({ open, onClose }) => {
 
     const downloadTemplate = async () => {
         try {
-            const response = await axios.get('/api/unified-members/import/template', { responseType: 'blob' });
+            const response = await axios.get(`${baseApiUrl}/template`, { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', 'Members_Import_Template.xlsx');
+            link.setAttribute('download', `${entityName}_Template.xlsx`);
             document.body.appendChild(link);
             link.click();
         } catch (err) {
@@ -248,7 +259,11 @@ const DataImportWizard = ({ open, onClose }) => {
                                     <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                                         تحليل السياق (Smart Context)
                                     </Typography>
-                                    {hasEmployerCol ? (
+                                    {hideContextSelectors ? (
+                                        <Alert severity="success" icon={<CheckCircle fontSize="inherit" />}>
+                                            جاهز لاستيراد <b>{entityName}</b> بناءً على بيانات الملف.
+                                        </Alert>
+                                    ) : hasEmployerCol ? (
                                         <Alert severity="info" icon={<CheckCircle fontSize="inherit" />}>
                                             تم اكتشاف عمود <b>جهة العمل</b>. سيتم تحديد جهة العمل لكل صف تلقائياً من الملف (Multi-tenant).
                                         </Alert>
@@ -259,41 +274,43 @@ const DataImportWizard = ({ open, onClose }) => {
                                     )}
                                 </Paper>
                             </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                                        إعدادات الاستيراد
-                                    </Typography>
-                                    <Autocomplete
-                                        options={allEmployers}
-                                        getOptionLabel={(option) => option.nameAr || option.code || ""}
-                                        value={selectedEmployer}
-                                        onChange={(_, newValue) => setSelectedEmployer(newValue)}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="جهة العمل الموحدة (اختياري)"
-                                                size="small"
-                                                fullWidth
-                                                helperText="اختر جهة فقط إذا كان الملف لا يحتوي على عمود 'جهة العمل'"
+                            {!hideContextSelectors && (
+                                <Grid item xs={12} md={6}>
+                                    <Paper variant="outlined" sx={{ p: 2 }}>
+                                        <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                                            إعدادات الاستيراد
+                                        </Typography>
+                                        <Autocomplete
+                                            options={allEmployers}
+                                            getOptionLabel={(option) => option.nameAr || option.code || ""}
+                                            value={selectedEmployer}
+                                            onChange={(_, newValue) => setSelectedEmployer(newValue)}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="جهة العمل الموحدة (اختياري)"
+                                                    size="small"
+                                                    fullWidth
+                                                    helperText="اختر جهة فقط إذا كان الملف لا يحتوي على عمود 'جهة العمل'"
+                                                />
+                                            )}
+                                            sx={{ mb: 2 }}
+                                        />
+                                        {selectedEmployer && (
+                                            <Autocomplete
+                                                options={(previewData?.availableBenefitPolicies || []).filter(p => p.employerId === selectedEmployer.id)}
+                                                getOptionLabel={(option) => option.nameAr || option.policyNumber || ""}
+                                                value={selectedPolicy}
+                                                onChange={(_, newValue) => setSelectedPolicy(newValue)}
+                                                renderInput={(params) => (
+                                                    <TextField {...params} label="وثيقة التأمين (اختياري)" size="small" fullWidth />
+                                                )}
+                                                disabled={!selectedEmployer}
                                             />
                                         )}
-                                        sx={{ mb: 2 }}
-                                    />
-                                    {selectedEmployer && (
-                                        <Autocomplete
-                                            options={(previewData?.availableBenefitPolicies || []).filter(p => p.employerId === selectedEmployer.id)}
-                                            getOptionLabel={(option) => option.nameAr || option.policyNumber || ""}
-                                            value={selectedPolicy}
-                                            onChange={(_, newValue) => setSelectedPolicy(newValue)}
-                                            renderInput={(params) => (
-                                                <TextField {...params} label="وثيقة التأمين (اختياري)" size="small" fullWidth />
-                                            )}
-                                            disabled={!selectedEmployer}
-                                        />
-                                    )}
-                                </Paper>
-                            </Grid>
+                                    </Paper>
+                                </Grid>
+                            )}
                         </Grid>
 
                         {/* Data Preview */}
@@ -303,9 +320,9 @@ const DataImportWizard = ({ open, onClose }) => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>#</TableCell>
-                                        <TableCell>الاسم</TableCell>
-                                        <TableCell>رقم الهوية</TableCell>
-                                        <TableCell>جهة العمل</TableCell>
+                                        <TableCell>{entityName === 'جهات العمل' ? 'الكود' : 'الاسم'}</TableCell>
+                                        <TableCell>{entityName === 'جهات العمل' ? 'الاسم' : 'رقم الهوية'}</TableCell>
+                                        {!hideContextSelectors && <TableCell>جهة العمل</TableCell>}
                                         <TableCell>الحالة</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -313,9 +330,9 @@ const DataImportWizard = ({ open, onClose }) => {
                                     {previewData?.previewRows?.map((row) => (
                                         <TableRow key={row.rowNumber} hover>
                                             <TableCell>{row.rowNumber}</TableCell>
-                                            <TableCell>{row.fullName}</TableCell>
-                                            <TableCell>{row.nationalNumber || '-'}</TableCell>
-                                            <TableCell>{row.employerName || row.attributes?.employer || '-'}</TableCell>
+                                            <TableCell>{entityName === 'جهات العمل' ? (row.code || '-') : row.fullName}</TableCell>
+                                            <TableCell>{entityName === 'جهات العمل' ? row.name : (row.nationalNumber || '-')}</TableCell>
+                                            {!hideContextSelectors && <TableCell>{row.employerName || row.attributes?.employer || '-'}</TableCell>}
                                             <TableCell>
                                                 <Chip
                                                     label={row.status === 'NEW' ? 'جديد' : row.status === 'WARNING' ? 'تنبيه' : row.status === 'ERROR' ? 'خطأ' : row.status}
@@ -346,7 +363,7 @@ const DataImportWizard = ({ open, onClose }) => {
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>استيراد الأعضاء (معالج البيانات الذكي)</DialogTitle>
+            <DialogTitle>استيراد {entityName} (معالج البيانات الذكي)</DialogTitle>
             <DialogContent dividers>
                 <Stepper activeStep={activeStep} alternativeLabel>
                     {steps.map((label) => (

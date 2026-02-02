@@ -103,7 +103,7 @@ export default function Breadcrumbs({
 
   // item separator
   const SeparatorIcon = separator;
-  const separatorIcon = separator ? <SeparatorIcon style={{ fontSize: '0.75rem', marginTop: 2 }} /> : '/';
+  const separatorIcon = separator ? <SeparatorIcon style={{ fontSize: '1rem', marginTop: 2 }} /> : '/';
 
   let mainContent;
   let itemContent;

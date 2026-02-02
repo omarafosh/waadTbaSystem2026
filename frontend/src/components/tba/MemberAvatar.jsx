@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Avatar, Box, CircularProgress } from '@mui/material';
+import { Avatar, Box, CircularProgress, Tooltip } from '@mui/material';
+import { Star as VIPIcon, Bolt as FlashIcon } from '@mui/icons-material';
 
 /**
  * MemberAvatar - Reusable Enterprise Component
@@ -90,6 +91,50 @@ const MemberAvatar = ({ member, size = 40, sx = {}, refreshTrigger }) => {
                         opacity: 0.5
                     }}
                 />
+            )}
+
+            {/* VIP/Urgent Badges */}
+            {member?.isVip && (
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: -2,
+                        right: -2,
+                        bgcolor: '#ffc107',
+                        borderRadius: '50%',
+                        width: size * 0.35,
+                        height: size * 0.35,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 1,
+                        border: '1.5px solid #fff',
+                        zIndex: 2
+                    }}
+                >
+                    <VIPIcon sx={{ color: '#fff', fontSize: size * 0.25 }} />
+                </Box>
+            )}
+            {!member?.isVip && member?.isUrgent && (
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: -2,
+                        right: -2,
+                        bgcolor: '#ff5722',
+                        borderRadius: '50%',
+                        width: size * 0.35,
+                        height: size * 0.35,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 1,
+                        border: '1.5px solid #fff',
+                        zIndex: 2
+                    }}
+                >
+                    <FlashIcon sx={{ color: '#fff', fontSize: size * 0.25 }} />
+                </Box>
             )}
         </Box>
     );

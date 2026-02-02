@@ -208,4 +208,13 @@ public class MemberViewDto {
     // Flexible Attributes
     @Schema(description = "List of custom attributes (key-value pairs)")
     private List<MemberAttributeDto> attributes;
+
+    @Schema(description = "VIP flag")
+    private Boolean isVip;
+
+    @Schema(description = "Urgent case flag")
+    private Boolean isUrgent;
+
+    @Schema(description = "Emergency notes")
+    private String emergencyNotes;
 }

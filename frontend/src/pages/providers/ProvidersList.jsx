@@ -144,7 +144,7 @@ const ProviderEmployersCell = ({ providerId }) => {
           label={name}
           size="small"
           variant="outlined"
-          sx={{ maxWidth: 120, fontSize: '0.7rem' }}
+          sx={{ maxWidth: 120, fontSize: '1rem' }}
         />
       ))}
       {remainingCount > 0 && (
@@ -154,7 +154,7 @@ const ProviderEmployersCell = ({ providerId }) => {
             size="small"
             color="primary"
             variant="filled"
-            sx={{ height: 20, fontSize: '0.65rem' }}
+            sx={{ height: 20, fontSize: '1rem' }}
           />
         </Tooltip>
       )}

@@ -201,7 +201,7 @@ export default function Button(theme) {
         textWarning: getColorStyle({ variant: 'text', color: 'warning', theme }),
         sizeExtraSmall: {
           minWidth: 56,
-          fontSize: '0.625rem',
+          fontSize: theme.typography.caption.fontSize,
           padding: '2px 8px'
         },
         loading: {

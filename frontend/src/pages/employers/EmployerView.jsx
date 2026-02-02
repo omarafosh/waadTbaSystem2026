@@ -24,7 +24,8 @@ import {
   Business as BusinessIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  People as PeopleIcon
 } from '@mui/icons-material';
 
 import MainCard from 'components/MainCard';
@@ -238,55 +239,68 @@ const EmployerView = () => {
           </SectionCard>
         )}
 
-        {/* Statistics Section (if available) */}
-        {(employer.totalMembers !== undefined || employer.activePolicies !== undefined) && (
-          <SectionCard title={LABELS.statistics}>
-            <Grid container spacing={3}>
-              {employer.totalMembers !== undefined && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center' }}>
-                      <Typography variant="h3" color="primary.main">
-                        {employer.totalMembers}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {LABELS.totalMembers}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              )}
-              {employer.activePolicies !== undefined && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center' }}>
-                      <Typography variant="h3" color="success.main">
-                        {employer.activePolicies}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {LABELS.activePolicies}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              )}
-              {employer.totalClaims !== undefined && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center' }}>
-                      <Typography variant="h3" color="info.main">
-                        {employer.totalClaims}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {LABELS.totalClaims}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              )}
+        {/* Statistics Section - Always show with available data */}
+        <SectionCard title={LABELS.statistics}>
+          <Grid container spacing={3}>
+            {/* Total Members */}
+            <Grid item xs={12} sm={6} md={4}>
+              <Card
+                variant="outlined"
+                sx={{
+                  cursor: employer.totalMembers > 0 ? 'pointer' : 'default',
+                  '&:hover': employer.totalMembers > 0 ? { boxShadow: 2 } : {}
+                }}
+                onClick={() => employer.totalMembers > 0 && navigate(`/members?organizationId=${employer.id}`)}
+              >
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
+                    <PeopleIcon color="primary" />
+                    <Typography variant="h3" color="primary.main">
+                      {employer.totalMembers || 0}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {LABELS.totalMembers}
+                  </Typography>
+                  {employer.totalMembers > 0 && (
+                    <Typography variant="caption" color="primary.main" sx={{ mt: 0.5, display: 'block' }}>
+                      اضغط لعرض المستفيدين
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
             </Grid>
-          </SectionCard>
-        )}
+            {/* Active Policies */}
+            <Grid item xs={12} sm={6} md={4}>
+              <Card
+                variant="outlined"
+                sx={{
+                  cursor: employer.activePoliciesCount > 0 ? 'pointer' : 'default',
+                  '&:hover': employer.activePoliciesCount > 0 ? { boxShadow: 2 } : {}
+                }}
+                onClick={() => employer.activePoliciesCount > 0 && navigate(`/employers/${employer.id}/contracts`)}
+              >
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="h3" color="success.main">
+                    {employer.activePoliciesCount || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {LABELS.activePolicies}
+                  </Typography>
+                  {employer.activePolicyName && (
+                    <Chip
+                      label={employer.activePolicyName}
+                      size="small"
+                      color="success"
+                      variant="outlined"
+                      sx={{ mt: 1 }}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </SectionCard>
 
         {/* Action Buttons at Bottom */}
         <Divider sx={{ my: 3 }} />

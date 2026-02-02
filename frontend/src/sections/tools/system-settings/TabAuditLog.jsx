@@ -79,7 +79,7 @@ export default function TabAuditLog() {
           return (
             <Stack>
               <span>{date.toLocaleDateString('ar-SA')}</span>
-              <span style={{ fontSize: '0.75rem', color: '#666' }}>{date.toLocaleTimeString('ar-SA')}</span>
+              <span style={{ fontSize: '1rem', color: '#666' }}>{date.toLocaleTimeString('ar-SA')}</span>
             </Stack>
           );
         }
@@ -211,7 +211,7 @@ export default function TabAuditLog() {
                           onClick={header.column.getToggleSortingHandler()}
                           style={{
                             padding: '12px 16px',
-                            textAlign: 'left',
+                            fontSize: '1rem',
                             borderBottom: '2px solid #f0f0f0',
                             cursor: header.column.getCanSort() ? 'pointer' : 'default',
                             userSelect: 'none',
