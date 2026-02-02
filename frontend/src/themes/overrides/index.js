@@ -48,6 +48,7 @@ import TableFooter from './TableFooter';
 import TableHead from './TableHead';
 import TablePagination from './TablePagination';
 import TableRow from './TableRow';
+import SvgIcon from './SvgIcon';
 import Tabs from './Tabs';
 import ToggleButton from './ToggleButton';
 import Tooltip from './Tooltip';
@@ -96,6 +97,7 @@ export default function ComponentsOverrides(theme) {
     Radio(theme),
     Slider(theme),
     Switch(theme),
+    SvgIcon(),
     Tab(theme),
     TableBody(theme),
     TableCell(theme),

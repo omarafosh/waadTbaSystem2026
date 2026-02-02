@@ -47,6 +47,7 @@ import {
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
+import MemberAvatar from 'components/tba/MemberAvatar';
 import { checkEligibility, GENDERS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
@@ -229,7 +230,7 @@ const EligibilityCheck = () => {
                   <Grid container spacing={3}>
                     <Grid item xs={12}>
                       <Stack direction="row" spacing={2} alignItems="center">
-                        <BadgeIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                        <MemberAvatar member={familyData.principal} size={64} />
                         <Box>
                           <Typography variant="h5" gutterBottom>
                             {familyData.principal?.fullName}
@@ -353,6 +354,7 @@ const EligibilityCheck = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell>#</TableCell>
+                          <TableCell align="center">الصورة</TableCell>
                           <TableCell>الاسم</TableCell>
                           <TableCell>القرابة</TableCell>
                           <TableCell>رقم البطاقة</TableCell>
@@ -367,6 +369,9 @@ const EligibilityCheck = () => {
                         {familyData.dependents.map((dep, index) => (
                           <TableRow key={dep.id} hover>
                             <TableCell>{index + 1}</TableCell>
+                            <TableCell align="center">
+                              <MemberAvatar member={dep} size={32} />
+                            </TableCell>
                             <TableCell>
                               <Typography variant="body2" fontWeight="medium">
                                 {dep.fullName}
@@ -445,7 +450,7 @@ const EligibilityCheck = () => {
                     <Grid item xs={12} md={4}>
                       <Box textAlign="center">
                         <Typography variant="h3" color="primary.main">
-                          {familyData.totalFamilySize || 0}
+                          {familyData.totalFamilyMembers || 0}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           إجمالي أفراد العائلة
@@ -455,7 +460,7 @@ const EligibilityCheck = () => {
                     <Grid item xs={12} md={4}>
                       <Box textAlign="center">
                         <Typography variant="h3" color="success.main">
-                          {familyData.eligibleCount || 0}
+                          {familyData.eligibleMembersCount || 0}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           مؤهلون
@@ -465,7 +470,7 @@ const EligibilityCheck = () => {
                     <Grid item xs={12} md={4}>
                       <Box textAlign="center">
                         <Typography variant="h3" color="error.main">
-                          {(familyData.totalFamilySize || 0) - (familyData.eligibleCount || 0)}
+                          {(familyData.totalFamilyMembers || 0) - (familyData.eligibleMembersCount || 0)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           غير مؤهلين

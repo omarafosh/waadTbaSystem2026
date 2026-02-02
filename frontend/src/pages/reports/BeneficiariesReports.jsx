@@ -59,12 +59,13 @@ import { CardStatusBadge, MemberTypeIndicator } from 'components/insurance';
 import EmployerFilterSelector from 'components/tba/EmployerFilterSelector';
 import PdfPreviewModal from 'components/modals/PdfPreviewModal';
 import CircularLoader from 'components/CircularLoader';
+import MemberAvatar from 'components/tba/MemberAvatar';
 
 // Company Settings - SINGLE SOURCE OF TRUTH for branding
 import { useCompanySettings } from 'contexts/CompanySettingsContext';
 
 // API
-import { getAllMembers } from 'services/api/unified-members.service';
+import { getAllMembers, searchMembers } from 'services/api/unified-members.service';
 import { claimsService } from 'services/api/claims.service';
 import useTableState from 'hooks/useTableState';
 import { formatCurrency } from 'utils/formatters';
@@ -136,13 +137,7 @@ const BeneficiariesReports = () => {
     // PDF Modal State
     const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
-    // Pagination state (client-side)
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(25);
 
-    // Sorting state
-    const [orderBy, setOrderBy] = useState('fullName');
-    const [order, setOrder] = useState('asc');
 
     const tableState = useTableState({
         initialPageSize: 10,
@@ -158,10 +153,13 @@ const BeneficiariesReports = () => {
         }));
     };
 
-    // Live search handler - instant filtering
+    // Live search handler - server-side search
     const handleLiveSearchChange = (event) => {
-        setLiveSearch(event.target.value);
-        setPage(0); // Reset pagination on search change
+        const value = event.target.value;
+        setLiveSearch(value);
+        setFilters(prev => ({ ...prev, search: value }));
+        // Reset page to 0 on search
+        tableState.setPage(0);
     };
 
     const handleApplyFilters = () => {
@@ -175,7 +173,6 @@ const BeneficiariesReports = () => {
 
         setActiveFilters(newActiveFilters);
         setLiveSearch(filters.search); // Sync live search with applied search
-        setPage(0);
         tableState.setPage(0);
         setViewMode('TABLE'); // Reset to table view on new search
     };
@@ -191,26 +188,24 @@ const BeneficiariesReports = () => {
         setSelectedEmployerId(null);
         setActiveFilters({});
         setLiveSearch('');
-        setPage(0);
         tableState.setPage(0);
         setViewMode('TABLE');
     };
 
     // Sorting handler
     const handleRequestSort = (property) => {
-        const isAsc = orderBy === property && order === 'asc';
-        setOrder(isAsc ? 'desc' : 'asc');
-        setOrderBy(property);
+        const currentSort = tableState.sorting[0];
+        const isDesc = currentSort?.id === property && !currentSort?.desc;
+        tableState.setSorting([{ id: property, desc: isDesc }]);
     };
 
-    // Pagination handlers
+    // Pagination handlers - use tableState
     const handleChangePage = (event, newPage) => {
-        setPage(newPage);
+        tableState.setPage(newPage);
     };
 
     const handleChangeRowsPerPage = (event) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
-        setPage(0);
+        tableState.setPageSize(parseInt(event.target.value, 10));
     };
 
     const handleViewSingleReport = async (member) => {
@@ -329,69 +324,42 @@ const BeneficiariesReports = () => {
             // Note: "Smart Search" not fully supported by getAllMembers endpoint.
             // Requires switching to searchMembers endpoint or backend update.
 
-            const response = await getAllMembers(params);
-            // Map Spring Page response to expected format
+            const isSearch = !!activeFilters.search;
+            let response;
+
+            if (isSearch) {
+                response = await searchMembers({
+                    fullName: activeFilters.search,
+                    barcode: activeFilters.search,
+                    cardNumber: activeFilters.search,
+                    organizationId: activeFilters.employerId,
+                    status: activeFilters.cardStatus !== 'ALL' ? activeFilters.cardStatus : undefined,
+                    type: activeFilters.memberType !== 'ALL' ? activeFilters.memberType : undefined,
+                    page: tableState.page,
+                    size: tableState.pageSize
+                });
+            } else {
+                response = await getAllMembers(params);
+            }
+
+            const pageData = response?.data || response;
             return {
-                items: response?.content || [],
-                total: response?.totalElements || 0,
-                page: response?.number || 0,
-                size: response?.size || params.size
+                items: pageData?.content || [],
+                total: pageData?.totalElements || 0,
+                page: pageData?.number || 0,
+                size: pageData?.size || params.size
             };
         },
         keepPreviousData: true
     });
 
-    // --- Client-Side Filtering & Sorting ---
+    // Data for display comes directly from API now
     const filteredAndSortedData = useMemo(() => {
-        let result = data?.items || [];
+        return data?.items || [];
+    }, [data?.items]);
 
-        // Apply live search filter (case-insensitive, partial match)
-        if (liveSearch && liveSearch.trim()) {
-            const searchLower = liveSearch.toLowerCase().trim();
-            result = result.filter((member) => {
-                const fullName = (member.fullName || '').toLowerCase();
-                const cardNumber = (member.cardNumber || '').toLowerCase();
-                const nationalNumber = (member.nationalNumber || '').toLowerCase();
-                const barcode = (member.barcode || '').toLowerCase();
-
-                return fullName.includes(searchLower) ||
-                    cardNumber.includes(searchLower) ||
-                    nationalNumber.includes(searchLower) ||
-                    barcode.includes(searchLower);
-            });
-        }
-
-        // Apply sorting
-        if (orderBy) {
-            result = [...result].sort((a, b) => {
-                let aVal = a[orderBy];
-                let bVal = b[orderBy];
-
-                // Handle nulls
-                if (aVal == null && bVal == null) return 0;
-                if (aVal == null) return order === 'asc' ? 1 : -1;
-                if (bVal == null) return order === 'asc' ? -1 : 1;
-
-                // String comparison
-                if (typeof aVal === 'string') {
-                    return order === 'asc'
-                        ? aVal.localeCompare(bVal, 'ar')
-                        : bVal.localeCompare(aVal, 'ar');
-                }
-
-                // Number comparison
-                return order === 'asc' ? aVal - bVal : bVal - aVal;
-            });
-        }
-
-        return result;
-    }, [data?.items, liveSearch, orderBy, order]);
-
-    // Paginated data for display
-    const paginatedData = useMemo(() => {
-        const start = page * rowsPerPage;
-        return filteredAndSortedData.slice(start, start + rowsPerPage);
-    }, [filteredAndSortedData, page, rowsPerPage]);
+    // Paginated data is just the data from API
+    const paginatedData = filteredAndSortedData;
 
     // Total counts
     const totalFetched = data?.items?.length || 0;
@@ -407,7 +375,7 @@ const BeneficiariesReports = () => {
                 enableSorting: false,
                 width: 50,
                 align: 'center',
-                cell: ({ row }) => (page * rowsPerPage) + row.index + 1
+                cell: ({ row }) => (tableState.page * tableState.pageSize) + row.index + 1
             },
             {
                 accessorKey: 'fullName',
@@ -415,11 +383,7 @@ const BeneficiariesReports = () => {
                 minWidth: 200,
                 cell: ({ row }) => (
                     <Stack direction="row" alignItems="center" spacing={1}>
-                        <Avatar
-                            sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: theme.palette.primary.light, color: theme.palette.primary.main }}
-                        >
-                            {row.original.fullName?.charAt(0)}
-                        </Avatar>
+                        <MemberAvatar member={row.original} size={36} />
                         <Box>
                             <Typography variant="subtitle2" fontWeight="600">
                                 <HighlightText text={row.original.fullName} searchTerm={liveSearch} />
@@ -514,7 +478,7 @@ const BeneficiariesReports = () => {
                 )
             }
         ],
-        [page, rowsPerPage, liveSearch, theme]
+        [tableState.page, tableState.pageSize, liveSearch, theme]
     );
 
     // ========================================================================
@@ -776,8 +740,8 @@ const BeneficiariesReports = () => {
                                                     >
                                                         {col.accessorKey && col.enableSorting !== false ? (
                                                             <TableSortLabel
-                                                                active={orderBy === col.accessorKey}
-                                                                direction={orderBy === col.accessorKey ? order : 'asc'}
+                                                                active={tableState.sorting[0]?.id === col.accessorKey}
+                                                                direction={tableState.sorting[0]?.id === col.accessorKey ? (tableState.sorting[0]?.desc ? 'desc' : 'asc') : 'asc'}
                                                                 onClick={() => handleRequestSort(col.accessorKey)}
                                                             >
                                                                 {col.header}
@@ -817,14 +781,14 @@ const BeneficiariesReports = () => {
                                 </TableContainer>
 
                                 <TablePagination
-                                    component="div"
-                                    count={totalFiltered}
-                                    page={page}
-                                    onPageChange={handleChangePage}
-                                    rowsPerPage={rowsPerPage}
-                                    onRowsPerPageChange={handleChangeRowsPerPage}
                                     rowsPerPageOptions={[10, 25, 50, 100]}
-                                    labelRowsPerPage="عدد الصفوف:"
+                                    component="div"
+                                    count={data?.total || 0}
+                                    rowsPerPage={tableState.pageSize}
+                                    page={tableState.page}
+                                    onPageChange={handleChangePage}
+                                    onRowsPerPageChange={handleChangeRowsPerPage}
+                                    labelRowsPerPage="صفوف لكل صفحة:"
                                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
                                     sx={{ borderTop: '1px solid', borderColor: 'divider' }}
                                 />
@@ -1035,7 +999,7 @@ const SingleBeneficiaryReport = ({ member, financialStats, loadingStats, onBack 
                         <MainCard title="البيانات الشخصية والتعريفية">
                             <Stack spacing={2}>
                                 <Box display="flex" alignItems="center" gap={2}>
-                                    <Avatar sx={{ width: 64, height: 64, fontSize: '1.5rem', bgcolor: theme.palette.primary.main }}>{member?.fullName?.charAt(0)}</Avatar>
+                                    <MemberAvatar member={member} size={80} />
                                     <Box>
                                         <Typography variant="h6">{member?.fullName}</Typography>
                                         <MemberTypeIndicator type={member?.type} />

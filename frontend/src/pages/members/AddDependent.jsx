@@ -37,7 +37,8 @@ import dayjs from 'dayjs';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { getMember, addDependent, RELATIONSHIPS, GENDERS } from 'services/api/unified-members.service';
+import MemberAvatar from 'components/tba/MemberAvatar';
+import { getMember, addDependent, uploadPhoto, RELATIONSHIPS, GENDERS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
 import RBACGuard from 'components/tba/RBACGuard';
 import { PERMISSIONS } from 'constants/permissions.constants';
@@ -64,7 +65,9 @@ const AddDependent = () => {
     nationalNumber: '',
     birthDate: null,
     gender: '',
-    relationship: ''
+    relationship: '',
+    photoFile: null,
+    photoPreview: null
   });
 
   // Fetch principal data
@@ -158,7 +161,18 @@ const AddDependent = () => {
 
       console.log('Adding dependent with payload:', payload);
 
-      await addDependent(principalId, payload);
+      const response = await addDependent(principalId, payload);
+      const createdMember = response?.data || response;
+
+      // Upload photo if selected
+      if (form.photoFile && createdMember?.id) {
+        try {
+          await uploadPhoto(createdMember.id, form.photoFile);
+        } catch (uploadError) {
+          console.error('Photo upload failed:', uploadError);
+          // We don't fail the whole process, just warn
+        }
+      }
 
       openSnackbar({
         open: true,
@@ -343,6 +357,54 @@ const AddDependent = () => {
                 size="small"
                 sx={{ minWidth: 150 }}
               />
+            </Grid>
+
+            {/* Photo Upload for Dependent */}
+            <Grid item xs={12} sx={{ mt: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderStyle: 'dashed' }}>
+                <Stack direction="row" spacing={3} alignItems="center">
+                  <Box position="relative">
+                    <MemberAvatar
+                      member={{
+                        fullName: form.fullName,
+                        photoUrl: form.photoPreview
+                      }}
+                      size={100}
+                      sx={{ mb: 2, cursor: 'pointer', border: '2px solid', borderColor: 'divider' }}
+                      onClick={() => document.getElementById('dep-photo-upload').click()}
+                    />
+                    <input
+                      accept="image/*"
+                      id="dep-photo-upload"
+                      type="file"
+                      hidden
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setForm(prev => ({
+                            ...prev,
+                            photoFile: file,
+                            photoPreview: URL.createObjectURL(file)
+                          }));
+                        }
+                      }}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>الصورة الشخصية للتابع</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      يفضل أن تكون الصورة واضحة وبخلفية بيضاء
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => document.getElementById('dep-photo-upload').click()}
+                    >
+                      اختيار صورة
+                    </Button>
+                  </Box>
+                </Stack>
+              </Paper>
             </Grid>
 
             {/* Action Button */}

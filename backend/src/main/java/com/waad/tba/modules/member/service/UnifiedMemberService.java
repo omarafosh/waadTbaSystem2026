@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -118,9 +120,10 @@ public class UnifiedMemberService {
             throw new BusinessRuleException("Employer ID is required for non-VIP members.");
         }
 
-        Organization employerOrg = organizationRepository.findById(employerId)
+        final Long targetEmployerId = employerId;
+        Organization employerOrg = organizationRepository.findById(targetEmployerId)
                 .orElseThrow(
-                        () -> new ResourceNotFoundException("Employer organization not found: " + employerId));
+                        () -> new ResourceNotFoundException("Employer organization not found: " + targetEmployerId));
 
         BenefitPolicy benefitPolicy = null;
         if (dto.getBenefitPolicyId() != null) {
@@ -129,7 +132,7 @@ public class UnifiedMemberService {
                             "Benefit policy not found: " + dto.getBenefitPolicyId()));
         } else {
             // Auto-detect active policy for this employer
-            benefitPolicy = benefitPolicyRepository.findActiveEffectivePolicyForEmployer(employerId, LocalDate.now())
+            benefitPolicy = benefitPolicyRepository.findActiveEffectivePolicyForEmployer(targetEmployerId, LocalDate.now())
                     .orElse(null);
             
             // Note: We don't throw error if missing, some members might exist without policy for a while 
@@ -292,6 +295,20 @@ public class UnifiedMemberService {
 
         Member.MemberStatus oldStatus = member.getStatus();
         mapper.updateEntityFromDto(member, dto);
+
+        // Update organization if employerId provided
+        if (dto.getEmployerId() != null) {
+            Organization org = organizationRepository.findById(dto.getEmployerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employer organization not found: " + dto.getEmployerId()));
+            member.setEmployerOrganization(org);
+        }
+
+        // Update benefit policy if benefitPolicyId provided
+        if (dto.getBenefitPolicyId() != null) {
+            BenefitPolicy policy = benefitPolicyRepository.findById(dto.getBenefitPolicyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Benefit policy not found: " + dto.getBenefitPolicyId()));
+            member.setBenefitPolicy(policy);
+        }
 
         if (dto.getStatus() != null && dto.getStatus() != oldStatus) {
             logWorkflowHistory(member, oldStatus.name(), dto.getStatus().name(), "Direct Update");

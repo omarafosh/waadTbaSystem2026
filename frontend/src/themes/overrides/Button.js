@@ -91,7 +91,7 @@ export default function Button(theme) {
   };
   const iconStyle = {
     '&>*:nth-of-type(1)': {
-      fontSize: 'inherit'
+      fontSize: '1.2rem'
     }
   };
 
@@ -103,6 +103,7 @@ export default function Button(theme) {
       styleOverrides: {
         root: {
           fontWeight: 400,
+          fontSize: '1rem',
           '&::after': {
             content: '""',
             display: 'block',

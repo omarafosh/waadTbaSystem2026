@@ -134,7 +134,7 @@ const UnifiedMembersList = () => {
 
   // Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedDependent, setSelectedDependent] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   // Export/Import Dialog States
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -175,10 +175,9 @@ const UnifiedMembersList = () => {
       },
       '& .MuiButton-startIcon': {
         '& .MuiSvgIcon-root': {
-          fontSize: '1.375rem' // 22px relative to root
+          fontSize: '1.2rem'
         }
       },
-      fontSize: '1rem', // 12px relative to root
       fontWeight: 700,
       whiteSpace: 'nowrap',
       px: 1.5,
@@ -389,21 +388,19 @@ const UnifiedMembersList = () => {
                   </IconButton>
                 </Tooltip>
               )}
-              {row.original.type === MEMBER_TYPES.DEPENDENT && (
-                <Tooltip title="بيانات التابع">
-                  <IconButton
-                    size="small"
-                    color="warning"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedDependent(row.original);
-                      setDrawerOpen(true);
-                    }}
-                  >
-                    <FilterListIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
+              <Tooltip title="عرض سريع">
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedMember(row.original);
+                    setDrawerOpen(true);
+                  }}
+                >
+                  <FilterListIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="عرض التفاصيل">
                 <IconButton size="small" color="info" onClick={(e) => { e.stopPropagation(); navigate(`/members/${row.original.id}`); }}>
                   <VisibilityIcon fontSize="small" />
@@ -788,31 +785,131 @@ const UnifiedMembersList = () => {
         </ MainCard >
       </Stack >
 
-      < Drawer
+      <Drawer
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { width: 350, p: 3 } }}
+        PaperProps={{ sx: { width: 400, p: 0, bgcolor: 'grey.50' } }}
       >
-        {selectedDependent && (
-          <Stack spacing={3}>
-            <Typography variant="h5" fontWeight="bold">بيانات المستفيد</Typography>
-            <Box>
-              <Typography variant="caption" color="textSecondary">اسم الأصيل</Typography>
-              <Typography variant="body1" fontWeight="medium">{selectedDependent.principalName || '-'}</Typography>
+        {selectedMember && (
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Drawer Header with Avatar */}
+            <Box sx={{
+              p: 3,
+              bgcolor: selectedMember.type === 'PRINCIPAL' ? 'primary.main' : 'success.dark',
+              color: 'primary.contrastText',
+              textAlign: 'center'
+            }}>
+              <MemberAvatar member={selectedMember} size={100} sx={{ border: '4px solid #fff', mb: 2, mx: 'auto', boxShadow: 3 }} />
+              <Typography variant="h5" fontWeight="bold">{selectedMember.fullName}</Typography>
+              <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 1 }}>
+                <Chip
+                  label={selectedMember.type === 'PRINCIPAL' ? 'رئيسي' : 'تابع'}
+                  size="small"
+                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 'bold' }}
+                />
+                <Chip
+                  label={selectedMember.status === 'ACTIVE' ? 'نشط' : selectedMember.status}
+                  size="small"
+                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff' }}
+                />
+              </Stack>
             </Box>
-            <Box>
-              <Typography variant="caption" color="textSecondary">الحالة الاجتماعية</Typography>
-              <Typography variant="body1" fontWeight="medium">{selectedDependent.maritalStatus || '-'}</Typography>
+
+            {/* Drawer Content */}
+            <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
+              <Stack spacing={2.5}>
+                {/* ID Section */}
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                  <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <QrCodeScannerIcon fontSize="small" /> بيانات الهوية
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="textSecondary">رقم البطاقة</Typography>
+                      <Typography variant="body2" fontWeight="bold" fontFamily="monospace">{selectedMember.cardNumber || '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="textSecondary">الرقم الوطني</Typography>
+                      <Typography variant="body2" fontWeight="bold" fontFamily="monospace">{selectedMember.nationalNumber || '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="textSecondary">الباركود</Typography>
+                      <Typography variant="body2" fontFamily="monospace">{selectedMember.barcode || '-'}</Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Personal Section */}
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                  <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <VisibilityIcon fontSize="small" /> البيانات العامة
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="textSecondary">الجنسية</Typography>
+                      <Typography variant="body2">{selectedMember.nationality || '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="textSecondary">تاريخ الميلاد</Typography>
+                      <Typography variant="body2">{selectedMember.birthDate || '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="textSecondary">جهة العمل</Typography>
+                      <Typography variant="body2" fontWeight="medium">{selectedMember.employerName || '-'}</Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Contact Section */}
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                  <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MedicalIcon fontSize="small" /> معلومات التواصل
+                  </Typography>
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" color="textSecondary">رقم الهاتف</Typography>
+                    <Typography variant="body2" dir="ltr">{selectedMember.phone || '-'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">العنوان</Typography>
+                    <Typography variant="body2">{selectedMember.address || '-'}</Typography>
+                  </Box>
+                </Paper>
+              </Stack>
             </Box>
-            <Box>
-              <Typography variant="caption" color="textSecondary">الجنسية</Typography>
-              <Typography variant="body1" fontWeight="medium">{selectedDependent.nationality || '-'}</Typography>
+
+            {/* Drawer Actions */}
+            <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+              <Stack spacing={1}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    bgcolor: selectedMember.type === 'PRINCIPAL' ? 'primary.main' : 'success.dark',
+                    '&:hover': {
+                      bgcolor: selectedMember.type === 'PRINCIPAL' ? 'primary.dark' : '#1b5e20' // Custom dark green for hover
+                    }
+                  }}
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    navigate(`/members/${selectedMember.id}`);
+                  }}
+                >
+                  عرض الملف الكامل
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="inherit"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  إغلاق
+                </Button>
+              </Stack>
             </Box>
-            <Button variant="outlined" onClick={() => setDrawerOpen(false)}>إغلاق</Button>
-          </Stack>
+          </Box>
         )}
-      </ Drawer >
+      </Drawer>
 
       {/* Import Wizard */}
       < DataImportWizard open={importDialogOpen} onClose={handleCloseImportDialog} />

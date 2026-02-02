@@ -30,10 +30,10 @@ import {
   Typography,
   Divider,
   IconButton,
-  IconButton,
   Tooltip,
   FormControlLabel,
-  Switch
+  Switch,
+  Badge
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -44,7 +44,8 @@ import {
   ContactPhone as ContactPhoneIcon,
   Delete as DeleteIcon,
   PhotoCamera as PhotoCameraIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -92,7 +93,6 @@ const UnifiedMemberEdit = () => {
     fullName: '',
     nationalNumber: '',
     birthDate: null,
-    gender: '',
     gender: '',
     nationality: 'ليبي',
     phone: '',
@@ -150,7 +150,6 @@ const UnifiedMemberEdit = () => {
         fullName: data.fullName || '',
         nationalNumber: data.nationalNumber || '',
         birthDate: data.birthDate ? dayjs(data.birthDate) : null,
-        gender: data.gender || '',
         gender: data.gender || '',
         nationality: data.nationality || 'ليبي',
         phone: data.phone || '',
@@ -530,13 +529,35 @@ const UnifiedMemberEdit = () => {
                 <Grid size={{ xs: 12, md: 3 }}>
                   <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', height: '100%', bgcolor: 'grey.50', borderStyle: 'dashed' }}>
                     <Box position="relative" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                      <MemberAvatar
-                        member={{ id: id, photoUrl: form.photoPreview, fullName: form.fullName }}
-                        size={120}
-                        refreshTrigger={form.photoPreview}
-                        sx={{ cursor: 'pointer', mb: 2 }}
-                        onClick={() => document.getElementById('photo-upload').click()}
-                      />
+                      <Badge
+                        overlap="circular"
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        badgeContent={
+                          <IconButton
+                            color="primary"
+                            aria-label="upload picture"
+                            component="span"
+                            sx={{ bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' }, width: 36, height: 36, border: '2px solid white' }}
+                            onClick={() => document.getElementById('photo-upload').click()}
+                          >
+                            <CloudUploadIcon sx={{ fontSize: 20 }} />
+                          </IconButton>
+                        }
+                      >
+                        <MemberAvatar
+                          member={{ id: id, photoUrl: form.photoPreview, fullName: form.fullName }}
+                          size={120}
+                          refreshTrigger={form.photoPreview}
+                          sx={{
+                            cursor: 'pointer',
+                            fontSize: '3rem',
+                            border: '4px solid',
+                            borderColor: 'background.paper',
+                            boxShadow: 1
+                          }}
+                          onClick={() => document.getElementById('photo-upload').click()}
+                        />
+                      </Badge>
                       <input
                         accept="image/*"
                         id="photo-upload"
@@ -587,6 +608,7 @@ const UnifiedMemberEdit = () => {
                       <FormControl fullWidth required error={!!errors.employerId} size="small">
                         <InputLabel>جهة العمل</InputLabel>
                         <Select value={form.employerId} onChange={handleChange('employerId')} label="جهة العمل" MenuProps={menuProps}>
+                          <MenuItem value=""><em>اختر جهة العمل...</em></MenuItem>
                           {Array.isArray(employers) && employers.map(emp => <MenuItem key={emp.id} value={emp.id}>{emp.label}</MenuItem>)}
                         </Select>
                       </FormControl>

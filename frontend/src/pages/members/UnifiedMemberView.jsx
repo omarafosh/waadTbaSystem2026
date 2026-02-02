@@ -43,38 +43,40 @@ import {
   InputLabel,
   Select,
   FormHelperText,
+  FormControlLabel,
+  Switch,
   useTheme
 } from '@mui/material';
 import {
   Save as SaveIcon,
+  Add as AddIcon,
   ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PersonAdd as PersonAddIcon,
   Badge as BadgeIcon,
   ContactPhone as ContactPhoneIcon,
+  Delete as DeleteIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  Edit as EditIcon,
+  ExpandMore as ExpandMoreIcon,
   FamilyRestroom as FamilyRestroomIcon,
   Person as PersonIcon,
+  PersonAdd as PersonAddIcon,
+  Print as PrintIcon,
   QrCode as QrCodeIcon,
-  CreditCard as CreditCardIcon,
-  Cake as CakeIcon,
-  Wc as WcIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  Business as BusinessIcon,
-  DeleteOutline as DeleteOutlineIcon,
+  RestoreFromTrash as RestoreFromTrashIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TablePagination } from '@mui/material';
 import dayjs from 'dayjs';
 
+// Projects Imports
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
-import { getMember, deleteMember, addDependent, uploadPhoto, MEMBER_TYPES, GENDERS, RELATIONSHIPS } from 'services/api/unified-members.service';
+import MemberAvatar from 'components/tba/MemberAvatar';
+import DependentModal from './DependentModal';
+import { getMember, deleteMember, restoreMember, MEMBER_TYPES, GENDERS, RELATIONSHIPS } from 'services/api/unified-members.service';
 import { openSnackbar } from 'api/snackbar';
-import { RBACGuard, MemberAvatar } from '../../components/tba';
+import { RBACGuard } from '../../components/tba';
 import { PERMISSIONS } from 'constants/permissions.constants';
-import DependentEditDrawer from './DependentEditDrawer';
 
 // Relationship Translation Map
 export const RELATIONSHIP_AR = {
@@ -98,33 +100,21 @@ const UnifiedMemberView = () => {
 
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState(null);
+  const [dependents, setDependents] = useState([]);
   const [tabValue, setTabValue] = useState(0);
+
+  // Refactored Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDependent, setSelectedDependent] = useState(null); // null = Add Mode
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  // Pagination
+  const [pg, setPg] = useState(0);
+  const [rpp, setRpp] = useState(3);
 
   // Dialog States
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMember, setDeletingMember] = useState(null);
-
-  // Edit Drawer State
-  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
-  const [selectedDependent, setSelectedDependent] = useState(null);
-
-  // Inline Add Dependent State
-  const [addingDependent, setAddingDependent] = useState(false);
-  const [depErrors, setDepErrors] = useState({});
-  const [newDependent, setNewDependent] = useState({
-    fullName: '',
-    nationalNumber: '',
-    birthDate: null,
-    gender: '',
-    relationship: '',
-    nationality: 'ليبي',
-  });
-  const [dependentPhoto, setDependentPhoto] = useState(null);
-  const [dependentPhotoPreview, setDependentPhotoPreview] = useState(null);
-
-  // Dependents Pagination
-  const [pg, setPg] = useState(0);
-  const [rpp, setRpp] = useState(3);
 
   const handleChangePage = (event, newPage) => {
     setPg(newPage);
@@ -137,15 +127,16 @@ const UnifiedMemberView = () => {
 
   useEffect(() => {
     if (id) {
-      fetchMember();
+      fetchMemberData();
     }
   }, [id]);
 
-  const fetchMember = async () => {
+  const fetchMemberData = async () => {
     setLoading(true);
     try {
       const response = await getMember(id);
       setMember(response);
+      setDependents(response.dependents || []);
     } catch (error) {
       console.error('Error fetching member:', error);
       openSnackbar({
@@ -163,8 +154,33 @@ const UnifiedMemberView = () => {
     setTabValue(newValue);
   };
 
-  const handleDeleteConfirm = (memberToDelete) => {
-    setDeletingMember(memberToDelete);
+  // --- Action Handlers ---
+  const handleAddClick = () => {
+    setSelectedDependent(null);
+    setModalOpen(true);
+  };
+
+  const handleEditClick = (dep) => {
+    setSelectedDependent(dep);
+    setModalOpen(true);
+  };
+
+  const handleModalSave = () => {
+    fetchMemberData();
+    setModalOpen(false);
+  };
+
+  const handleRestore = async (id) => {
+    try {
+      await restoreMember(id);
+      fetchMemberData(); // Refresh list
+    } catch (error) {
+      console.error('Error restoring member:', error);
+    }
+  };
+
+  const handleDeleteConfirm = (targetMember) => {
+    setDeletingMember(targetMember);
     setDeleteDialogOpen(true);
   };
 
@@ -204,119 +220,7 @@ const UnifiedMemberView = () => {
     }
   };
 
-  const handleEditClick = (dep) => {
-    setSelectedDependent(dep);
-    setEditDrawerOpen(true);
-  };
 
-  const handleEditSave = () => {
-    fetchMember();
-  };
-
-  // Inline Add Dependent Handlers
-  const handleDepFieldChange = (field) => (event) => {
-    const value = event.target.value;
-    setNewDependent((prev) => ({ ...prev, [field]: value }));
-    if (depErrors[field]) {
-      setDepErrors((prev) => ({ ...prev, [field]: null }));
-    }
-  };
-
-  const handleDepDateChange = (field) => (date) => {
-    setNewDependent((prev) => ({ ...prev, [field]: date }));
-    if (depErrors[field]) {
-      setDepErrors((prev) => ({ ...prev, [field]: null }));
-    }
-  };
-
-  const handlePhotoChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setDependentPhoto(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setDependentPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const validateDepForm = () => {
-    const newErrors = {};
-    if (!newDependent.fullName.trim()) newErrors.fullName = 'الاسم مطلوب';
-    if (!newDependent.birthDate) newErrors.birthDate = 'التاريخ مطلوب';
-    if (!newDependent.gender) newErrors.gender = 'الجنس مطلوب';
-    if (!newDependent.relationship) newErrors.relationship = 'القرابة مطلوبة';
-
-    setDepErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleAddDependentSubmit = async () => {
-    if (!validateDepForm()) return;
-
-    try {
-      setAddingDependent(true);
-      const payload = {
-        fullName: newDependent.fullName.trim(),
-        nationalNumber: newDependent.nationalNumber?.trim() || null,
-        birthDate: newDependent.birthDate ? dayjs(newDependent.birthDate).format('YYYY-MM-DD') : null,
-        gender: newDependent.gender,
-        relationship: newDependent.relationship,
-        nationality: newDependent.nationality || 'ليبي',
-        nationality: newDependent.nationality || 'ليبي',
-      };
-
-      const newDepResponse = await addDependent(member.id, payload);
-
-      // Upload Photo if exists
-      if (dependentPhoto && newDepResponse.id) {
-        try {
-          await uploadPhoto(newDepResponse.id, dependentPhoto);
-        } catch (photoError) {
-          console.error("Failed to upload photo for new dependent", photoError);
-          openSnackbar({
-            open: true,
-            message: 'تم إضافة التابع ولكن فشل رفع الصورة',
-            variant: 'alert',
-            alert: { color: 'warning' }
-          });
-        }
-      }
-
-      openSnackbar({
-        open: true,
-        message: 'تم إضافة التابع بنجاح',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-
-      // Clear form and refresh
-      setNewDependent({
-        fullName: '',
-        nationalNumber: '',
-        birthDate: null,
-        gender: '',
-        relationship: '',
-        nationality: 'ليبي',
-        nationality: 'ليبي',
-      });
-      setDependentPhoto(null);
-      setDependentPhotoPreview(null);
-      fetchMember();
-
-    } catch (error) {
-      console.error('Error adding dependent:', error);
-      openSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'خطأ في إضافة التابع',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setAddingDependent(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -338,7 +242,7 @@ const UnifiedMemberView = () => {
   }
 
   const isPrincipal = member.type === MEMBER_TYPES.PRINCIPAL;
-  const dependents = member.dependents || [];
+
 
   return (
     <RBACGuard requiredPermissions={[PERMISSIONS.VIEW_MEMBERS]}>
@@ -423,51 +327,50 @@ const UnifiedMemberView = () => {
           {/* Tab 0: Personal Info */}
           <div role="tabpanel" hidden={tabValue !== 0}>
             {tabValue === 0 && (
-              <Grid container spacing={2} sx={{ height: '100%' }}>
-                {/* Left Sidebar: Photo & IDs (Compact) */}
-                <Grid size={{ xs: 12, md: 3 }} sx={{ height: '100%' }}>
-                  <Paper variant="outlined" sx={{ p: 2, height: '100%', bgcolor: 'grey.50', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <MemberAvatar member={member} size={100} sx={{ mb: 1.5 }} />
+              <Grid container spacing={2}>
+                {/* Side: Photo & IDs (Stretches across both rows) */}
+                <Grid size={{ xs: 12, md: 3 }} sx={{ display: 'flex' }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, flex: 1, bgcolor: 'grey.50', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <MemberAvatar member={member} size={110} sx={{ mb: 1.5 }} />
 
-                    <Stack spacing={1} alignItems="center" width="100%">
-                      <Stack direction="row" spacing={1}>
-                        <Chip label={isPrincipal ? 'رئيسي' : 'تابع'} color={isPrincipal ? 'primary' : 'secondary'} size="small" />
-                        <Chip label={member.status === 'ACTIVE' ? 'نشط' : member.status} color={member.status === 'ACTIVE' ? 'success' : 'default'} size="small" />
+                    <Stack spacing={1.5} alignItems="center" width="100%">
+                      <Stack direction="row" spacing={1.5} justifyContent="center" width="100%">
+                        <Chip label={isPrincipal ? 'رئيسي' : 'تابع'} color={isPrincipal ? 'primary' : 'secondary'} size="small" sx={{ height: 24, fontSize: '0.75rem' }} />
+                        <Chip label={member.status === 'ACTIVE' ? 'نشط' : member.status} color={member.status === 'ACTIVE' ? 'success' : 'default'} size="small" sx={{ height: 24, fontSize: '0.75rem' }} />
                       </Stack>
 
-                      <Divider flexItem sx={{ width: '100%', my: 1.5 }} />
+                      <Divider flexItem sx={{ width: '100%', my: 0.5 }} />
 
-                      <Box sx={{ width: '100%', textAlign: 'center' }}>
-                        <Typography variant="caption" color="text.secondary" display="block">رقم البطاقة</Typography>
-                        <Typography variant="subtitle1" fontFamily="monospace" fontWeight="bold">{member.cardNumber || '-'}</Typography>
+                      <Box sx={{ width: '100%', textAlign: 'center', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="text.secondary" display="block" fontWeight="600">رقم البطاقة</Typography>
+                        <Typography variant="subtitle2" fontFamily="monospace" fontWeight="bold" sx={{ mt: 0.5 }}>{member.cardNumber || '-'}</Typography>
                       </Box>
 
                       {isPrincipal && member.barcode && (
-                        <Box sx={{ width: '100%', textAlign: 'center', mt: 1, p: 1, bgcolor: 'primary.lighter', borderRadius: 1 }}>
-                          <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                            <QrCodeIcon color="primary" fontSize="small" />
-                            <Typography variant="caption" color="primary.main">Barcode</Typography>
+                        <Box sx={{ width: '100%', textAlign: 'center', p: 1, bgcolor: 'primary.lighter', border: '1px solid', borderColor: 'primary.light', borderRadius: 1 }}>
+                          <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5 }}>
+                            <QrCodeIcon color="primary" sx={{ fontSize: 18 }} />
+                            <Typography variant="caption" color="primary.main" fontWeight="600">Barcode</Typography>
                           </Stack>
-                          <Typography variant="subtitle2" color="primary.main" fontWeight="bold">{member.barcode}</Typography>
+                          <Typography variant="subtitle2" color="primary.main" fontWeight="bold" fontFamily="monospace">{member.barcode}</Typography>
                         </Box>
                       )}
                     </Stack>
                   </Paper>
                 </Grid>
 
-                {/* Right Content Area: Personal + Emp + Contact */}
-                <Grid size={{ xs: 12, md: 9 }} sx={{ height: '100%' }}>
-                  <Stack spacing={2} sx={{ height: '100%' }}>
-
-                    {/* Top: Personal Info Box */}
+                {/* Content: Personal Info (Row 1) + Secondary Info (Row 2) */}
+                <Grid size={{ xs: 12, md: 9 }}>
+                  <Stack spacing={2}>
+                    {/* Personal Info Card */}
                     <Paper variant="outlined" sx={{ p: 2 }}>
                       <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>البيانات الشخصية</Typography>
                       <Grid container spacing={2}>
-                        <Grid size={{ xs: 12, md: 5 }}>
+                        <Grid size={{ xs: 12, md: 4 }}>
                           <Typography variant="caption" color="text.secondary">الاسم الكامل</Typography>
                           <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{member.fullName}</Typography>
                         </Grid>
-                        <Grid size={{ xs: 6, md: 2 }}>
+                        <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="caption" color="text.secondary">الرقم الوطني</Typography>
                           <Typography variant="body2" fontFamily="monospace">{member.nationalNumber || '-'}</Typography>
                         </Grid>
@@ -479,14 +382,11 @@ const UnifiedMemberView = () => {
                           <Typography variant="caption" color="text.secondary">تاريخ الميلاد</Typography>
                           <Typography variant="body2">{member.birthDate || '-'}</Typography>
                         </Grid>
-
-                        <Grid size={{ xs: 6, md: 3 }}>
+                        <Grid size={{ xs: 6, md: 2 }}>
                           <Typography variant="caption" color="text.secondary">الجنس</Typography>
                           <Typography variant="body2">{member.gender === GENDERS.MALE ? 'ذكر' : member.gender === GENDERS.FEMALE ? 'أنثى' : '-'}</Typography>
                         </Grid>
-
-
-                        <Grid size={{ xs: 12 }}>
+                        <Grid size={{ xs: 12, md: 10 }}>
                           {member.notes && (
                             <Typography variant="caption" sx={{ display: 'block', bgcolor: 'warning.lighter', color: 'warning.dark', p: 0.5, borderRadius: 0.5 }}>
                               ملاحظات: {member.notes}
@@ -496,12 +396,11 @@ const UnifiedMemberView = () => {
                       </Grid>
                     </Paper>
 
-                    {/* Bottom Split: Employment & Contact */}
-                    <Grid container spacing={2} sx={{ flex: 1 }}>
-                      {/* Employment (if principal) */}
+                    {/* Employment & Contact Container */}
+                    <Grid container spacing={2}>
                       {isPrincipal && (
-                        <Grid size={{ xs: 12, md: 6 }}>
-                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+                          <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
                             <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
                               <BadgeIcon fontSize="small" color="action" />
                               <Typography variant="subtitle2" fontWeight="bold">بيانات العمل</Typography>
@@ -521,15 +420,13 @@ const UnifiedMemberView = () => {
                                   <Typography variant="body2">{member.occupation || '-'}</Typography>
                                 </Grid>
                               </Grid>
-
                             </Stack>
                           </Paper>
                         </Grid>
                       )}
 
-                      {/* Contact Info - Takes full width if not principal */}
-                      <Grid size={{ xs: 12, md: isPrincipal ? 6 : 12 }}>
-                        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                      <Grid size={{ xs: 12, md: isPrincipal ? 6 : 12 }} sx={{ display: 'flex' }}>
+                        <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
                           <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
                             <ContactPhoneIcon fontSize="small" color="action" />
                             <Typography variant="subtitle2" fontWeight="bold">معلومات الاتصال</Typography>
@@ -553,7 +450,6 @@ const UnifiedMemberView = () => {
                         </Paper>
                       </Grid>
                     </Grid>
-
                   </Stack>
                 </Grid>
               </Grid>
@@ -564,124 +460,35 @@ const UnifiedMemberView = () => {
           <div role="tabpanel" hidden={tabValue !== 1}>
             {tabValue === 1 && isPrincipal && (
               <Stack spacing={3}>
-                {/* Inline Form - Single Row */}
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>إضافة تابع جديد</Typography>
-                    <Button variant="outlined" color="error" size="small" startIcon={<DeleteOutlineIcon />}>
-                      المحذوفات
-                    </Button>
+                {/* Header Actions */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Typography variant="subtitle1" fontWeight="bold">التابعون المسجلون</Typography>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={showDeleted}
+                          onChange={(e) => setShowDeleted(e.target.checked)}
+                          color="warning"
+                          size="small"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" color={showDeleted ? 'warning.main' : 'text.secondary'}>
+                          عرض المحذوفات
+                        </Typography>
+                      }
+                    />
                   </Stack>
-
-                  <Grid container spacing={2} alignItems="center">
-                    {/* Photo Upload */}
-                    <Grid size={{ xs: 12, md: 1 }}>
-                      <input
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        id="dependent-photo-upload"
-                        type="file"
-                        onChange={handlePhotoChange}
-                      />
-                      <label htmlFor="dependent-photo-upload">
-                        <IconButton component="span" sx={{ p: 0 }}>
-                          <Avatar
-                            src={dependentPhotoPreview}
-                            sx={{ width: 40, height: 40, border: '1px dashed grey' }}
-                          >
-                            <PersonAddIcon fontSize="small" />
-                          </Avatar>
-                        </IconButton>
-                      </label>
-                    </Grid>
-
-                    {/* Full Name */}
-                    <Grid size={{ xs: 12, md: 2.5 }}>
-                      <TextField
-                        fullWidth
-                        required
-                        label="الاسم الكامل"
-                        value={newDependent.fullName}
-                        onChange={handleDepFieldChange('fullName')}
-                        error={!!depErrors.fullName}
-                        size="small"
-                        placeholder="الاسم الثلاثي"
-                      />
-                    </Grid>
-
-                    {/* Relationship */}
-                    <Grid size={{ xs: 6, md: 2 }}>
-                      <FormControl fullWidth required error={!!depErrors.relationship} size="small">
-                        <InputLabel>القرابة</InputLabel>
-                        <Select
-                          value={newDependent.relationship}
-                          onChange={handleDepFieldChange('relationship')}
-                          label="القرابة"
-                        >
-                          {Object.entries(RELATIONSHIPS).map(([key, value]) => (
-                            <MenuItem key={key} value={value}>
-                              {RELATIONSHIP_AR[value] || value}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    {/* Gender */}
-                    <Grid size={{ xs: 6, md: 1.5 }}>
-                      <FormControl fullWidth required error={!!depErrors.gender} size="small">
-                        <InputLabel>الجنس</InputLabel>
-                        <Select
-                          value={newDependent.gender}
-                          onChange={handleDepFieldChange('gender')}
-                          label="الجنس"
-                        >
-                          {Object.entries(GENDERS).map(([key, value]) => (
-                            <MenuItem key={key} value={value}>
-                              {value === 'MALE' ? 'ذكر' : value === 'FEMALE' ? 'أنثى' : 'غير محدد'}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    {/* Nationality */}
-                    <Grid size={{ xs: 6, md: 1.5 }}>
-                      <TextField
-                        fullWidth
-                        label="الجنسية"
-                        value={newDependent.nationality}
-                        onChange={handleDepFieldChange('nationality')}
-                        size="small"
-                      />
-                    </Grid>
-
-                    {/* Birth Date */}
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <DatePicker
-                        label="تاريخ الميلاد *"
-                        value={newDependent.birthDate}
-                        onChange={handleDepDateChange('birthDate')}
-                        maxDate={dayjs()}
-                        slotProps={{ textField: { fullWidth: true, size: 'small', error: !!depErrors.birthDate } }}
-                      />
-                    </Grid>
-
-                    {/* Action Button */}
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        startIcon={addingDependent ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                        onClick={handleAddDependentSubmit}
-                        disabled={addingDependent}
-                        size="medium"
-                      >
-                        إضافة
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddClick}
+                    disabled={showDeleted} // Disable add in deleted view
+                  >
+                    إضافة تابع
+                  </Button>
+                </Stack>
 
                 <Divider />
 
@@ -698,9 +505,11 @@ const UnifiedMemberView = () => {
                           <TableHead>
                             <TableRow>
                               <TableCell align="center">#</TableCell>
-                              <TableCell align="right">الاسم</TableCell>
+                              <TableCell align="center">الصورة</TableCell>
+                              <TableCell align="center">الاسم</TableCell>
                               <TableCell align="center">القرابة</TableCell>
                               <TableCell align="center">رقم البطاقة</TableCell>
+                              <TableCell align="center">الرقم الوطني</TableCell>
                               <TableCell align="center">الجنس</TableCell>
                               <TableCell align="center">تاريخ الميلاد</TableCell>
                               <TableCell align="center">الحالة</TableCell>
@@ -709,10 +518,18 @@ const UnifiedMemberView = () => {
                           </TableHead>
                           <TableBody>
                             {dependents
+                              // TODO: Improve filter logic if backend provides 'deleted' flag. 
+                              // For now, assuming deleted members are not returned by default OR we filter by status if soft deleted manually.
+                              // If 'restore' feature is needed, we must ensure deleted members are FETCHED.
+                              // Assuming for now that we filter based on a hypothetical 'deleted' property or specific status if available.
+                              .filter(dep => showDeleted ? dep.active === false || dep.status === 'TERMINATED' : dep.status !== 'TERMINATED')
                               .slice(pg * rpp, pg * rpp + rpp)
                               .map((dep, index) => (
                                 <TableRow key={dep.id} hover>
                                   <TableCell align="center">{pg * rpp + index + 1}</TableCell>
+                                  <TableCell align="center">
+                                    <MemberAvatar member={dep} size={32} />
+                                  </TableCell>
                                   <TableCell align="right">
                                     <Typography variant="body2" fontWeight="medium">{dep.fullName}</Typography>
                                   </TableCell>
@@ -720,6 +537,7 @@ const UnifiedMemberView = () => {
                                     <Chip label={RELATIONSHIP_AR[dep.relationship] || dep.relationship} size="small" variant="outlined" color="primary" />
                                   </TableCell>
                                   <TableCell align="center">{dep.cardNumber || '-'}</TableCell>
+                                  <TableCell align="center">{dep.nationalNumber || dep.civilId || '-'}</TableCell>
                                   <TableCell align="center">
                                     {dep.gender === GENDERS.MALE ? 'ذكر' : dep.gender === GENDERS.FEMALE ? 'أنثى' : '-'}
                                   </TableCell>
@@ -734,21 +552,35 @@ const UnifiedMemberView = () => {
                                   </TableCell>
                                   <TableCell align="center">
                                     <Stack direction="row" spacing={1} justifyContent="center">
-                                      <Tooltip title="عرض التفاصيل">
-                                        <IconButton size="small" color="primary" onClick={() => navigate(`/members/${dep.id}`)}>
-                                          <BadgeIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                      <Tooltip title="تعديل">
-                                        <IconButton size="small" color="secondary" onClick={() => handleEditClick(dep)}>
-                                          <EditIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                      <Tooltip title="حذف">
-                                        <IconButton size="small" color="error" onClick={() => handleDeleteConfirm(dep)}>
-                                          <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
+                                      {showDeleted ? (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          color="warning"
+                                          onClick={() => handleRestore(dep.id)}
+                                          startIcon={<RestoreFromTrashIcon />}
+                                        >
+                                          استعادة
+                                        </Button>
+                                      ) : (
+                                        <>
+                                          <Tooltip title="عرض التفاصيل">
+                                            <IconButton size="small" color="primary" onClick={() => navigate(`/members/${dep.id}`)}>
+                                              <BadgeIcon fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
+                                          <Tooltip title="تعديل">
+                                            <IconButton size="small" color="secondary" onClick={() => handleEditClick(dep)}>
+                                              <EditIcon fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
+                                          <Tooltip title="حذف">
+                                            <IconButton size="small" color="error" onClick={() => handleDeleteConfirm(dep)}>
+                                              <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
+                                        </>
+                                      )}
                                     </Stack>
                                   </TableCell>
                                 </TableRow>
@@ -775,6 +607,14 @@ const UnifiedMemberView = () => {
           </div>
         </Box>
       </MainCard >
+
+      <DependentModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        principalId={member?.id}
+        dependent={selectedDependent}
+        onSave={handleModalSave}
+      />
 
       {/* Delete Confirmation Dialog */}
       < Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
@@ -804,12 +644,7 @@ const UnifiedMemberView = () => {
 
       </Dialog >
 
-      <DependentEditDrawer
-        open={editDrawerOpen}
-        onClose={() => setEditDrawerOpen(false)}
-        dependent={selectedDependent}
-        onSave={handleEditSave}
-      />
+
     </RBACGuard >
   );
 };

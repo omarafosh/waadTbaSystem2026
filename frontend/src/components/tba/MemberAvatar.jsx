@@ -26,13 +26,18 @@ const MemberAvatar = ({ member, size = 40, sx = {}, refreshTrigger }) => {
     // 1. Resolve effective photo URL with professional cache-busting
     useEffect(() => {
         if (member?.photoUrl) {
-            // Use existing URL if valid, add timestamp to prevent stale browser cache
-            // CRITICAL: Don't add timestamp to blob: URLs (local previews) as it breaks them
-            if (member.photoUrl.startsWith('blob:')) {
+            // CRITICAL: Don't add timestamp to blob: or data: URLs (local previews) as it breaks them
+            if (member.photoUrl.startsWith('blob:') || member.photoUrl.startsWith('data:')) {
                 setPhotoUrl(member.photoUrl);
             } else {
-                const timestamp = refreshTrigger || new Date().getTime();
-                setPhotoUrl(`${member.photoUrl}${member.photoUrl.includes('?') ? '&' : '?'}t=${timestamp}`);
+                // Check if url already has a timestamp param to avoid duplication
+                const hasTimestamp = member.photoUrl.includes('?t=') || member.photoUrl.includes('&t=');
+                if (hasTimestamp) {
+                    setPhotoUrl(member.photoUrl);
+                } else {
+                    const timestamp = refreshTrigger || new Date().getTime();
+                    setPhotoUrl(`${member.photoUrl}${member.photoUrl.includes('?') ? '&' : '?'}t=${timestamp}`);
+                }
             }
             setImgError(false);
         } else {
@@ -47,7 +52,8 @@ const MemberAvatar = ({ member, size = 40, sx = {}, refreshTrigger }) => {
     };
 
     const handleImageError = () => {
-        console.warn(`[MemberAvatar] Failed to load image for: ${member?.fullName}`);
+        // Suppress warning for expected 404s/fallbacks
+        // console.debug(`[MemberAvatar] Failed to load image for: ${member?.fullName}`);
         setImgError(true);
         setLoading(false);
     };
@@ -57,7 +63,7 @@ const MemberAvatar = ({ member, size = 40, sx = {}, refreshTrigger }) => {
 
     // 3. Render logic
     return (
-        <Box sx={{ position: 'relative', width: size, height: size, display: 'inline-flex', ...sx }}>
+        <Box sx={{ position: 'relative', width: size, height: size, display: 'inline-flex' }}>
             <Avatar
                 src={imgError ? undefined : photoUrl}
                 alt={member?.fullName}
