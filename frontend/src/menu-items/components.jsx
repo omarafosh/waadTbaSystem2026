@@ -72,6 +72,7 @@ export const filterMenuByRoles = (menuItems, userRoles = [], user = null) => {
         'pre-approvals',
         'pre-approvals-inbox',
         'settlement-inbox',
+        'settlement',
         'unified-approvals-dashboard',
         'visits',
         'medical-categories',
@@ -243,7 +244,7 @@ export const filterMenuByRoles = (menuItems, userRoles = [], user = null) => {
         'admin-users',
         'rbac'
       ],
-      show: ['dashboard', 'claims', 'settlement-inbox', 'audit', 'settings', 'reports']
+      show: ['dashboard', 'claims', 'settlement-inbox', 'settlement', 'audit', 'settings', 'reports']
     }
   };
 
@@ -633,6 +634,48 @@ const menuItem = [
           // Reviewers access everything through Inbox pages
           // No CREATE options - only Providers can create via Visit Log
           // NOTE (2026-01-23): Removed 'visits' - redundant (already in Reports section)
+        ]
+      }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💰 SETTLEMENT & FINANCE
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'group-settlement',
+    title: 'التسويات المالية',
+    titleEn: 'Settlement & Finance',
+    type: 'group',
+    children: [
+      {
+        id: 'settlement',
+        title: 'إدارة التسويات',
+        titleEn: 'Settlement Management',
+        type: 'collapse',
+        icon: PaymentIcon,
+        children: [
+          {
+            id: 'settlement-batches',
+            title: 'دفعات التسوية',
+            titleEn: 'Settlement Batches',
+            type: 'item',
+            url: '/settlement/batches',
+            icon: ReceiptIcon,
+            chip: {
+              label: 'New',
+              color: 'primary',
+              size: 'small'
+            }
+          },
+          {
+            id: 'provider-accounts',
+            title: 'حسابات مقدمي الخدمة',
+            titleEn: 'Provider Accounts',
+            type: 'item',
+            url: '/settlement/accounts',
+            icon: LocalHospitalIcon
+          }
         ]
       }
     ]

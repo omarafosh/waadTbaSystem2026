@@ -765,6 +765,31 @@ const ClaimView = () => {
                   </Card>
                 </Grid>
 
+                {/* ===================== SETTLEMENT INFORMATION ===================== */}
+                {(claim?.status === 'SETTLED' || claim?.settlementBatchId) && (
+                  <Grid item xs={12}>
+                    <Card variant="outlined" sx={{ bgcolor: 'success.lighter', borderColor: 'success.light' }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                          <SettleIcon color="success" />
+                          <Typography variant="h6" color="success.dark">معلومات التسوية المالية</Typography>
+                        </Stack>
+                        <Divider sx={{ mb: 2, borderColor: 'success.light' }} />
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={6}>
+                            <InfoRow label="رقم الدفعة" value={claim.settlementBatchId ? `#${claim.settlementBatchId}` : '-'} />
+                            <InfoRow label="تاريخ التسوية" value={claim.settlementDate ? new Date(claim.settlementDate).toLocaleDateString('ar-SA') : '-'} />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <InfoRow label="مرجع الدفع" value={claim.paymentReference || '-'} />
+                            <InfoRow label="طريقة الدفع" value={claim.paymentMethod || 'تحويل بنكي'} />
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                )}
+
                 {/* ===================== SERVICE LINES ===================== */}
                 {Array.isArray(claim?.lines) && claim.lines.length > 0 && (
                   <Grid item xs={12}>

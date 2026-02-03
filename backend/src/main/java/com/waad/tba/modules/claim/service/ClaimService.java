@@ -119,6 +119,9 @@ public class ClaimService {
     // Phase 1 (2026-01-28): Atomic Financial Operations
     private final AtomicFinancialService atomicFinancialService;
 
+    // Phase 2 (Settlement Integration):
+    private final com.waad.tba.modules.settlement.service.ProviderAccountService providerAccountService;
+
     /**
      * Search claims with explicit employer filtering.
      * UPDATED 2026-01-05: Added PROVIDER filtering (Global Best Practice)
@@ -724,6 +727,17 @@ public class ClaimService {
         // Step 8: Record in audit trail (pass null for previousApprovedAmount as it wasn't approved before)
         claimAuditService.recordApproval(savedClaim, previousStatus, null, currentUser, dto.getNotes());
         
+        // ══════════════════════════════════════════════════════════════════════════
+        // STEP 9: FINANCIAL SETTLEMENT - CREDIT PROVIDER ACCOUNT (PHASE 2)
+        // ══════════════════════════════════════════════════════════════════════════
+        try {
+            providerAccountService.creditOnClaimApproval(savedClaim.getId(), currentUser.getId());
+            log.info("💰 [SETTLEMENT] Credited provider account for claim {}", id);
+        } catch (Exception e) {
+            log.error("❌ Failed to credit provider account for claim {}: {}", id, e.getMessage(), e);
+            throw new BusinessRuleException("تمت الموافقة ولكن فشل تحديث رصيد مقدم الخدمة: " + e.getMessage());
+        }
+        
         log.info("✅ Claim {} approved: requested={}, approved={}, patientCoPay={}, netProvider={}", 
             id, claim.getRequestedAmount(), approvedAmount, patientCoPay, netProviderAmount);
         
@@ -898,6 +912,13 @@ public class ClaimService {
             
             // Step 8: Record in audit trail
             claimAuditService.recordApproval(savedClaim, ClaimStatus.APPROVAL_IN_PROGRESS, null, currentUser, dto.getNotes());
+            
+            // ══════════════════════════════════════════════════════════════════════════
+            // STEP 9: FINANCIAL SETTLEMENT - CREDIT PROVIDER ACCOUNT (PHASE 2)
+            // ══════════════════════════════════════════════════════════════════════════
+            // Note: In async process, if this fails, we catch exception below and rollback
+            providerAccountService.creditOnClaimApproval(savedClaim.getId(), currentUser.getId());
+            log.info("💰 [SETTLEMENT] Credited provider account for claim {}", id);
             
             log.info("✅ [SPLIT-PHASE] Phase 2 complete: Claim {} approved successfully", id);
             

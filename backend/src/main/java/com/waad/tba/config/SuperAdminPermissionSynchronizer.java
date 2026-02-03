@@ -91,7 +91,11 @@ public class SuperAdminPermissionSynchronizer implements CommandLineRunner {
         // Claims permissions  
         "MANAGE_CLAIMS", "VIEW_CLAIMS", "CREATE_CLAIM", "UPDATE_CLAIM",
         "APPROVE_CLAIMS", "REJECT_CLAIMS", "VIEW_CLAIM_STATUS",
-        "SETTLE_CLAIMS", // NEW - AUDIT FIX
+        
+        // Settlement permissions (NEW)
+        "MANAGE_SETTLEMENTS", "VIEW_SETTLEMENTS",
+        "CREATE_SETTLEMENT_BATCH", "CONFIRM_SETTLEMENT_BATCH",
+        "PAY_SETTLEMENT_BATCH", "CANCEL_SETTLEMENT_BATCH",
         
         // Visit permissions
         "MANAGE_VISITS", "VIEW_VISITS",

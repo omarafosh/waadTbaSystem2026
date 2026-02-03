@@ -72,6 +72,16 @@ public enum PermissionDomain {
     MEMBERS("الأعضاء", "Members", false),
     
     /**
+     * SETTLEMENT Domain - Financial Settlements
+     * 
+     * Controls access to:
+     * - Settlement processing
+     * - Payment batches
+     * - Provider account financial views
+     */
+    SETTLEMENT("التسويات", "Settlement", false),
+
+    /**
      * CLAIMS Domain - Claims Management
      * 
      * Controls access to:
@@ -212,6 +222,9 @@ public enum PermissionDomain {
         }
         if (upperName.contains("PROVIDER")) {
             return PROVIDERS;
+        }
+        if (upperName.contains("SETTLEMENT")) {
+            return SETTLEMENT;
         }
         if (upperName.contains("EMPLOYER")) {
             return EMPLOYERS;

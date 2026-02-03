@@ -66,6 +66,16 @@ public enum AppPermission {
     VIEW_MEMBERS("عرض الأعضاء", "View member information only"),
     
     // ============================================
+    // Settlement Management
+    // ============================================
+    MANAGE_SETTLEMENTS("إدارة التسويات", "Full management of financial settlements"),
+    VIEW_SETTLEMENTS("عرض التسويات", "View settlement batches and provider accounts"),
+    CREATE_SETTLEMENT_BATCH("إنشاء دفعة تسوية", "Create new settlement batches"),
+    CONFIRM_SETTLEMENT_BATCH("تأكيد دفعة تسوية", "Confirm settlement batches for payment"),
+    PAY_SETTLEMENT_BATCH("دفع دفعة تسوية", "Mark settlement batches as paid"),
+    CANCEL_SETTLEMENT_BATCH("إلغاء دفعة تسوية", "Cancel settlement batches"),
+
+    // ============================================
     // Claims Management
     // ============================================
     MANAGE_CLAIMS("إدارة المطالبات", "Full management of claims (create, update, delete)"),

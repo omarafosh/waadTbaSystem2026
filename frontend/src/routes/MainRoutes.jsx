@@ -46,6 +46,14 @@ const ClaimView = Loadable(lazy(() => import('pages/claims/ClaimView')));
 const ClaimsInbox = Loadable(lazy(() => import('pages/claims/ClaimsInboxPro')));
 const SettlementInbox = Loadable(lazy(() => import('pages/claims/SettlementInbox')));
 
+// ==============================|| LAZY LOADING - SETTLEMENT (NEW) ||============================== //
+
+const SettlementBatchesList = Loadable(lazy(() => import('pages/settlement/SettlementBatchesList')));
+const CreateSettlementBatch = Loadable(lazy(() => import('pages/settlement/CreateSettlementBatch')));
+const SettlementBatchView = Loadable(lazy(() => import('pages/settlement/SettlementBatchView')));
+const ProviderAccountsList = Loadable(lazy(() => import('pages/settlement/ProviderAccountsList')));
+
+
 // ==============================|| LAZY LOADING - PROVIDERS ||============================== //
 
 const ProvidersList = Loadable(lazy(() => import('pages/providers/ProvidersList')));
@@ -356,14 +364,6 @@ const MainRoutes = {
           )
         },
         {
-          path: 'settlement',
-          element: (
-            <RouteGuard allowedRoles={['ADMIN', 'FINANCE']}>
-              <SettlementInbox />
-            </RouteGuard>
-          )
-        },
-        {
           path: 'add',
           element: (
             <RouteGuard allowedRoles={['ADMIN', 'EMPLOYER']}>
@@ -384,6 +384,45 @@ const MainRoutes = {
           element: (
             <RouteGuard allowedRoles={['ADMIN', 'EMPLOYER', 'REVIEWER']}>
               <ClaimView />
+            </RouteGuard>
+          )
+        }
+      ]
+    },
+
+    // Settlement Module (New)
+    {
+      path: 'settlement',
+      children: [
+        {
+          path: 'batches',
+          element: (
+            <RouteGuard allowedRoles={['ADMIN', 'FINANCE', 'INSURANCE_ADMIN']}>
+              <SettlementBatchesList />
+            </RouteGuard>
+          )
+        },
+        {
+          path: 'batches/create',
+          element: (
+            <RouteGuard allowedRoles={['ADMIN', 'FINANCE', 'INSURANCE_ADMIN']}>
+              <CreateSettlementBatch />
+            </RouteGuard>
+          )
+        },
+        {
+          path: 'batches/:id',
+          element: (
+            <RouteGuard allowedRoles={['ADMIN', 'FINANCE', 'INSURANCE_ADMIN']}>
+              <SettlementBatchView />
+            </RouteGuard>
+          )
+        },
+        {
+          path: 'accounts',
+          element: (
+            <RouteGuard allowedRoles={['ADMIN', 'FINANCE', 'INSURANCE_ADMIN']}>
+              <ProviderAccountsList />
             </RouteGuard>
           )
         }
