@@ -81,6 +81,11 @@ public interface ProviderContractRepository extends JpaRepository<ProviderContra
     Page<ProviderContract> findByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status, Pageable pageable);
 
     /**
+     * Check if contracts exist by provider and status
+     */
+    boolean existsByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status);
+
+    /**
      * Count active contracts for a specific provider
      */
     long countByProviderIdAndStatusAndActiveTrue(Long providerId, ContractStatus status);
@@ -247,4 +252,21 @@ public interface ProviderContractRepository extends JpaRepository<ProviderContra
            "WHERE c.active = true " +
            "ORDER BY c.createdAt DESC")
     List<Object[]> getRecentContracts(Pageable pageable);
+
+    /**
+     * Check if an active contract already exists for this provider and employer.
+     * Used to prevent duplicate active contracts for the same employer.
+     * 
+     * @param providerId Provider ID
+     * @param employerId Employer ID (null for global contracts)
+     * @return true if an active contract already exists
+     */
+    @Query("SELECT COUNT(c) > 0 FROM ModernProviderContract c " +
+           "WHERE c.provider.id = :providerId " +
+           "AND ((:employerId IS NULL AND c.employer IS NULL) OR (c.employer.id = :employerId)) " +
+           "AND c.status IN ('ACTIVE', 'DRAFT', 'SUSPENDED') " +
+           "AND c.active = true")
+    boolean existsActiveContractForEmployer(
+            @Param("providerId") Long providerId,
+            @Param("employerId") Long employerId);
 }

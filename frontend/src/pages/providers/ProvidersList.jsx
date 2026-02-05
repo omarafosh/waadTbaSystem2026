@@ -10,7 +10,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 // MUI Components
 import {
   Box, IconButton, Stack, Tooltip, Typography, Chip, Button, CircularProgress,
-  Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText, Divider
+  Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText, Divider,
+  DialogActions, TextField, InputAdornment, Avatar, ListItemAvatar // Added DialogActions, TextField, InputAdornment, Avatar, ListItemAvatar
 } from '@mui/material';
 
 // MUI Icons
@@ -25,6 +26,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CloseIcon from '@mui/icons-material/Close';
 import HandshakeIcon from '@mui/icons-material/Handshake';
+import SearchIcon from '@mui/icons-material/Search'; // Added SearchIcon
+import BusinessIcon from '@mui/icons-material/Business'; // Added BusinessIcon
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -122,14 +125,14 @@ const ProviderEmployersCell = ({ providerId }) => {
   // But based on logic, if array empty -> Standard/All or None. 
   // Let's assume empty means "Default / Global" unless specified otherwise.
   if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
-    return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+    return <Typography variant="caption" color="text.secondary">لا يوجد عقود</Typography>;
   }
 
   // Filter only active contracts
   const activeContracts = contracts.filter(c => c.active !== false && c.status !== 'TERMINATED');
 
   if (activeContracts.length === 0) {
-    return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+    return <Typography variant="caption" color="text.secondary">لا يوجد عقود</Typography>;
   }
 
   const names = activeContracts.map(c => c.employerName || c.employer?.name || 'شركة غير معروفة');
@@ -176,6 +179,22 @@ export default function ProvidersList() {
   // ========================================
 
   const [employersDialog, setEmployersDialog] = useState({ open: false, names: [], providerName: '' });
+  const [dialogSearchTerm, setDialogSearchTerm] = useState(''); // Added Search State
+
+  // Reset search when dialog opens/closes
+  useEffect(() => {
+    if (!employersDialog.open) {
+      setDialogSearchTerm('');
+    }
+  }, [employersDialog.open]);
+
+  // Filtered Employers for Dialog
+  const filteredEmployerNames = useMemo(() => {
+    if (!dialogSearchTerm) return employersDialog.names;
+    return employersDialog.names.filter(name =>
+      name.toLowerCase().includes(dialogSearchTerm.toLowerCase())
+    );
+  }, [employersDialog.names, dialogSearchTerm]);
 
   const tableState = useTableState({
     initialPageSize: 10,
@@ -327,9 +346,22 @@ export default function ProvidersList() {
       cell: ({ row }) => {
         const count = row.original.contractCount || 0;
         const names = row.original.contractedEmployerNames || [];
+        const isGlobal = names.some(n => n && n.includes('الشبكة العامة'));
+
+        if (isGlobal) {
+          return (
+            <Chip
+              label="الشبكة العامة"
+              color="success"
+              size="small"
+              variant="outlined"
+              icon={<CheckCircleIcon />}
+            />
+          );
+        }
 
         if (count === 0) {
-          return <Typography variant="caption" color="text.secondary">الكل (شبكة عامة)</Typography>;
+          return <Typography variant="caption" color="text.secondary">-</Typography>;
         }
 
         return (
@@ -345,7 +377,7 @@ export default function ProvidersList() {
               startIcon={<HandshakeIcon sx={{ fontSize: '1rem !important' }} />}
               sx={{ fontWeight: 'bold' }}
             >
-              {count} {count > 10 ? 'جهة' : 'جهات'} متعاقدة
+              {count} {count > 10 ? 'جهة' : 'جهات'}
             </Button>
           </Tooltip>
         );
@@ -511,41 +543,73 @@ export default function ProvidersList() {
         onClose={() => setEmployersDialog({ ...employersDialog, open: false })}
         maxWidth="xs"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2, maxHeight: '80vh' }
+        }}
       >
-        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogTitle sx={{ m: 0, p: 2, pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
-            <Typography variant="h6">الجهات المتعاقدة</Typography>
+            <Typography variant="h6" fontWeight="bold">الجهات المتعاقدة</Typography>
             <Typography variant="caption" color="text.secondary">{employersDialog.providerName}</Typography>
           </Box>
           <IconButton onClick={() => setEmployersDialog({ ...employersDialog, open: false })} size="small">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
+
+        <Box sx={{ px: 2, pb: 2 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="بحث عن جهة عمل..."
+            value={dialogSearchTerm}
+            onChange={(e) => setDialogSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ bgcolor: 'background.paper' }}
+          />
+        </Box>
+
         <Divider />
-        <DialogContent sx={{ p: 0 }}>
+
+        <DialogContent sx={{ p: 0, overflowY: 'auto' }}>
           <List dense sx={{ py: 0 }}>
-            {employersDialog.names.length > 0 ? (
-              employersDialog.names.map((name, index) => (
-                <ListItem key={index} divider={index < employersDialog.names.length - 1}>
+            {filteredEmployerNames.length > 0 ? (
+              filteredEmployerNames.map((name, index) => (
+                <ListItem key={index} divider={index < filteredEmployerNames.length - 1} sx={{ py: 1.5, px: 2 }}>
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 32, height: 32 }}>
+                      <BusinessIcon fontSize="small" />
+                    </Avatar>
+                  </ListItemAvatar>
                   <ListItemText
                     primary={name}
-                    primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                    primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                   />
                 </ListItem>
               ))
             ) : (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography color="text.secondary">لا توجد جهات متعاقدة</Typography>
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography color="text.secondary" variant="body2">
+                  {dialogSearchTerm ? 'لا توجد نتائج مطابقة' : 'لا توجد جهات متعاقدة'}
+                </Typography>
               </Box>
             )}
           </List>
         </DialogContent>
+
         <Divider />
-        <Box sx={{ p: 1.5, textAlign: 'right' }}>
-          <Button onClick={() => setEmployersDialog({ ...employersDialog, open: false })} size="small">
+
+        <DialogActions sx={{ p: 1.5, justifyContent: 'center' }}>
+          <Button onClick={() => setEmployersDialog({ ...employersDialog, open: false })} color="inherit">
             إغلاق
           </Button>
-        </Box>
+        </DialogActions>
       </Dialog>
     </Box>
   );

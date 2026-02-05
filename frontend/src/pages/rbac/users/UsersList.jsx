@@ -84,7 +84,7 @@ const getRoleColor = (roleName) => {
 /**
  * Users List Component
  */
-const UsersList = () => {
+const UsersList = ({ isEmbedded = false }) => {
   const navigate = useNavigate();
 
   // State
@@ -224,27 +224,29 @@ const UsersList = () => {
 
   return (
     <Box>
-      {/* Page Header */}
-      <ModernPageHeader
-        title="إدارة المستخدمين"
-        subtitle="عرض وإدارة المستخدمين وصلاحياتهم"
-        icon={PeopleAltIcon}
-        breadcrumbs={[
-          { label: 'الرئيسية', path: '/' },
-          { label: 'الصلاحيات', path: '/rbac' },
-          { label: 'المستخدمين' }
-        ]}
-        actions={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh}>
-              تحديث
-            </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/rbac/users/create')}>
-              إضافة مستخدم
-            </Button>
-          </Stack>
-        }
-      />
+      {/* Page Header - Only show if not embedded */}
+      {!isEmbedded && (
+        <ModernPageHeader
+          title="إدارة المستخدمين"
+          subtitle="عرض وإدارة المستخدمين وصلاحياتهم"
+          icon={PeopleAltIcon}
+          breadcrumbs={[
+            { label: 'الرئيسية', path: '/' },
+            { label: 'الصلاحيات', path: '/rbac' },
+            { label: 'المستخدمين' }
+          ]}
+          actions={
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh}>
+                تحديث
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/rbac/users/create')}>
+                إضافة مستخدم
+              </Button>
+            </Stack>
+          }
+        />
+      )}
 
       <Grid container spacing={3}>
         {/* Search */}
@@ -362,7 +364,7 @@ const UsersList = () => {
                               {user.roles.slice(0, 3).map((role) => (
                                 <Chip
                                   key={role?.id || role?.name}
-                                  label={role?.name || '-'}
+                                  label={role?.nameAr || role?.name || '-'}
                                   size="small"
                                   color={getRoleColor(role?.name)}
                                   variant="outlined"

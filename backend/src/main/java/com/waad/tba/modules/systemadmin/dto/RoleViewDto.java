@@ -20,7 +20,9 @@ public class RoleViewDto {
     
     private Long id;
     private String name;
+    private String nameAr;
     private String description;
+    private String descriptionAr;
     private List<String> permissions;
     private Integer userCount;
     private LocalDateTime createdAt;

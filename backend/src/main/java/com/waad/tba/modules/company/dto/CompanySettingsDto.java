@@ -26,30 +26,10 @@ public class CompanySettingsDto {
     @NotNull(message = "Employer ID is required")
     private Long employerId;
     
-    /**
-     * Can EMPLOYER_ADMIN view claims?
-     */
-    @Builder.Default
-    private Boolean canViewClaims = false;
-    
-    /**
-     * Can EMPLOYER_ADMIN view visits?
-     */
-    @Builder.Default
-    private Boolean canViewVisits = false;
-    
-    /**
-     * Can EMPLOYER_ADMIN edit members?
-     */
-    @Builder.Default
-    private Boolean canEditMembers = true;
-    
-    /**
-     * Can download attachments?
-     */
-    @Builder.Default
-    private Boolean canDownloadAttachments = true;
-    
+    private Boolean canViewClaims;
+    private Boolean canViewVisits;
+    private Boolean canEditMembers;
+    private Boolean canDownloadAttachments;
     /**
      * Employer name (for display purposes)
      */

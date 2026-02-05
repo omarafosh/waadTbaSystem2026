@@ -16,3 +16,5 @@ export * as medicalPackagesService from './medical-packages.service';
 export * as benefitPackagesService from './benefit-packages.service';
 export { default as providersService } from './providers.service';
 export { default as settlementService } from './settlement.service';
+export { default as rbacService } from './rbac.service';
+

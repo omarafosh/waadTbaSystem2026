@@ -35,6 +35,13 @@ public class ProviderViewDto {
     private LocalDate contractStartDate;
     private LocalDate contractEndDate;
     private BigDecimal defaultDiscountRate;
+    
+    /**
+     * Allow all employers (global network access)
+     * السماح لجميع الجهات (شبكة عامة)
+     */
+    private Boolean allowAllEmployers;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

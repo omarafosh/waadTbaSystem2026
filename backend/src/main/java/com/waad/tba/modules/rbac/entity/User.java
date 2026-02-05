@@ -94,61 +94,27 @@ public class User {
     private Long providerId;
 
     /**
-     * @deprecated Legacy field kept for backwards compatibility.
-     * NOT used for operational filtering or authorization.
-     * All operational data access is employer-centric via employerId.
-     * This field may be used for INSURANCE_ADMIN display purposes only.
-     * See: COMPANY-EMPLOYER-REFACTOR-SUMMARY.md (2025-12-27)
+     * Company ID - for INSURANCE / TPA users
+     * Links the user to the main TPA organization.
      */
-    @Deprecated
     @Column(name = "company_id")
     private Long companyId;
 
-    // ========================================================================
-    // CUSTOM PERMISSIONS for EMPLOYER users
-    // Fine-grained access control for what employer users can see/do
-    // ========================================================================
-
     /**
-     * Can view/manage claims
-     * Default: true for EMPLOYER_ADMIN, configurable per user
-     */
-    @Column(name = "can_view_claims")
-    @Builder.Default
-    private Boolean canViewClaims = true;
-
-    /**
-     * Can view/manage visits
-     * Default: true for EMPLOYER_ADMIN, configurable per user
-     */
-    @Column(name = "can_view_visits")
-    @Builder.Default
-    private Boolean canViewVisits = true;
-
-    /**
-     * Can view reports
-     * Default: true for EMPLOYER_ADMIN, configurable per user
-     */
-    @Column(name = "can_view_reports")
-    @Builder.Default
-    private Boolean canViewReports = true;
-
-    /**
-     * Can view/manage members
-     * Default: true for EMPLOYER_ADMIN, configurable per user
+     * Legacy Feature Flag: View Members
+     * Controlled at user level (deprecated, move to FGAC)
      */
     @Column(name = "can_view_members")
     @Builder.Default
     private Boolean canViewMembers = true;
 
     /**
-     * Can view/manage benefit policies
-     * Default: true for EMPLOYER_ADMIN, configurable per user
+     * Legacy Feature Flag: View Policies
+     * Controlled at user level (deprecated, move to FGAC)
      */
     @Column(name = "can_view_benefit_policies")
     @Builder.Default
     private Boolean canViewBenefitPolicies = true;
-
     /**
      * Whether the user can see members from all companies contracted with the provider.
      * Default: true (backwards compatibility and typical behavior).

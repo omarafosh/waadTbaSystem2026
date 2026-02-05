@@ -4,6 +4,9 @@ import com.waad.tba.common.exception.BusinessRuleException;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
 import com.waad.tba.modules.providercontract.dto.*;
+import com.waad.tba.modules.provider.dto.AllowedEmployerDto;
+import com.waad.tba.common.entity.Organization;
+import com.waad.tba.common.repository.OrganizationRepository;
 import com.waad.tba.modules.providercontract.entity.ProviderContract;
 import com.waad.tba.modules.providercontract.entity.ProviderContract.ContractStatus;
 import com.waad.tba.modules.providercontract.entity.ProviderContract.PricingModel;
@@ -15,6 +18,7 @@ import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.member.repository.MemberRepository;
 import com.waad.tba.modules.benefitpolicy.service.BenefitPolicyRuleService;
+import com.waad.tba.modules.claim.repository.ClaimRepository;
 import com.waad.tba.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,10 +53,12 @@ public class ProviderContractService {
 
     private final ProviderContractRepository contractRepository;
     private final ProviderRepository providerRepository;
+    private final OrganizationRepository organizationRepository;
     private final ProviderContractPricingItemService pricingItemService;
     private final MedicalServiceRepository medicalServiceRepository;
     private final MemberRepository memberRepository;
     private final BenefitPolicyRuleService benefitPolicyRuleService;
+    private final ClaimRepository claimRepository;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // READ OPERATIONS
@@ -377,7 +383,52 @@ public class ProviderContractService {
                 .terminatedContracts(contractRepository.countByStatusAndActiveTrue(ContractStatus.TERMINATED))
                 .totalActiveValue(contractRepository.getTotalValueByStatus(ContractStatus.ACTIVE))
                 .totalExpiredValue(contractRepository.getTotalValueByStatus(ContractStatus.EXPIRED))
+                .totalExpiredValue(contractRepository.getTotalValueByStatus(ContractStatus.EXPIRED))
                 .build();
+    }
+
+    /**
+     * Get allowed employers for a provider based on active contracts.
+     * Includes ACTIVE, DRAFT, and SUSPENDED contracts to show all configured employers.
+     */
+    @Transactional(readOnly = true)
+    public List<AllowedEmployerDto> getAllowedEmployers(Long providerId) {
+        List<ProviderContract> contracts = contractRepository.findByProviderIdAndActiveTrue(providerId);
+        
+        // Include ACTIVE, DRAFT, and SUSPENDED contracts (exclude TERMINATED, EXPIRED)
+        List<ProviderContract> validContracts = contracts.stream()
+                .filter(c -> c.getStatus() == ContractStatus.ACTIVE || 
+                            c.getStatus() == ContractStatus.DRAFT ||
+                            c.getStatus() == ContractStatus.SUSPENDED)
+                .collect(Collectors.toList());
+
+        // Check for Global Contract
+        boolean hasGlobal = validContracts.stream()
+                .anyMatch(c -> c.getEmployer() == null);
+
+        // Collect specific employers
+        List<AllowedEmployerDto> result = validContracts.stream()
+                .filter(c -> c.getEmployer() != null)
+                .map(c -> AllowedEmployerDto.builder()
+                        .id(c.getEmployer().getId())
+                        .name(c.getEmployer().getName())
+                        .nameEn(c.getEmployer().getName())
+                        .isGlobal(false)
+                        .build())
+                .distinct()
+                .collect(Collectors.toCollection(java.util.ArrayList::new));
+
+        // Add Global if present
+        if (hasGlobal) {
+            result.add(0, AllowedEmployerDto.builder()
+                    .id(0L)
+                    .name("جميع الجهات (شبكة عامة)")
+                    .nameEn("All Employers (Global Network)")
+                    .isGlobal(true)
+                    .build());
+        }
+
+        return result;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -408,11 +459,27 @@ public class ProviderContractService {
             throw new BusinessRuleException("Contract code already exists: " + contractCode);
         }
         
+        // Resolve Employer if provided
+        Organization employer = null;
+        if (dto.getEmployerId() != null) {
+            employer = organizationRepository.findById(dto.getEmployerId())
+                    .orElseThrow(() -> new BusinessRuleException("Employer not found: " + dto.getEmployerId()));
+        }
+
+        // Validate: Prevent duplicate active contracts for same employer
+        if (contractRepository.existsActiveContractForEmployer(dto.getProviderId(), dto.getEmployerId())) {
+            String employerName = employer != null ? employer.getName() : "Global Network";
+            throw new BusinessRuleException(
+                "عقد نشط موجود مسبقاً لهذه الجهة / Active contract already exists for: " + employerName
+            );
+        }
+
         // Build entity
         ProviderContract contract = ProviderContract.builder()
                 .contractCode(contractCode)
                 .contractNumber(contractCode) // Legacy compatibility
                 .provider(provider)
+                .employer(employer)
                 .status(dto.getStatus() != null ? dto.getStatus() : ContractStatus.DRAFT)
                 .pricingModel(dto.getPricingModel() != null ? dto.getPricingModel() : PricingModel.DISCOUNT)
                 .discountPercent(dto.getDiscountPercent() != null ? dto.getDiscountPercent() : BigDecimal.ZERO)
@@ -471,6 +538,12 @@ public class ProviderContractService {
         }
         
         // Apply updates
+        if (dto.getEmployerId() != null) {
+            Organization employer = organizationRepository.findById(dto.getEmployerId())
+                    .orElseThrow(() -> new BusinessRuleException("Employer not found: " + dto.getEmployerId()));
+            contract.setEmployer(employer);
+        }
+        
         if (dto.getPricingModel() != null) {
             contract.setPricingModel(dto.getPricingModel());
         }
@@ -547,11 +620,22 @@ public class ProviderContractService {
         final Long contractId = contractToActivate.getId();
         
         // Check for existing active contract for same provider
+        // Check for existing active contract for same provider
         contractRepository.findActiveContractByProvider(providerId)
                 .filter(existing -> !existing.getId().equals(contractId))
                 .ifPresent(existing -> {
-                    throw new BusinessRuleException(
-                            "Provider already has an active contract: " + existing.getContractCode());
+                    // Check for open claims before deactivating old contract
+                    long openClaims = claimRepository.countOpenClaimsByProvider(providerId);
+                    if (openClaims > 0) {
+                        throw new BusinessRuleException(
+                            "لا يمكن تفعيل عقد جديد لوجود " + openClaims + " مطالبات مفتوحة. يرجى تسوية المطالبات أولاً. / Cannot activate new contract. Provider has " + openClaims + " open claims."
+                        );
+                    }
+                    
+                    // Auto-draft the old contract
+                    log.info("Auto-drafting old active contract: {}", existing.getContractCode());
+                    existing.setStatus(ContractStatus.DRAFT);
+                    contractRepository.save(existing);
                 });
         
         // Check for overlapping contracts

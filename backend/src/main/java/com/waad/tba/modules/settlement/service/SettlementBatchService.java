@@ -161,7 +161,7 @@ public class SettlementBatchService {
         List<SettlementBatchItem> newItems = new ArrayList<>();
         for (Claim claim : claims) {
             SettlementBatchItem item = SettlementBatchItem.createFromClaim(
-                    batch.getId(),
+                    batch,
                     claim.getId(),
                     claim.getRequestedAmount(),
                     claim.getNetProviderAmount(),

@@ -63,21 +63,21 @@ public interface SettlementBatchItemRepository extends JpaRepository<SettlementB
      * Get total net amount for a batch
      */
     @Query("SELECT COALESCE(SUM(sbi.netAmountSnapshot), 0) FROM SettlementBatchItem sbi " +
-           "WHERE sbi.settlementBatchId = :batchId")
+           "WHERE sbi.settlementBatch.id = :batchId")
     BigDecimal getTotalNetAmountByBatch(@Param("batchId") Long batchId);
 
     /**
      * Get total gross amount for a batch
      */
     @Query("SELECT COALESCE(SUM(sbi.grossAmountSnapshot), 0) FROM SettlementBatchItem sbi " +
-           "WHERE sbi.settlementBatchId = :batchId")
+           "WHERE sbi.settlementBatch.id = :batchId")
     BigDecimal getTotalGrossAmountByBatch(@Param("batchId") Long batchId);
 
     /**
      * Get total patient share for a batch
      */
     @Query("SELECT COALESCE(SUM(sbi.patientShareSnapshot), 0) FROM SettlementBatchItem sbi " +
-           "WHERE sbi.settlementBatchId = :batchId")
+           "WHERE sbi.settlementBatch.id = :batchId")
     BigDecimal getTotalPatientShareByBatch(@Param("batchId") Long batchId);
 
     /**
@@ -87,7 +87,7 @@ public interface SettlementBatchItemRepository extends JpaRepository<SettlementB
            "COALESCE(SUM(sbi.grossAmountSnapshot), 0), " +
            "COALESCE(SUM(sbi.netAmountSnapshot), 0), " +
            "COALESCE(SUM(sbi.patientShareSnapshot), 0) " +
-           "FROM SettlementBatchItem sbi WHERE sbi.settlementBatchId = :batchId")
+           "FROM SettlementBatchItem sbi WHERE sbi.settlementBatch.id = :batchId")
     List<Object[]> getBatchTotals(@Param("batchId") Long batchId);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -98,7 +98,7 @@ public interface SettlementBatchItemRepository extends JpaRepository<SettlementB
      * Delete items by batch ID
      */
     @Modifying
-    @Query("DELETE FROM SettlementBatchItem sbi WHERE sbi.settlementBatchId = :batchId")
+    @Query("DELETE FROM SettlementBatchItem sbi WHERE sbi.settlementBatch.id = :batchId")
     void deleteBySettlementBatchId(@Param("batchId") Long batchId);
 
     /**
@@ -129,6 +129,6 @@ public interface SettlementBatchItemRepository extends JpaRepository<SettlementB
     /**
      * Get batch ID for a claim (if exists)
      */
-    @Query("SELECT sbi.settlementBatchId FROM SettlementBatchItem sbi WHERE sbi.claimId = :claimId")
+    @Query("SELECT sbi.settlementBatch.id FROM SettlementBatchItem sbi WHERE sbi.claimId = :claimId")
     Optional<Long> findBatchIdByClaimId(@Param("claimId") Long claimId);
 }

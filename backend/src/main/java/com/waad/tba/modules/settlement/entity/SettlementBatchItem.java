@@ -36,8 +36,13 @@ public class SettlementBatchItem {
     /**
      * Settlement batch this item belongs to
      */
-    @Column(name = "settlement_batch_id", nullable = false)
-    private Long settlementBatchId;
+    /**
+     * Settlement batch this item belongs to
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "settlement_batch_id", nullable = false)
+    @ToString.Exclude
+    private SettlementBatch settlementBatch;
 
     /**
      * Claim reference
@@ -97,14 +102,14 @@ public class SettlementBatchItem {
      * @return New SettlementBatchItem
      */
     public static SettlementBatchItem createFromClaim(
-            Long batchId,
+            SettlementBatch batch,
             Long claimId,
             BigDecimal grossAmount,
             BigDecimal netAmount,
             BigDecimal patientShare) {
         
         return SettlementBatchItem.builder()
-                .settlementBatchId(batchId)
+                .settlementBatch(batch)
                 .claimId(claimId)
                 .grossAmountSnapshot(grossAmount != null ? grossAmount : BigDecimal.ZERO)
                 .netAmountSnapshot(netAmount != null ? netAmount : BigDecimal.ZERO)

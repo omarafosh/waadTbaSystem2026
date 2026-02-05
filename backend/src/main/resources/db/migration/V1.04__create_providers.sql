@@ -29,11 +29,38 @@ CREATE TABLE providers (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     created_by VARCHAR(100),
-    updated_by VARCHAR(100)
+    updated_by VARCHAR(100),
+
+    -- Global Access (Merged from V21)
+    allow_all_employers BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_providers_type ON providers(provider_type);
 CREATE INDEX idx_providers_license ON providers(license_number);
+CREATE INDEX idx_providers_allow_all_employers ON providers(allow_all_employers);
+
+COMMENT ON COLUMN providers.allow_all_employers IS 'السماح لجميع الجهات (شبكة عامة) - If true, provider can serve all employers without specific contracts';
+
+-- 1.1 PROVIDER ALLOWED EMPLOYERS (Many-to-Many - Restored from V1.10)
+CREATE TABLE IF NOT EXISTS provider_allowed_employers (
+    id BIGSERIAL PRIMARY KEY,
+    provider_id BIGINT NOT NULL,
+    employer_id BIGINT NOT NULL,
+    active BOOLEAN DEFAULT TRUE NOT NULL,
+    
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by VARCHAR(100),
+    updated_at TIMESTAMP,
+    updated_by VARCHAR(100),
+    
+    CONSTRAINT uk_pae_provider_employer UNIQUE (provider_id, employer_id),
+    CONSTRAINT fk_pae_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pae_employer FOREIGN KEY (employer_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pae_provider ON provider_allowed_employers(provider_id);
+CREATE INDEX IF NOT EXISTS idx_pae_employer ON provider_allowed_employers(employer_id);
+CREATE INDEX IF NOT EXISTS idx_pae_active ON provider_allowed_employers(active);
 
 -- 2. PROVIDER CONTRACTS
 CREATE TABLE provider_contracts (

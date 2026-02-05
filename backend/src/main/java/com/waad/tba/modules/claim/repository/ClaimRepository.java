@@ -864,6 +864,35 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "GROUP BY c.member.employerOrganization.id, c.member.employerOrganization.name " +
            "ORDER BY COALESCE(SUM(c.approvedAmount), 0) DESC")
     List<Object[]> getFinancialSummaryByEmployer();
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PDF REPORT QUERIES (Added 2026-02-04)
+    // For Provider Invoice PDF Reports
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Find all claims for a provider within a date range.
+     * Used for Provider Invoice PDF Reports.
+     * 
+     * @param providerId Provider ID
+     * @param fromDate Start date (inclusive)
+     * @param toDate End date (inclusive)
+     * @return List of claims with member and lines eagerly loaded
+     */
+    @Query("SELECT DISTINCT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.lines cl " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.serviceDate >= :fromDate " +
+           "AND c.serviceDate <= :toDate " +
+           "ORDER BY c.serviceDate DESC")
+    List<Claim> findByProviderIdAndServiceDateBetween(
+        @Param("providerId") Long providerId,
+        @Param("fromDate") java.time.LocalDate fromDate,
+        @Param("toDate") java.time.LocalDate toDate
+    );
 }
 
 

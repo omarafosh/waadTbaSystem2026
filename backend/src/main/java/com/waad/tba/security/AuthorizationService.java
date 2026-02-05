@@ -337,6 +337,7 @@ public class AuthorizationService {
      * @param visitId ID of the visit to access
      * @return true if user can access the visit
      */
+
     public boolean canAccessVisit(User user, Long visitId) {
         if (user == null || visitId == null) {
             log.warn("❌ canAccessVisit: DENIED - null user or visitId");
@@ -383,6 +384,67 @@ public class AuthorizationService {
         return false;
     }
 
+    /**
+     * Check if user can access a specific provider.
+     * 
+     * AUTHORIZATION RULES:
+     * - SUPER_ADMIN: ✅ Full access
+     * - INSURANCE_ADMIN: ✅ Full access
+     * - PROVIDER: ✅ Only if user.providerId == providerId
+     * - Others: ❌ No access (unless they have specific VIEW_PROVIDERS authority checked elsewhere)
+     * 
+     * @param user Current user
+     * @param providerId ID of the provider to access
+     * @return true if user can access the provider
+     */
+    public boolean canAccessProvider(User user, Long providerId) {
+        if (user == null || providerId == null) {
+            log.warn("❌ canAccessProvider: DENIED - null user or providerId");
+            return false;
+        }
+
+        // SUPER_ADMIN bypasses all checks
+        if (isSuperAdmin(user)) {
+            log.debug("✅ canAccessProvider: ALLOWED - user={} is SUPER_ADMIN", user.getUsername());
+            return true;
+        }
+
+        // INSURANCE_ADMIN has full access
+        if (isInsuranceAdmin(user)) {
+            log.debug("✅ canAccessProvider: ALLOWED - user={} is INSURANCE_ADMIN", user.getUsername());
+            return true;
+        }
+
+        // PROVIDER: Check provider match
+        if (isProvider(user)) {
+            if (user.getProviderId() == null) {
+                log.warn("❌ canAccessProvider: DENIED - PROVIDER user {} has no providerId", user.getUsername());
+                return false;
+            }
+            if (!user.getProviderId().equals(providerId)) {
+                log.warn("❌ canAccessProvider: DENIED - user {} (provider={}) attempted to access provider {}", 
+                        user.getUsername(), user.getProviderId(), providerId);
+                return false;
+            }
+            log.debug("✅ canAccessProvider: ALLOWED - user={} provider matches", user.getUsername());
+            return true;
+        }
+
+        // Allow if user explicitly has VIEW_PROVIDERS permission (handled by caller or authority check)
+        return false;
+    }
+
+    /**
+     * Check if CURRENT user can access a specific provider.
+     * Convenience method for SpEL security expressions.
+     * usage: @PreAuthorize("@authorizationService.canAccessProvider(#id)")
+     * 
+     * @param providerId ID of the provider to access
+     * @return true if current user can access the provider
+     */
+    public boolean canAccessProvider(Long providerId) {
+        return canAccessProvider(getCurrentUser(), providerId);
+    }
     // =============================================================================================
     // QUERY FILTERING METHODS (FOR SERVICE LAYER)
     // =============================================================================================

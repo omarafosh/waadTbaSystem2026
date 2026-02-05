@@ -168,6 +168,21 @@ export const useRBACStore = create((set, get) => ({
   },
 
   /**
+   * Check if user has a specific permission
+   * @param {string} permissionName - Name of the permission (e.g., 'CLAIM_VIEW')
+   * @returns {boolean}
+   */
+  hasPermission: (permissionName) => {
+    const { permissions, roles } = get();
+    // SUPER_ADMIN bypasses all checks
+    if (roles.includes('SUPER_ADMIN')) return true;
+
+    // Check if permission exists in flattened list
+    // Backend returns strings, but we handles both cases for safety
+    return permissions.some(p => (p?.name || p) === permissionName);
+  },
+
+  /**
    * Check if user is EMPLOYER role
    * @returns {boolean}
    */
@@ -188,10 +203,10 @@ export const useRBACStore = create((set, get) => ({
   hasAccessToDomain: (domain) => {
     const { roles } = get();
     const primaryRole = roles[0];
-    
+
     // SUPER_ADMIN has access to all domains
     if (primaryRole === SystemRole.SUPER_ADMIN) return true;
-    
+
     // Check domain access
     return hasAccessToDomain(primaryRole, domain);
   },
@@ -325,7 +340,7 @@ export const useRBAC = () => {
   const isSuperAdmin = useRBACStore((state) => state.isSuperAdmin);
   const isEmployerRole = useRBACStore((state) => state.isEmployerRole);
   const permissions = useRBACStore((state) => state.permissions);
-  
+
   // RBAC Hardening - new methods
   const canManageRbac = useRBACStore((state) => state.canManageRbac);
   const canManageSystem = useRBACStore((state) => state.canManageSystem);
@@ -335,6 +350,7 @@ export const useRBAC = () => {
   const getPrivilegeLevelFromStore = useRBACStore((state) => state.getPrivilegeLevel);
   const isInsuranceAdminOrHigher = useRBACStore((state) => state.isInsuranceAdminOrHigher);
   const hasAccessToDomain = useRBACStore((state) => state.hasAccessToDomain);
+  const hasPermission = useRBACStore((state) => state.hasPermission);
 
   return {
     roles,
@@ -343,6 +359,7 @@ export const useRBAC = () => {
     user,
     isInitialized,
     hasRole,
+    hasPermission,
     isSuperAdmin: isSuperAdmin(),
     isEmployerRole: isEmployerRole(),
     // RBAC Hardening

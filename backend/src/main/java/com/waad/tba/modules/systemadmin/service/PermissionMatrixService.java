@@ -76,8 +76,31 @@ public class PermissionMatrixService {
                     return PermissionMatrixDto.RolePermissionDto.builder()
                             .roleId(role.getId())
                             .roleName(role.getName())
+                            .roleNameAr(role.getNameAr()) // Populate Arabic name
                             .permissions(new ArrayList<>(rolePermissionNames))
                             .permissionMap(permissionMap)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // Group permissions by module
+        Map<String, List<Permission>> permissionsByModule = allPermissions.stream()
+                .collect(Collectors.groupingBy(p -> p.getModule() != null ? p.getModule() : "Other"));
+
+        List<PermissionMatrixDto.CategoryPermissionsDto> categories = permissionsByModule.entrySet().stream()
+                .map(entry -> {
+                    List<PermissionMatrixDto.PermissionDto> permDtos = entry.getValue().stream()
+                            .map(p -> PermissionMatrixDto.PermissionDto.builder()
+                                    .id(p.getId())
+                                    .name(p.getName())
+                                    .displayNameAr(p.getNameAr()) // Using nameAr from Permission entity
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return PermissionMatrixDto.CategoryPermissionsDto.builder()
+                            .name(entry.getKey())
+                            .nameAr(entry.getKey()) // You might want a mapping for Arabic names
+                            .permissions(permDtos)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -88,6 +111,7 @@ public class PermissionMatrixService {
 
         return PermissionMatrixDto.builder()
                 .roles(rolePermissions)
+                .categories(categories)
                 .allPermissions(allPermissionNames)
                 .build();
     }

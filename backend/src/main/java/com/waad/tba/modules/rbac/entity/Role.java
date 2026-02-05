@@ -29,7 +29,13 @@ public class Role {
     @Column(unique = true, nullable = false)
     private String name;
 
+    @Column(name = "name_ar")
+    private String nameAr;
+
     private String description;
+
+    @Column(name = "description_ar")
+    private String descriptionAr;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

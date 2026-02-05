@@ -31,6 +31,7 @@ import java.util.List;
 @Entity(name = "ModernProviderContract")
 @Table(name = "provider_contracts", indexes = {
     @Index(name = "idx_contracts_provider_id", columnList = "provider_id"),
+    @Index(name = "idx_contracts_employer_id", columnList = "employer_id"),
     @Index(name = "idx_contracts_status", columnList = "status"),
     @Index(name = "idx_contracts_contract_code", columnList = "contract_code"),
     @Index(name = "idx_contracts_start_date", columnList = "start_date"),

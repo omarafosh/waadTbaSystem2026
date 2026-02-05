@@ -37,7 +37,7 @@ import { useSnackbar } from 'notistack';
 import { ModernPageHeader } from 'components/tba';
 import MainCard from 'components/MainCard';
 import GenericDataTable from 'components/GenericDataTable';
-import useApi from 'hooks/useApi';
+import useFetch from 'hooks/useFetch';
 import useTableState from 'hooks/useTableState';
 import { settlementService } from 'services/api';
 import { CardStatusBadge } from 'components/insurance';
@@ -58,7 +58,7 @@ const SettlementBatchView = () => {
     const [cancelReason, setCancelReason] = useState('');
 
     // Fetch Batch Details
-    const { data: batch, isLoading, refetch } = useApi(
+    const { data: batch, loading: isLoading, refetch } = useFetch(
         () => settlementService.getBatchById(id),
         [id]
     );

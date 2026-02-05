@@ -87,12 +87,7 @@ const INITIAL_FORM = {
   active: true,
   employerId: null,
   providerId: null,
-  // Custom permissions for EMPLOYER users
-  canViewClaims: true,
-  canViewVisits: true,
-  canViewReports: true,
-  canViewMembers: true,
-  canViewBenefitPolicies: true,
+
   // Provider specific permissions
   allowAllCompanies: true,
   permittedCompanies: []
@@ -475,127 +470,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
             sx={{ mb: 3 }}
           />
 
-          {/* Custom Permissions Section */}
-          <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight="medium" gutterBottom>
-              صلاحيات مخصصة للمستخدم
-            </Typography>
-            <Typography variant="caption">
-              حدد ما يمكن لهذا المستخدم رؤيته وإدارته في النظام
-            </Typography>
-          </Alert>
 
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewClaims}
-                    onChange={(e) => setForm({ ...form, canViewClaims: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      المطالبات
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة المطالبات
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewVisits}
-                    onChange={(e) => setForm({ ...form, canViewVisits: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      الزيارات
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة الزيارات
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewReports}
-                    onChange={(e) => setForm({ ...form, canViewReports: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      التقارير
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية التقارير التحليلية
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewMembers}
-                    onChange={(e) => setForm({ ...form, canViewMembers: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      المؤمنين
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وإدارة المؤمنين
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.canViewBenefitPolicies}
-                    onChange={(e) => setForm({ ...form, canViewBenefitPolicies: e.target.checked })}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      وثائق المنافع
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      يمكن رؤية وثائق التغطية التأمينية
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-          </Grid>
         </Box>
       )}
 
@@ -906,12 +781,6 @@ const UserCreate = () => {
       // Add employerId only if EMPLOYER_ADMIN role is selected
       if (hasEmployerAdminRole && form.employerId) {
         payload.employerId = form.employerId;
-        // Add custom permissions for EMPLOYER users
-        payload.canViewClaims = form.canViewClaims;
-        payload.canViewVisits = form.canViewVisits;
-        payload.canViewReports = form.canViewReports;
-        payload.canViewMembers = form.canViewMembers;
-        payload.canViewBenefitPolicies = form.canViewBenefitPolicies;
       }
 
       // Add providerId only if PROVIDER role is selected

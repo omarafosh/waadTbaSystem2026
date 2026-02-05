@@ -261,6 +261,16 @@ export const providerApi = {
     if (!visitId) throw new Error('معرف الزيارة مطلوب');
     const response = await api.get(`${PROVIDER_BASE_URL}/visits/${visitId}`);
     return response.data;
+  },
+
+  /**
+   * Get allowed employers (GET)
+   * 
+   * @returns {Promise<Object>} List of allowed employers
+   */
+  getAllowedEmployers: async () => {
+    const response = await api.get(`${PROVIDER_BASE_URL}/allowed-employers`);
+    return response.data;
   }
 };
 

@@ -28,7 +28,9 @@ import {
   HowToReg as HowToRegIcon,
   PostAdd as PostAddIcon,
   FormatListBulleted as FormatListBulletedIcon,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  VpnKey as VpnKeyIcon,
+  HelpOutline as HelperIcon
 } from '@mui/icons-material';
 
 // RBAC Configuration
@@ -37,279 +39,18 @@ import { filterMenuByPermissions } from 'config/rbac.config';
 // ==============================|| RBAC MENU FILTERING ||============================== //
 
 /**
- * Filter menu items based on user permissions (NEW ARCHITECTURE)
- * Enterprise Closed System - Al-Waha Insurance Only
+ * Filter menu items based on user permissions (UNIFIED ARCHITECTURE)
  * @param {Array} menuItems - Full menu structure
- * @param {Array} userRoles - User's assigned roles (DEPRECATED - kept for backward compatibility)
- * @param {Object} user - User object with permissions (NEW)
+ * @param {Array} userRoles - User's assigned roles
+ * @param {Object} user - User object with permissions
  * @returns {Array} Filtered menu items
  */
 export const filterMenuByRoles = (menuItems, userRoles = [], user = null) => {
-  // NEW ARCHITECTURE: If user object provided, use permission-based filtering
-  if (user && user.permissions) {
-    return filterMenuByPermissions(menuItems, user);
-  }
+  // If user object lacks permissions but roles exist, construct a minimal user for the filter
+  const filteringUser = user || { roles: userRoles, permissions: [] };
 
-  // FALLBACK: Legacy role-based filtering (backward compatibility)
-  // SUPER_ADMIN sees everything (also support legacy 'ADMIN')
-  if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('ADMIN')) {
-    return menuItems;
-  }
-
-  const roleRules = {
-    // ═══════════════════════════════════════════════════════════════════════════
-    // INSURANCE_ADMIN - Full operational access (no RBAC management)
-    // ═══════════════════════════════════════════════════════════════════════════
-    INSURANCE_ADMIN: {
-      hide: ['rbac'], // Only RBAC is hidden
-      show: [
-        'dashboard',
-        'members',
-        'employers',
-        'providers',
-        'claims',
-        'claims-inbox',
-        'pre-approvals',
-        'pre-approvals-inbox',
-        'settlement-inbox',
-        'settlement',
-        'unified-approvals-dashboard',
-        'visits',
-        'medical-categories',
-        'medical-services',
-        'medical-packages',
-        'benefit-policies',
-        'benefit-packages',
-        'provider-contracts',
-        'audit',
-        'settings',
-        'reports',
-        'employer-dashboard',
-        'claims-report',
-        'visits-report',
-        'benefit-policy-report'
-      ]
-    },
-    // Legacy alias for INSURANCE_ADMIN
-    INSURANCE_COMPANY: {
-      hide: ['rbac'],
-      show: [
-        'dashboard',
-        'members',
-        'employers',
-        'providers',
-        'claims',
-        'claims-inbox',
-        'pre-approvals',
-        'pre-approvals-inbox',
-        'settlement-inbox',
-        'unified-approvals-dashboard',
-        'visits',
-        'medical-categories',
-        'medical-services',
-        'medical-packages',
-        'benefit-policies',
-        'benefit-packages',
-        'provider-contracts',
-        'audit',
-        'settings',
-        'reports',
-        'employer-dashboard',
-        'claims-report',
-        'visits-report',
-        'benefit-policy-report'
-      ]
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EMPLOYER_ADMIN - Employer-level management (Members, Claims, Pre-Approvals)
-    // ═══════════════════════════════════════════════════════════════════════════
-    EMPLOYER_ADMIN: {
-      hide: [
-        'employers',
-        'providers',
-        'provider-contracts',
-        'claims-inbox', // Not inbox - can only create requests
-        'settlement-inbox',
-        'admin-users',
-        'rbac'
-      ],
-      show: [
-        'dashboard',
-        'members',
-        'claims',
-        'visits',
-        'pre-approvals', // Can request pre-approvals
-        'medical-categories',
-        'medical-services',
-        'medical-packages',
-        'benefit-policies',
-        'audit',
-        'settings',
-        'reports',
-        'employer-dashboard',
-        'claims-report',
-        'visits-report',
-        'benefit-policy-report'
-      ]
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PROVIDER - Provider portal access (own records only)
-    // UPDATED 2026-01-14: Visit-Centric Architecture ENFORCED
-    // Claims and Pre-Auth can ONLY be created from Visit Log
-    // No direct access to /claims or /pre-approvals menus
-    // ═══════════════════════════════════════════════════════════════════════════
-    PROVIDER: {
-      hide: [
-        // HARD BLOCK (2026-01-14): PROVIDER has ZERO access to these
-        'dashboard', // No main dashboard
-        'reports', // No reports access at all
-        'employers',
-        'providers',
-        'provider-contracts',
-        'policies',
-        'benefit-policies',
-        'members', // No members list access
-        'claims', // No standalone claims access
-        'claims-history', // No standalone claims access
-        'claims-inbox', // Not inbox access
-        'pre-approvals', // No standalone pre-approvals (Visit-Centric)
-        'pre-approvals-inbox', // PROVIDER cannot see inbox
-        'settlement-inbox',
-        'unified-approvals-dashboard', // Insurance-only
-        'admin-users',
-        'rbac',
-        'settings', // No settings access
-        'audit', // No audit access
-        'employer-dashboard',
-        'claims-report',
-        'visits-report',
-        'benefit-policy-report',
-        'beneficiaries-report',
-        'financial-reports'
-      ],
-      show: [
-        'provider-portal',
-        'provider-eligibility-check',
-        'provider-visit-log', // Visit Log is the ONLY place to create PreAuth/Claim
-        'provider-documents' // Documents Center for Provider Portal
-        // REMOVED (2026-01-14): provider-dashboard, eligibility-check, visits, medical-*, visits-report
-        // Provider role ONLY sees: Eligibility Check + Visit Log + Documents
-      ]
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REVIEWER - Claims & Pre-Approvals review
-    // ═══════════════════════════════════════════════════════════════════════════
-    REVIEWER: {
-      hide: [
-        'employers',
-        'providers',
-        'members',
-        'visits',
-        'provider-contracts',
-        'policies',
-        'settlement-inbox',
-        'benefit-policies',
-        'admin-users',
-        'rbac'
-      ],
-      show: [
-        'dashboard',
-        'claims',
-        'claims-inbox',
-        'pre-approvals',
-        'pre-approvals-inbox',
-        'unified-approvals-dashboard',
-        'medical-categories',
-        'medical-services',
-        'medical-packages',
-        'audit',
-        'settings',
-        'reports',
-        'claims-report',
-        'visits-report',
-        'benefit-policy-report'
-      ]
-    },
-    FINANCE: {
-      hide: [
-        'employers',
-        'providers',
-        'members',
-        'visits',
-        'provider-contracts',
-        'policies',
-        'claims-inbox',
-        'pre-approvals-inbox',
-        'benefit-policies',
-        'admin-users',
-        'rbac'
-      ],
-      show: ['dashboard', 'claims', 'settlement-inbox', 'settlement', 'audit', 'settings', 'reports']
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PROVIDER SPECIAL CASE: Use WHITELIST approach (show ONLY these groups)
-  // This ensures provider sees ONLY the Provider Portal, nothing else
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (userRoles.includes('PROVIDER') && !userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
-    // Return ONLY the Provider Portal group
-    const providerAllowedGroups = ['group-provider-portal'];
-    return menuItems.filter((group) => providerAllowedGroups.includes(group.id));
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // REVIEWER SPECIAL CASE: Use WHITELIST approach (show ONLY review-related groups)
-  // Reviewer focuses on: Claims Inbox, Pre-Approvals Inbox, Dashboard, Reports
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (
-    userRoles.includes('REVIEWER') &&
-    !userRoles.includes('SUPER_ADMIN') &&
-    !userRoles.includes('ADMIN') &&
-    !userRoles.includes('INSURANCE_ADMIN')
-  ) {
-    // Return ONLY the groups relevant for medical review work
-    const reviewerAllowedGroups = [
-      'group-dashboard', // Main dashboard for overview
-      'group-claims-approvals', // Claims & Approvals inbox (main work area)
-      'group-reports' // Reports for analysis
-    ];
-    return menuItems.filter((group) => reviewerAllowedGroups.includes(group.id));
-  }
-
-  // Get hide rules for all user roles
-  const hideItems = new Set();
-  userRoles.forEach((role) => {
-    if (roleRules[role]) {
-      roleRules[role].hide.forEach((item) => hideItems.add(item));
-    }
-  });
-
-  // Filter menu items recursively
-  const filterItems = (items) => {
-    return items
-      .map((item) => {
-        // If item has children, filter them recursively
-        if (item.children) {
-          const filteredChildren = filterItems(item.children);
-          // Only include group if it has visible children
-          if (filteredChildren.length > 0) {
-            return { ...item, children: filteredChildren };
-          }
-          return null;
-        }
-
-        // Hide item if it's in the hide list
-        if (hideItems.has(item.id)) {
-          return null;
-        }
-
-        return item;
-      })
-      .filter(Boolean); // Remove null items
-  };
-
-  return filterItems(menuItems);
+  // Use the unified permission-based filtering
+  return filterMenuByPermissions(menuItems, filteringUser);
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -737,6 +478,19 @@ const menuItem = [
             }
           },
           {
+            id: 'provider-pdf-reports',
+            title: 'تقارير مقدمي الخدمة PDF',
+            titleEn: 'Provider PDF Reports',
+            type: 'item',
+            url: '/reports/providers',
+            icon: LocalHospitalIcon,
+            chip: {
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
             id: 'provider-settlement-reports',
             title: 'تقارير تسوية مقدمي الخدمة',
             titleEn: 'Provider Settlement Reports',
@@ -846,7 +600,7 @@ const menuItem = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ⚙️ SYSTEM SETTINGS
+  // ⚙️ SYSTEM SETTINGS - إعدادات النظام
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'group-system-settings',
@@ -854,20 +608,9 @@ const menuItem = [
     titleEn: 'System Settings',
     type: 'group',
     children: [
-      {
-        id: 'rbac',
-        title: 'المستخدمون والأدوار',
-        titleEn: 'Users & Roles',
-        type: 'item',
-        url: '/rbac',
-        icon: SecurityIcon,
-        permission: ['admin.users.view'],
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small'
-        }
-      },
+      // ────────────────────────────────────────────────────────────────────────
+      // سجل التدقيق
+      // ────────────────────────────────────────────────────────────────────────
       {
         id: 'audit',
         title: 'سجل التدقيق',
@@ -882,6 +625,9 @@ const menuItem = [
           variant: 'outlined'
         }
       },
+      // ────────────────────────────────────────────────────────────────────────
+      // التصنيف الطبي
+      // ────────────────────────────────────────────────────────────────────────
       {
         id: 'medical-taxonomy',
         title: 'التصنيف الطبي',
@@ -930,23 +676,13 @@ const menuItem = [
           }
         ]
       },
+      // ────────────────────────────────────────────────────────────────────────
+      // إعدادات المؤسسة (Organization Settings with Users & Roles tabs)
+      // ────────────────────────────────────────────────────────────────────────
       {
-        id: 'cities-networks',
-        title: 'المدن والشبكات',
-        titleEn: 'Cities & Networks',
-        type: 'item',
-        url: '/under-development',
-        icon: BusinessIcon,
-        chip: {
-          label: '⏳',
-          color: 'warning',
-          size: 'small'
-        }
-      },
-      {
-        id: 'settings',
-        title: 'إعدادات عامة',
-        titleEn: 'General Settings',
+        id: 'organization-settings',
+        title: 'إعدادات المؤسسة',
+        titleEn: 'Organization Settings',
         type: 'collapse',
         icon: SettingsIcon,
         permission: ['settings.view'],
@@ -954,7 +690,7 @@ const menuItem = [
           {
             id: 'company-settings',
             title: 'معلومات المؤسسة',
-            titleEn: 'Organization Information',
+            titleEn: 'Organization Info',
             type: 'item',
             url: '/settings/company',
             icon: BusinessIcon,
@@ -965,15 +701,28 @@ const menuItem = [
             }
           },
           {
-            id: 'system-configuration',
-            title: 'تكوين النظام',
-            titleEn: 'System Configuration',
+            id: 'users-management',
+            title: 'إدارة المستخدمين',
+            titleEn: 'Users Management',
             type: 'item',
-            url: '/under-development',
-            icon: SettingsIcon,
+            url: '/rbac/users',
+            icon: ManageAccountsIcon,
             chip: {
-              label: '⏳',
-              color: 'warning',
+              label: '✅',
+              color: 'success',
+              size: 'small'
+            }
+          },
+          {
+            id: 'roles-management',
+            title: 'إدارة الأدوار',
+            titleEn: 'Roles Management',
+            type: 'item',
+            url: '/rbac/roles',
+            icon: SecurityIcon,
+            chip: {
+              label: '✅',
+              color: 'success',
               size: 'small'
             }
           }

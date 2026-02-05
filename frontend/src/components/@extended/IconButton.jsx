@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { forwardRef } from 'react';
 
 // material-ui
 import MuiIconButton from '@mui/material/IconButton';
@@ -156,13 +157,13 @@ const IconButtonStyle = styled(MuiIconButton, { shouldForwardProp: (prop) => pro
   })
 );
 
-function IconButton({ variant = 'text', shape = 'square', children, color = 'primary', ref, ...others }) {
+const IconButton = forwardRef(({ variant = 'text', shape = 'square', children, color = 'primary', ...others }, ref) => {
   return (
     <IconButtonStyle ref={ref} disableRipple variant={variant} shape={shape} color={color} {...others}>
       {children}
     </IconButtonStyle>
   );
-}
+});
 
 IconButton.displayName = 'IconButton';
 
@@ -175,6 +176,5 @@ IconButton.propTypes = {
   shape: PropTypes.string,
   children: PropTypes.node,
   color: PropTypes.string,
-  ref: PropTypes.any,
   others: PropTypes.any
 };

@@ -28,7 +28,30 @@ public class PermissionMatrixDto {
     public static class RolePermissionDto {
         private Long roleId;
         private String roleName;
+        private String roleNameAr;
         private List<String> permissions;
         private Map<String, Boolean> permissionMap;
+    }
+
+    private List<CategoryPermissionsDto> categories;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CategoryPermissionsDto {
+        private String name;
+        private String nameAr;
+        private List<PermissionDto> permissions;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PermissionDto {
+        private Long id;
+        private String name;
+        private String displayNameAr;
     }
 }

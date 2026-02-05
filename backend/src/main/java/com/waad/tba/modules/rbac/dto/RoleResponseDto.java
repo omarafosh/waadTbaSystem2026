@@ -15,7 +15,9 @@ import java.util.List;
 public class RoleResponseDto {
     private Long id;
     private String name;
+    private String nameAr;
     private String description;
+    private String descriptionAr;
     private List<PermissionResponseDto> permissions;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

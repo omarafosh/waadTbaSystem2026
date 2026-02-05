@@ -76,7 +76,7 @@ const getRoleColor = (roleName) => {
 // MAIN COMPONENT
 // ============================================================================
 
-const RolesList = () => {
+const RolesList = ({ isEmbedded = false }) => {
   const navigate = useNavigate();
 
   // State
@@ -159,24 +159,26 @@ const RolesList = () => {
 
   return (
     <Box>
-      {/* Page Header */}
-      <ModernPageHeader
-        title="إدارة الأدوار"
-        subtitle="عرض وإدارة أدوار النظام وصلاحياتها"
-        icon={AdminPanelSettingsIcon}
-        breadcrumbs={[
-          { label: 'الرئيسية', path: '/' },
-          { label: 'الصلاحيات', path: '/rbac' },
-          { label: 'الأدوار' }
-        ]}
-        actions={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh}>
-              تحديث
-            </Button>
-          </Stack>
-        }
-      />
+      {/* Page Header - Only show if not embedded */}
+      {!isEmbedded && (
+        <ModernPageHeader
+          title="إدارة الأدوار"
+          subtitle="عرض وإدارة أدوار النظام وصلاحياتها"
+          icon={AdminPanelSettingsIcon}
+          breadcrumbs={[
+            { label: 'الرئيسية', path: '/' },
+            { label: 'الصلاحيات', path: '/rbac' },
+            { label: 'الأدوار' }
+          ]}
+          actions={
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh}>
+                تحديث
+              </Button>
+            </Stack>
+          }
+        />
+      )}
 
       <Grid container spacing={3}>
         {/* Search */}
@@ -279,7 +281,7 @@ const RolesList = () => {
                               <Box>
                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                   <Typography variant="body2" fontWeight="medium">
-                                    {role?.name || '-'}
+                                    {role?.nameAr || role?.name || '-'}
                                   </Typography>
                                   {isProtected && (
                                     <Tooltip title="دور محمي من النظام">
@@ -288,7 +290,7 @@ const RolesList = () => {
                                   )}
                                 </Stack>
                                 <Typography variant="caption" color="text.secondary">
-                                  {role?.name || '-'}
+                                  {role?.name || '-'} {role?.nameAr ? `(${role.name})` : ''}
                                 </Typography>
                               </Box>
                             </Stack>
@@ -332,7 +334,7 @@ const RolesList = () => {
                                   <IconButton
                                     size="small"
                                     color="info"
-                                    onClick={() => navigate(`/rbac/roles/${role.id}/edit`)}
+                                    onClick={() => navigate(`/rbac/roles/${role.id}`)}
                                     disabled={isProtected}
                                   >
                                     <EditIcon fontSize="small" />

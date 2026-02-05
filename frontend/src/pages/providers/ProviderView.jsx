@@ -24,7 +24,10 @@ import {
   TextField,
   MenuItem,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Autocomplete,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   ArrowBack,
@@ -41,9 +44,10 @@ import {
 } from '@mui/icons-material';
 import { openSnackbar } from 'api/snackbar';
 import MainCard from 'components/MainCard';
+import GregorianDatePicker from 'components/common/GregorianDatePicker';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import { useProviderDetails } from 'hooks/useProviders';
-import { providersService } from 'services/api';
+import { providersService, employersService } from 'services/api';
 
 // Insurance UX Components - Phase B2 Step 6
 import { NetworkBadge, CardStatusBadge } from 'components/insurance';
@@ -103,13 +107,35 @@ const ProviderView = () => {
 
   const [openContractDialog, setOpenContractDialog] = useState(false);
   const [contractForm, setContractForm] = useState({
-    contractNumber: '',
+    contractCode: '',
     startDate: '',
     endDate: '',
-    discountRate: 0,
+    discountPercent: 0,
     autoRenew: false,
-    insuranceOrganizationId: 1 // Default to GIG for now
+    insuranceOrganizationId: 1, // Default to GIG for now
+    employerId: null
   });
+
+  const [activeEmployers, setActiveEmployers] = useState([]);
+  const [loadingEmployers, setLoadingEmployers] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+
+  const handleTabChange = (event, newValue) => setActiveTab(newValue);
+
+  useEffect(() => {
+    const fetchEmployers = async () => {
+      setLoadingEmployers(true);
+      try {
+        const data = await employersService.getEmployerSelectors();
+        setActiveEmployers(data || []);
+      } catch (error) {
+        console.error('Failed to fetch employers:', error);
+      } finally {
+        setLoadingEmployers(false);
+      }
+    };
+    fetchEmployers();
+  }, []);
 
   const fetchContracts = async () => {
     if (id) {
@@ -132,19 +158,29 @@ const ProviderView = () => {
 
   const handleOpenContractDialog = () => {
     setContractForm({
-      contractNumber: `CONT-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+      contractCode: `CONT-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      discountRate: 0,
+      discountPercent: 0,
       autoRenew: true,
-      insuranceOrganizationId: 1
+      insuranceOrganizationId: 1,
+      employerId: null
     });
     setOpenContractDialog(true);
   };
 
   const handleSaveContract = async () => {
     try {
-      await providersService.createContract(id, contractForm);
+      // Fix: Include providerId in the payload to satisfy backend validation
+      // Ensure providerId is a number
+      const payload = {
+        ...contractForm,
+        providerId: parseInt(id, 10),
+        // Ensure discountPercent is a number
+        discountPercent: parseFloat(contractForm.discountPercent)
+      };
+
+      await providersService.createContract(id, payload);
       openSnackbar({
         open: true,
         message: 'تم إضافة العقد بنجاح',
@@ -258,266 +294,284 @@ const ProviderView = () => {
           />
         </Stack>
 
-        <Grid container spacing={3}>
-          {/* Basic Information */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <Badge sx={{ color: '#1890ff' }} />
-                <Typography variant="h5">البيانات الأساسية</Typography>
-              </Stack>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    الرمز التلقائي
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.id ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    اسم مقدم الخدمة
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {providerName}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    رقم الترخيص
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.licenseNumber ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    الرقم الضريبي
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.taxNumber ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    نوع مقدم الخدمة
-                  </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip
-                      label={PROVIDER_TYPE_LABELS[provider?.providerType] ?? provider?.providerType ?? '—'}
-                      color={PROVIDER_TYPE_COLORS[provider?.providerType] || 'default'}
-                      size="small"
-                    />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    الحالة التشغيلية
-                  </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <CardStatusBadge
-                      status={providerStatus}
-                      customLabel={STATUS_LABELS_AR[providerStatus] ?? 'غير محدد'}
-                      size="small"
-                      variant="chip"
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={activeTab} onChange={handleTabChange} aria-label="provider tabs">
+            <Tab icon={<Business />} label="البيانات الأساسية" iconPosition="start" />
+            <Tab icon={<VerifiedUser />} label="العقود" iconPosition="start" />
+          </Tabs>
+        </Box>
 
-          {/* Location & Contact Information */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <Phone sx={{ color: '#52c41a' }} />
-                <Typography variant="h5">بيانات التواصل</Typography>
-              </Stack>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <LocationOn sx={{ fontSize: 18, color: '#8c8c8c' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      المدينة
-                    </Typography>
+        {/* Tab 0: Basic Info & Location */}
+        <Box hidden={activeTab !== 0}>
+          {activeTab === 0 && (
+            <Grid container spacing={3}>
+              {/* Basic Information */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <Badge sx={{ color: '#1890ff' }} />
+                    <Typography variant="h5">البيانات الأساسية</Typography>
                   </Stack>
-                  <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
-                    {provider?.city ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <LocationOn sx={{ fontSize: 18, color: '#8c8c8c' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      العنوان
-                    </Typography>
-                  </Stack>
-                  <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
-                    {provider?.address ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Phone sx={{ fontSize: 18, color: '#8c8c8c' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      رقم الهاتف
-                    </Typography>
-                  </Stack>
-                  <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
-                    {provider?.phone ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Email sx={{ fontSize: 18, color: '#8c8c8c' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      البريد الإلكتروني
-                    </Typography>
-                  </Stack>
-                  <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
-                    {provider?.email ?? '—'}
-                  </Typography>
-                </Grid>
+                  <Divider sx={{ mb: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        اسم مقدم الخدمة
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {providerName}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        رقم الترخيص
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.licenseNumber ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        الرقم الضريبي
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.taxNumber ?? '—'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
               </Grid>
-            </Paper>
-          </Grid>
 
-          {/* Contract Information */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <VerifiedUser sx={{ color: '#faad14' }} />
-                <Typography variant="h5">معلومات العقد والتشغيل</Typography>
-              </Stack>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    تاريخ بداية العقد
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.contractStartDate ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    تاريخ نهاية العقد
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.contractEndDate ?? '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    نسبة الخصم الافتراضية
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.defaultDiscountRate ? `${provider.defaultDiscountRate}%` : '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    تاريخ الإنشاء
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.createdAt ? new Date(provider.createdAt).toLocaleDateString('ar-SA') : '—'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    آخر تحديث
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {provider?.updatedAt ? new Date(provider.updatedAt).toLocaleDateString('ar-SA') : '—'}
-                  </Typography>
-                </Grid>
+              {/* Location & Contact Information */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, height: '100%' }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <Phone sx={{ color: '#52c41a' }} />
+                    <Typography variant="h5">بيانات التواصل</Typography>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <LocationOn sx={{ fontSize: 18, color: '#8c8c8c' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          المدينة
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
+                        {provider?.city ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <LocationOn sx={{ fontSize: 18, color: '#8c8c8c' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          العنوان
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
+                        {provider?.address ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Phone sx={{ fontSize: 18, color: '#8c8c8c' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          رقم الهاتف
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
+                        {provider?.phone ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Email sx={{ fontSize: 18, color: '#8c8c8c' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          البريد الإلكتروني
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5, mr: 3 }}>
+                        {provider?.email ?? '—'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
               </Grid>
-            </Paper>
-          </Grid>
 
-          {/* Provider Contracts */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <VerifiedUser sx={{ color: '#1890ff' }} />
-                  <Typography variant="h5">عقود مقدم الخدمة</Typography>
-                </Stack>
-                <Button
-                  vocab="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenContractDialog}
-                >
-                  إضافة عقد
-                </Button>
-              </Stack>
-              <Divider sx={{ mb: 2 }} />
-              {loadingContracts ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                  <CircularProgress />
-                </Box>
-              ) : !Array.isArray(contracts) || contracts.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  لا توجد عقود لهذا المزود
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>رقم العقد</TableCell>
-                        <TableCell>تاريخ البداية</TableCell>
-                        <TableCell>تاريخ النهاية</TableCell>
-                        <TableCell>نسبة الخصم</TableCell>
-                        <TableCell>التجديد التلقائي</TableCell>
-                        <TableCell>الحالة</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {Array.isArray(contracts) &&
-                        contracts.map((contract) => (
-                          <TableRow key={contract.id}>
-                            <TableCell>{contract.contractNumber}</TableCell>
-                            <TableCell>{contract.startDate ? new Date(contract.startDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
-                            <TableCell>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
-                            <TableCell>{contract.discountRate ? `${contract.discountRate}%` : '-'}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={contract.autoRenew ? 'نعم' : 'لا'}
-                                color={contract.autoRenew ? 'success' : 'default'}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={contract.active ? 'نشط' : 'غير نشط'}
-                                color={contract.active ? 'success' : 'default'}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Tooltip title="حذف العقد">
-                                <IconButton color="error" size="small" onClick={() => handleDeleteContract(contract.id)}>
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <Badge sx={{ color: '#722ed1' }} />
+                    <Typography variant="h5">بيانات التسجيل</Typography>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        تاريخ الإنشاء
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.createdAt ? new Date(provider.createdAt).toLocaleDateString('ar-SA') : '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        آخر تحديث
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.updatedAt ? new Date(provider.updatedAt).toLocaleDateString('ar-SA') : '—'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </Box>
+
+        {/* Tab 1: Contracts */}
+        <Box hidden={activeTab !== 1}>
+          {activeTab === 1 && (
+            <Grid container spacing={3}>
+              {/* Contract Information Summary */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <VerifiedUser sx={{ color: '#faad14' }} />
+                    <Typography variant="h5">معلومات العقد والتشغيل</Typography>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" color="text.secondary">
+                        تاريخ بداية العقد
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.contractStartDate ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" color="text.secondary">
+                        تاريخ نهاية العقد
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.contractEndDate ?? '—'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" color="text.secondary">
+                        نسبة الخصم الافتراضية
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {provider?.defaultDiscountRate ? `${provider.defaultDiscountRate}%` : '—'}
+                      </Typography>
+                    </Grid>
+                    {provider?.allowAllEmployers && (
+                      <Grid item xs={12}>
+                        <Box sx={{ mt: 2, p: 2, bgcolor: 'success.lighter', borderRadius: 1, border: '1px dashed', borderColor: 'success.main' }}>
+                          <Typography variant="subtitle2" color="success.dark">
+                            • هذا المزود مفعل كشبكة عامة (مسموح لجميع الجهات)
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Paper>
+              </Grid>
+
+              {/* Provider Contracts Table */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <VerifiedUser sx={{ color: '#1890ff' }} />
+                      <Typography variant="h5">عقود مقدم الخدمة</Typography>
+                    </Stack>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={handleOpenContractDialog}
+                    >
+                      إضافة عقد
+                    </Button>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+                  {loadingContracts ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : !Array.isArray(contracts) || contracts.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                      لا توجد عقود لهذا المزود
+                    </Typography>
+                  ) : (
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>رقم العقد</TableCell>
+                            <TableCell>تاريخ البداية</TableCell>
+                            <TableCell>تاريخ النهاية</TableCell>
+                            <TableCell>نسبة الخصم</TableCell>
+                            <TableCell>التجديد التلقائي</TableCell>
+                            <TableCell>الحالة</TableCell>
                           </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Paper>
-          </Grid>
-        </Grid>
+                        </TableHead>
+                        <TableBody>
+                          {Array.isArray(contracts) &&
+                            contracts.map((contract) => (
+                              <TableRow key={contract.id}>
+                                <TableCell>{contract.contractNumber}</TableCell>
+                                <TableCell>{contract.startDate ? new Date(contract.startDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
+                                <TableCell>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('ar-SA') : '-'}</TableCell>
+                                <TableCell>{contract.discountRate ? `${contract.discountRate}%` : '-'}</TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={contract.autoRenew ? 'نعم' : 'لا'}
+                                    color={contract.autoRenew ? 'success' : 'default'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {(() => {
+                                    const statusConfig = {
+                                      ACTIVE: { label: 'نشط', color: 'success' },
+                                      DRAFT: { label: 'مسودة', color: 'default' },
+                                      SUSPENDED: { label: 'موقوف', color: 'warning' },
+                                      EXPIRED: { label: 'منتهي', color: 'error' },
+                                      TERMINATED: { label: 'ملغي', color: 'error' }
+                                    };
+                                    const config = statusConfig[contract.status] || { label: contract.status || 'غير محدد', color: 'default' };
+                                    return (
+                                      <Chip
+                                        label={config.label}
+                                        color={config.color}
+                                        size="small"
+                                      />
+                                    );
+                                  })()}
+                                </TableCell>
+                                <TableCell>
+                                  <Tooltip title="حذف العقد">
+                                    <IconButton color="error" size="small" onClick={() => handleDeleteContract(contract.id)}>
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </Box>
       </MainCard>
 
-      {/* Contract Dialog */}
       <Dialog open={openContractDialog} onClose={() => setOpenContractDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>إضافة عقد جديد</DialogTitle>
         <DialogContent>
@@ -531,21 +585,17 @@ const ProviderView = () => {
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
+              <GregorianDatePicker
                 label="تاريخ البداية"
-                type="date"
-                InputLabelProps={{ shrink: true }}
+                name="startDate"
                 value={contractForm.startDate}
                 onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })}
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
+              <GregorianDatePicker
                 label="تاريخ النهاية"
-                type="date"
-                InputLabelProps={{ shrink: true }}
+                name="endDate"
                 value={contractForm.endDate}
                 onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
               />
@@ -560,6 +610,25 @@ const ProviderView = () => {
               />
             </Grid>
             <Grid item xs={12}>
+              <Autocomplete
+                options={activeEmployers}
+                getOptionLabel={(option) => option.name || ''}
+                value={activeEmployers.find(e => e.id === contractForm.employerId) || null}
+                onChange={(_, newValue) => {
+                  setContractForm({ ...contractForm, employerId: newValue ? newValue.id : null });
+                }}
+                loading={loadingEmployers}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="الجهة (Employer)"
+                    helperText="اتركه فارغاً لإنشاء عقد شبكة عامة (يشمل جميع الجهات)"
+                    placeholder="ابحث عن جهة..."
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12}>
               <FormControlLabel
                 control={<Checkbox checked={contractForm.autoRenew} onChange={(e) => setContractForm({ ...contractForm, autoRenew: e.target.checked })} />}
                 label="تجديد تلقائي"
@@ -571,7 +640,7 @@ const ProviderView = () => {
           <Button onClick={() => setOpenContractDialog(false)}>إلغاء</Button>
           <Button onClick={handleSaveContract} variant="contained" color="primary">حفظ</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
     </>
   );
 };

@@ -23,8 +23,11 @@ export const SystemRole = Object.freeze({
   SUPER_ADMIN: 'SUPER_ADMIN',
   INSURANCE_ADMIN: 'INSURANCE_ADMIN',
   EMPLOYER_ADMIN: 'EMPLOYER_ADMIN',
-  REVIEWER: 'REVIEWER',
+  PARTNER_MANAGER: 'PARTNER_MANAGER',
+  MEDICAL_REVIEWER: 'MEDICAL_REVIEWER',
+  ACCOUNTANT: 'ACCOUNTANT',
   PROVIDER: 'PROVIDER',
+  EMPLOYER: 'EMPLOYER',
   USER: 'USER'
 });
 
@@ -36,8 +39,12 @@ export const RolePrivilegeLevel = Object.freeze({
   [SystemRole.SUPER_ADMIN]: 999,
   [SystemRole.INSURANCE_ADMIN]: 100,
   [SystemRole.EMPLOYER_ADMIN]: 50,
-  [SystemRole.REVIEWER]: 40,
+  [SystemRole.PARTNER_MANAGER]: 45,
+  [SystemRole.MEDICAL_REVIEWER]: 40,
+  [SystemRole.ACCOUNTANT]: 35,
+  [SystemRole.SERVICE_PROVIDER]: 30,
   [SystemRole.PROVIDER]: 30,
+  [SystemRole.EMPLOYER]: 20,
   [SystemRole.USER]: 10
 });
 

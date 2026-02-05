@@ -41,7 +41,7 @@ export default function Navigation() {
 
   // Phase D1.5: Use translation hook
   const { t } = useLocale();
-  const { roles, isInitialized } = useRBAC();
+  const { roles, user: rbacUser, isInitialized } = useRBAC();
 
   const [selectedID, setSelectedID] = useState('');
   const [selectedItems, setSelectedItems] = useState('');
@@ -50,12 +50,12 @@ export default function Navigation() {
   const menuItems = useMemo(() => {
     // If RBAC is not yet initialized, return empty menu to show loading
     if (!isInitialized) return { items: [] };
-    
+
     // Use the comprehensive menu structure from menu-items/components.jsx
-    // and filter it based on current user roles
-    const filtered = filterMenuByRoles(menuItem, roles);
+    // and filter it based on current user roles and permissions
+    const filtered = filterMenuByRoles(menuItem, roles, rbacUser);
     return { items: filtered };
-  }, [roles, isInitialized]);
+  }, [roles, rbacUser, isInitialized]);
 
   const isHorizontal = state.menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
 

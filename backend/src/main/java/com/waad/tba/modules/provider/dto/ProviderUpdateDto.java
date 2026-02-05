@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -30,4 +31,18 @@ public class ProviderUpdateDto {
     private LocalDate contractEndDate;
     private BigDecimal defaultDiscountRate;
     private Boolean active;
+    
+    /**
+     * Allow all employers (global network access)
+     * السماح لجميع الجهات (شبكة عامة)
+     */
+    private Boolean allowAllEmployers;
+    
+    /**
+     * List of allowed employer IDs for this provider.
+     * The backend will create/update contracts based on this list.
+     * If an employer ID is in this list, a contract is created/activated.
+     * If not in this list, the contract is suspended.
+     */
+    private List<Long> allowedPayers;
 }

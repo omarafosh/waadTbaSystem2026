@@ -191,8 +191,20 @@ public class SettlementBatchController {
     
     // Mapper helper
     private SettlementBatchListResponse.BatchSummaryItem mapToSummaryItem(SettlementBatch batch) {
-        Provider provider = batchService.getProviderForBatch(batch);
-        String providerName = provider != null ? provider.getName() : "Unknown";
+        String providerName = "Unknown";
+        try {
+            Provider provider = batchService.getProviderForBatch(batch);
+            if (provider != null) {
+                providerName = provider.getName();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch provider for batch {}", batch.getId(), e);
+        }
+        
+        String createdAtStr = "N/A";
+        if (batch.getCreatedAt() != null) {
+            createdAtStr = batch.getCreatedAt().toLocalDate().toString();
+        }
         
         return SettlementBatchListResponse.BatchSummaryItem.builder()
                 .batchId(batch.getId())
@@ -203,8 +215,8 @@ public class SettlementBatchController {
                 .claimCount(batch.getTotalClaimsCount())
                 .totalNetAmount(batch.getTotalNetAmount())
                 .paymentReference(batch.getPaymentReference())
-                .createdByName("User #" + batch.getCreatedBy()) // Placeholder, ideally fetch user name
-                .createdAt(batch.getCreatedAt().toLocalDate().toString())
+                .createdByName("User #" + batch.getCreatedBy()) // Placeholder
+                .createdAt(createdAtStr)
                 .modifiable(batch.isModifiable())
                 .build();
     }

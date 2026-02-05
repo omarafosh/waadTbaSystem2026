@@ -88,7 +88,6 @@ const UnifiedMemberCreate = () => {
     nationalNumber: '', // Optional - Civil ID optional as per architecture
     birthDate: null,
     gender: '',
-    gender: '',
     nationality: 'ليبي',
     phone: '',
     email: '',

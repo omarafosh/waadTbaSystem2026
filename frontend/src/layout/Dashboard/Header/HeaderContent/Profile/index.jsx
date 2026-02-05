@@ -1,6 +1,10 @@
 import PropTypes from 'prop-types';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
+
+// queries
+import { useQuery } from '@tanstack/react-query';
+import { providersService } from 'services/api/providers.service';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -110,14 +114,14 @@ export default function Profile() {
           aria-haspopup="true"
           onClick={handleToggle}
         >
-          <Avatar 
-            alt="profile user" 
+          <Avatar
+            alt="profile user"
             {...avatarProps}
-            size="sm" 
-            sx={{ 
+            size="sm"
+            sx={{
               '&:hover': { outline: '1px solid', outlineColor: 'primary.main' },
               ...avatarProps.sx
-            }} 
+            }}
           />
         </ButtonBase>
       </Tooltip>
@@ -146,10 +150,10 @@ export default function Profile() {
                 <MainCard elevation={0} border={false} content={false}>
                   <CardContent sx={{ px: 2.5, pt: 3, pb: 2 }}>
                     <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center', mb: 2 }}>
-                      <Avatar 
-                        alt="profile user" 
+                      <Avatar
+                        alt="profile user"
                         {...avatarProps}
-                        sx={{ width: 48, height: 48, ...avatarProps.sx }} 
+                        sx={{ width: 48, height: 48, ...avatarProps.sx }}
                       />
                       <Stack>
                         <Typography variant="h6">{user?.fullName || user?.name || user?.username}</Typography>

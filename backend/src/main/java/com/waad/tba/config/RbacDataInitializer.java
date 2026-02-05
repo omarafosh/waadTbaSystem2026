@@ -1,5 +1,6 @@
 package com.waad.tba.config;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,12 +30,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * RBAC Data Initializer - Clean Foundation (Version 2.0)
+ * RBAC Data Initializer - Clean Foundation (Version 3.0)
  * 
  * Initializes the complete RBAC system with:
- * - All permissions from AppPermission enum (27 permissions)
+ * - All permissions from AppPermission enum (Granular Resource-Action model)
  * - 6 business-aligned roles:
- *   1. SUPER_ADMIN: Full system access
+ *   1. SUPER_ADMIN: Full system access (All permissions)
  *   2. INSURANCE_ADMIN: Insurance company administrator
  *   3. EMPLOYER_ADMIN: Employer company administrator
  *   4. REVIEWER: Medical claim reviewer
@@ -45,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
  * Execution Order: Runs FIRST (@Order(50)) before SuperAdminPermissionSynchronizer (@Order(100))
  * 
  * @author TBA WAAD System
- * @version 2.1
+ * @version 3.0
  */
 @Component
 @Order(50) // Run BEFORE SuperAdminPermissionSynchronizer (which is @Order(100))
@@ -62,7 +63,7 @@ public class RbacDataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         log.info("╔════════════════════════════════════════════════════════════╗");
-        log.info("║  RBAC Data Initializer - Clean Foundation v2.0             ║");
+        log.info("║  RBAC Data Initializer - Granular Permissions v3.0         ║");
         log.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -80,12 +81,6 @@ public class RbacDataInitializer implements CommandLineRunner {
             
             log.info("╔════════════════════════════════════════════════════════════╗");
             log.info("║  RBAC Initialization Completed Successfully!               ║");
-            log.info("║                                                            ║");
-            log.info("║  Login Credentials:                                        ║");
-            log.info("║  Username: superadmin                                      ║");
-            log.info("║  Email:    superadmin@tba.sa                               ║");
-            log.info("║  Password: Admin@123                                       ║");
-            log.info("╚════════════════════════════════════════════════════════════╝");
             
         } catch (Exception e) {
             log.error("❌ RBAC initialization failed: {}", e.getMessage(), e);
@@ -112,19 +107,26 @@ public class RbacDataInitializer implements CommandLineRunner {
             Optional<Permission> existingPerm = permissionRepository.findByName(permName);
             
             if (existingPerm.isPresent()) {
-                permissionMap.put(permName, existingPerm.get());
+                Permission p = existingPerm.get();
+                // Update existing permission metadata
+                p.setDescription(appPerm.getDescription());
+                p.setNameAr(appPerm.getDisplayNameAr());
+                p.setModule(appPerm.getModule());
+                permissionRepository.save(p);
+                
+                permissionMap.put(permName, p);
                 skipped++;
-                log.debug("   ⏭️  Skipping existing permission: {}", permName);
             } else {
                 Permission newPerm = Permission.builder()
                         .name(permName)
-                        .description(appPerm.getDescription() + " | " + appPerm.getDisplayNameAr())
+                        .nameAr(appPerm.getDisplayNameAr())
+                        .description(appPerm.getDescription())
+                        .module(appPerm.getModule())
                         .build();
                 
                 Permission saved = permissionRepository.save(newPerm);
                 permissionMap.put(permName, saved);
                 created++;
-                log.debug("   ➕ Created permission: {}", permName);
             }
         }
         
@@ -140,78 +142,33 @@ public class RbacDataInitializer implements CommandLineRunner {
         
         Map<String, Role> roleMap = new HashMap<>();
         
-        // Role 1: SUPER_ADMIN - Full system access
+        // Role 1: SUPER_ADMIN - Full system access (Auto-assign ALL permissions)
         roleMap.put("SUPER_ADMIN", ensureRole(
                 "SUPER_ADMIN",
                 "المدير العام للنظام",
                 "Full system administrator with all permissions",
                 permissionMap,
-                Arrays.asList(
-                    // All permissions (37 total with granular pre-auth permissions)
-                    "MANAGE_RBAC", "MANAGE_SYSTEM_SETTINGS",
-                    "MANAGE_COMPANIES", "VIEW_COMPANIES",
-                    "MANAGE_INSURANCE", "VIEW_INSURANCE",
-                    "MANAGE_REVIEWER", "VIEW_REVIEWER",
-                    "MANAGE_PROVIDERS", "VIEW_PROVIDERS",
-                    "MANAGE_PROVIDER_CONTRACTS", "VIEW_PROVIDER_CONTRACTS",
-                    "MANAGE_EMPLOYERS", "VIEW_EMPLOYERS",
-                    "MANAGE_MEMBERS", "VIEW_MEMBERS",
-                    "MANAGE_CLAIMS", "VIEW_CLAIMS", "CREATE_CLAIM", "UPDATE_CLAIM", 
-                    "APPROVE_CLAIMS", "REJECT_CLAIMS", "VIEW_CLAIM_STATUS",
-                    "MANAGE_VISITS", "VIEW_VISITS",
-                    "MANAGE_PREAUTH", "VIEW_PREAUTH",
-                    // Granular Pre-Auth Permissions
-                    "VIEW_PRE_AUTH", "CREATE_PRE_AUTH", "UPDATE_PRE_AUTH",
-                    "APPROVE_PRE_AUTH", "REJECT_PRE_AUTH", "CANCEL_PRE_AUTH", "DELETE_PRE_AUTH",
-                    "MANAGE_REPORTS", "VIEW_REPORTS",
-                    "VIEW_BASIC_DATA"
-                )
+                Arrays.asList(AppPermission.getAllPermissionNames()) // ALL PERMISSIONS
         ));
         
         // Role 2: INSURANCE_ADMIN - Insurance company administrator
-        // UPDATED 2026-01-05: Full system permissions (same as SUPER_ADMIN except MANAGE_RBAC)
-        // MANAGE_RBAC is reserved for SUPER_ADMIN only (prevents deletion of SUPER_ADMIN)
+        // Has almost everything except MANAGE_RBAC (security)
+        List<String> insuranceApiPermissions = new ArrayList<>();
+        // Add all except RBAC
+        for(AppPermission p : AppPermission.values()) {
+            if(!p.name().startsWith("MANAGE_RBAC") && !p.name().equals("MANAGE_SYSTEM_SETTINGS")) {
+                insuranceApiPermissions.add(p.name());
+            }
+        }
+        // Add specific allowed system settings if needed
+        insuranceApiPermissions.add("MANAGE_SYSTEM_SETTINGS"); 
+        
         roleMap.put("INSURANCE_ADMIN", ensureRole(
                 "INSURANCE_ADMIN",
                 "مدير شركة التأمين",
                 "Insurance company administrator with full system access",
                 permissionMap,
-                Arrays.asList(
-                    // System Management (except MANAGE_RBAC - reserved for SUPER_ADMIN)
-                    "MANAGE_SYSTEM_SETTINGS",
-                    
-                    // Company & Organization Management
-                    "MANAGE_COMPANIES", "VIEW_COMPANIES",
-                    "MANAGE_INSURANCE", "VIEW_INSURANCE",
-                    "MANAGE_REVIEWER", "VIEW_REVIEWER",
-                    
-                    // Provider Management
-                    "MANAGE_PROVIDERS", "VIEW_PROVIDERS",
-                    "MANAGE_PROVIDER_CONTRACTS", "VIEW_PROVIDER_CONTRACTS",
-                    
-                    // Employer & Member Management
-                    "MANAGE_EMPLOYERS", "VIEW_EMPLOYERS",
-                    "MANAGE_MEMBERS", "VIEW_MEMBERS",
-                    
-                    // Claim Management (Full Access)
-                    "MANAGE_CLAIMS", "VIEW_CLAIMS", "CREATE_CLAIM", "UPDATE_CLAIM",
-                    "APPROVE_CLAIMS", "REJECT_CLAIMS", "VIEW_CLAIM_STATUS",
-                    
-                    // Visit Management
-                    "MANAGE_VISITS", "VIEW_VISITS",
-                    
-                    // Pre-Authorization Management (Full Access)
-                    "MANAGE_PREAUTH", "VIEW_PREAUTH",
-                    // Granular Pre-Auth Permissions
-                    "VIEW_PRE_AUTH", "CREATE_PRE_AUTH", "UPDATE_PRE_AUTH",
-                    "APPROVE_PRE_AUTH", "REJECT_PRE_AUTH", "CANCEL_PRE_AUTH", "DELETE_PRE_AUTH",
-                    
-                    // Reporting
-                    "MANAGE_REPORTS", "VIEW_REPORTS",
-                    
-                    // Basic Data Access
-                    "VIEW_BASIC_DATA"
-                )
+                insuranceApiPermissions
         ));
         
         // Role 3: EMPLOYER_ADMIN - Employer company administrator
@@ -221,78 +178,63 @@ public class RbacDataInitializer implements CommandLineRunner {
                 "Employer company administrator",
                 permissionMap,
                 Arrays.asList(
-                    "VIEW_MEMBERS",  // View only (MANAGE_MEMBERS is optional feature flag)
-                    "VIEW_CLAIMS",
-                    "VIEW_VISITS",
-                    "VIEW_REPORTS"
+                    "VIEW_MEMBERS", "PRINT_MEMBERS", "EXPORT_MEMBERS",
+                    "VIEW_CLAIMS", "PRINT_CLAIMS", "EXPORT_CLAIMS",
+                    "VIEW_VISITS", "PRINT_VISITS", "EXPORT_VISITS",
+                    "VIEW_REPORTS", "PRINT_REPORTS", "EXPORT_REPORTS",
+                    "VIEW_BASIC_DATA"
                 )
         ));
         
         // Role 4: REVIEWER - Medical claim and pre-authorization reviewer
-        // UPDATED 2026-01-23: Complete reviewer permissions for Claims & Pre-Approvals workflow
         roleMap.put("REVIEWER", ensureRole(
                 "REVIEWER",
                 "مراجع طبي",
-                "Medical claim and pre-authorization reviewer with full review capabilities",
+                "Medical claim and pre-authorization reviewer",
                 permissionMap,
                 Arrays.asList(
-                    // ═══ Claims Review (Core) ═══
-                    "VIEW_CLAIMS",            // View all claims in inbox
-                    "APPROVE_CLAIMS",         // Approve claims
-                    "REJECT_CLAIMS",          // Reject claims
-                    "UPDATE_CLAIM",           // Update claim during review
+                    // Claims
+                    "VIEW_CLAIMS", "UPDATE_CLAIM", "APPROVE_CLAIMS", "REJECT_CLAIMS", "VIEW_CLAIM_STATUS",
+                    "PRINT_CLAIMS", "EXPORT_CLAIMS",
                     
-                    // ═══ Pre-Authorization Review (Core) ═══
-                    "VIEW_PRE_AUTH",          // View all pre-authorizations
-                    "APPROVE_PRE_AUTH",       // Approve pre-auth requests
-                    "REJECT_PRE_AUTH",        // Reject pre-auth requests
-                    "UPDATE_PRE_AUTH",        // Update pre-auth during review
+                    // Pre-Auth
+                    "VIEW_PREAUTH", "VIEW_PRE_AUTH", "APPROVE_PRE_AUTH", "REJECT_PRE_AUTH", "UPDATE_PRE_AUTH",
+                    "PRINT_PREAUTH", "EXPORT_PREAUTH",
                     
-                    // ═══ Supporting Data (Read-Only) ═══
-                    "VIEW_MEMBERS",           // View member info for review context
-                    "VIEW_VISITS",            // View visit history for review context
-                    "VIEW_PROVIDERS",         // View provider info
+                    // Read-only access to needed data
+                    "VIEW_MEMBERS", "VIEW_VISITS", "VIEW_PROVIDERS",
+                    "VIEW_MEDICAL_SERVICES", "VIEW_MEDICAL_PACKAGES", "VIEW_BENEFIT_POLICIES",
                     
-                    // ═══ Reference Data ═══
-                    "VIEW_MEDICAL_SERVICES",  // View services catalog
-                    "VIEW_MEDICAL_PACKAGES",  // View packages catalog
-                    "VIEW_MEDICAL_CATEGORIES",// View categories
+                    // Reports
+                    "VIEW_DASHBOARD", "VIEW_REPORTS", "PRINT_REPORTS", "EXPORT_REPORTS",
                     
-                    // ═══ Dashboard & Reports ═══
-                    "VIEW_DASHBOARD",         // View dashboards
-                    "VIEW_REPORTS",           // View reports
-                    "VIEW_BASIC_DATA"         // Basic system data
+                    "VIEW_BASIC_DATA"
                 )
         ));
         
         // Role 5: PROVIDER - Healthcare provider
-        // UPDATED 2026-01-05: Added eligibility check + visit registration (Global Best Practice)
-        // UPDATED 2026-01-13: Added pre-authorization submission capabilities
-        // Modern healthcare systems give providers real-time eligibility verification
         roleMap.put("PROVIDER", ensureRole(
                 "PROVIDER",
                 "مقدم خدمة طبية",
-                "Healthcare provider with eligibility verification and pre-auth submission",
+                "Healthcare provider with eligibility and claim submission",
                 permissionMap,
                 Arrays.asList(
-                    // Eligibility & Visit Management (NEW - Best Practice)
-                    "VIEW_MEMBERS",           // Search for patients
-                    "eligibility.check",      // Real-time eligibility verification
-                    "MANAGE_VISITS",          // Register visits
-                    "VIEW_VISITS",            // View own visits only
+                    // Eligibility & Visits
+                    "VIEW_MEMBERS", "CHECK_ELIGIBILITY",
+                    "CREATE_VISIT", "VIEW_VISITS", "PRINT_VISITS",
                     
-                    // Claim Management (EXISTING)
-                    "CREATE_CLAIM",           // Create claims
-                    "UPDATE_CLAIM",           // Update own claims
-                    "VIEW_CLAIM_STATUS",      // Track claim status
-                    "VIEW_CLAIMS",            // View list of own claims
+                    // Claims
+                    "CREATE_CLAIM", "UPDATE_CLAIM", "VIEW_CLAIMS", "VIEW_CLAIM_STATUS",
+                    "PRINT_CLAIMS", "EXPORT_CLAIMS",
                     
-                    // Pre-Authorization (NEW - Provider can submit and view their requests)
-                    "VIEW_PRE_AUTH",          // View pre-authorization requests
-                    "CREATE_PRE_AUTH",        // Submit pre-authorization requests
-
-                    // Reporting
-                    "VIEW_REPORTS"            // View dashboard and reports
+                    // Pre-Auth
+                    "CREATE_PREAUTH", "CREATE_PRE_AUTH", "VIEW_PREAUTH", "VIEW_PRE_AUTH",
+                    "PRINT_PREAUTH",
+                    
+                    // Reports
+                    "VIEW_REPORTS", "PRINT_REPORTS",
+                    
+                    "VIEW_BASIC_DATA"
                 )
         ));
         
@@ -313,7 +255,6 @@ public class RbacDataInitializer implements CommandLineRunner {
 
     /**
      * Helper method to ensure role exists and has correct permissions.
-     * UPDATED: Now updates permissions for existing roles to ensure migration.
      */
     private Role ensureRole(String roleName, String displayNameAr, String description, 
                            Map<String, Permission> permissionMap, List<String> permissionNames) {
@@ -349,20 +290,17 @@ public class RbacDataInitializer implements CommandLineRunner {
 
     /**
      * Step 3: Create single superadmin user if not exists.
-     * 100% Idempotent - checks existence before insert.
      */
     private void ensureSuperAdminUser(Map<String, Role> roleMap) {
         log.info("👤 Initializing super admin user...");
         
         String username = "superadmin";
         String email = "superadmin@tba.sa";
-        String password = "Admin@123";
         
         // Check if superadmin user already exists
         Optional<User> existingUser = userRepository.findByUsername(username);
         
         if (existingUser.isPresent()) {
-            log.info("   ⏭️  Skipping existing user: {}", username);
             return;
         }
         
@@ -376,7 +314,7 @@ public class RbacDataInitializer implements CommandLineRunner {
         User superAdmin = User.builder()
                 .username(username)
                 .email(email)
-                .password(passwordEncoder.encode(password))
+                .password(passwordEncoder.encode("Admin@123"))
                 .fullName("System Super Administrator")
                 .active(true)
                 .roles(new HashSet<>(Collections.singletonList(superAdminRole)))

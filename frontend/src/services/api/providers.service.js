@@ -115,6 +115,21 @@ export const providersService = {
   },
 
   /**
+   * Get allowed employer IDs for a provider
+   * @param {number} id - Provider ID
+   * @returns {Promise<Array<number>>} List of allowed employer IDs
+   */
+  getAllowedEmployerIds: async (id) => {
+    try {
+      if (!id) throw new Error('معرف المزود مطلوب');
+      const response = await axiosClient.get(`${BASE_URL}/${id}/allowed-employer-ids`);
+      return unwrap(response);
+    } catch (error) {
+      throw handleProviderErrors(error);
+    }
+  },
+
+  /**
    * Update provider
    * @param {number} id - Provider ID
    * @param {Object} data - Updated provider data

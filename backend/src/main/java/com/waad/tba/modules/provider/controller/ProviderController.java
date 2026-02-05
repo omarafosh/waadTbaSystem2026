@@ -61,7 +61,7 @@ public class ProviderController {
     }
 
     @PutMapping("/{id:\\d+}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('MANAGE_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<ApiResponse<ProviderViewDto>> updateProvider(
             @PathVariable Long id,
             @Valid @RequestBody ProviderUpdateDto dto) {
@@ -70,7 +70,7 @@ public class ProviderController {
     }
 
     @GetMapping("/{id:\\d+}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<ApiResponse<ProviderViewDto>> getProvider(@PathVariable Long id) {
         ProviderViewDto provider = providerService.getProvider(id);
         return ResponseEntity.ok(ApiResponse.success("Provider retrieved successfully", provider));
@@ -126,6 +126,13 @@ public class ProviderController {
     // SERVICE ASSIGNMENT ENDPOINTS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    @GetMapping("/{id:\\d+}/allowed-employer-ids")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
+    public ResponseEntity<ApiResponse<List<Long>>> getAllowedEmployerIds(@PathVariable Long id) {
+        List<Long> ids = providerService.getAllowedEmployerIds(id);
+        return ResponseEntity.ok(ApiResponse.success(ids));
+    }
+
     /**
      * Assign a medical service to a provider
      */
@@ -163,7 +170,7 @@ public class ProviderController {
      * Get all services offered by a provider
      */
     @GetMapping("/{id}/services")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<ApiResponse<List<ProviderServiceResponseDto>>> getProviderServices(
             @PathVariable Long id) {
         
@@ -259,7 +266,7 @@ public class ProviderController {
      * Get all contracts for a provider (paginated)
      */
     @GetMapping("/{id}/contracts")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<PaginationResponse<ProviderContractResponseDto>> getProviderContracts(
             @PathVariable Long id,
             @RequestParam(defaultValue = "true") boolean activeOnly,
@@ -303,7 +310,7 @@ public class ProviderController {
      * Get contract by ID
      */
     @GetMapping("/{id}/contracts/{contractId}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<ApiResponse<ProviderContractResponseDto>> getContractById(
             @PathVariable Long id,
             @PathVariable Long contractId) {
@@ -338,7 +345,7 @@ public class ProviderController {
      * Get count of active contracts
      */
     @GetMapping("/{id}/contracts/count")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('VIEW_PROVIDERS') or @authorizationService.canAccessProvider(#id)")
     public ResponseEntity<ApiResponse<Long>> getContractCount(@PathVariable Long id) {
         log.info("[PROVIDER-CONTRACTS] GET /api/providers/{}/contracts/count", id);
         

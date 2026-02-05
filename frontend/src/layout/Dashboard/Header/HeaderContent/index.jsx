@@ -7,8 +7,14 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
+import Tooltip from '@mui/material/Tooltip'; // Added Tooltip
 import PersonIcon from '@mui/icons-material/Person';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import BusinessIcon from '@mui/icons-material/Business'; // Added BusinessIcon
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'; // Added Icon
+
+import { useQuery } from '@tanstack/react-query'; // Added useQuery
+import { providersService } from 'services/api/providers.service'; // Added service
 
 // project imports
 import Profile from './Profile';
@@ -37,14 +43,108 @@ export default function HeaderContent() {
   const { user } = useAuth();
   const { companyName, companyNameEn, primaryColor, getLogoSrc, hasLogo, getInitials, settings } = useCompanySettings();
   const { pathname } = useLocation();
+  console.log('[HeaderContent] Rendering provider header badges check'); // Force HMR Update
 
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
   // Check if user is a Provider
   // FIX: Remove URL-based check so Admins retain their Admin UI even when visiting portal pages
   const isProvider = user?.roles?.includes('PROVIDER');
-
   const providerName = user?.providerName || (user?.roles?.includes('SUPER_ADMIN') ? 'مستشفى الرازي - بنغازي' : null);
+
+  // Phase 15: Fetch Provider Details for Header Badges
+  const { data: providerDetails } = useQuery({
+    queryKey: ['header-provider-details', user?.id],
+    queryFn: async () => {
+      if (!user?.providerId && !user?.id) return null;
+      // If user.providerId is missing, we might need to rely on the fact that for a provider user, 
+      // we might be able to get their provider info via a different endpoint or if providerId is attached to user.
+      // Assuming user.providerId exists as per auth service logic, or we use getById(user.providerId)
+      // If providerId is not directly on user, we might need to skip or use a different strategy.
+      // For now, let's assume user.providerId or user.entityId is available. 
+      // As fallback, we return null.
+      const idToFetch = user?.providerId || user?.entityId;
+      if (!idToFetch) return null;
+      return providersService.getById(idToFetch);
+    },
+    enabled: isProvider && (!!user?.providerId || !!user?.entityId),
+    staleTime: 0 // Force fresh fetch to ensure badges are up to date
+  });
+
+  const employerBadges = useMemo(() => {
+    if (!providerDetails) return null;
+
+    // Check for Global Network
+    if (providerDetails.allowAllEmployers) {
+      return (
+        <Chip
+          icon={<VerifiedUserIcon />}
+          label="الشبكة العامة"
+          color="success"
+          size="small"
+          variant="filled"
+          sx={{ height: 24, fontWeight: 'bold' }}
+        />
+      );
+    }
+
+    // Check for specific contracts
+    const names = providerDetails.contractedEmployerNames || [];
+    // Check string-based Global Network indicator from mapper just in case
+    if (names.some(n => n.includes('الشبكة العامة'))) {
+      return (
+        <Chip
+          icon={<VerifiedUserIcon />}
+          label="الشبكة العامة"
+          color="success"
+          size="small"
+          variant="filled"
+          sx={{ height: 24, fontWeight: 'bold' }}
+        />
+      );
+    }
+
+    if (names.length === 0) {
+      return (
+        <Chip
+          label="غير متعاقد"
+          color="default"
+          size="small"
+          variant="outlined"
+          sx={{ height: 24 }}
+        />
+      );
+    }
+
+    // Display up to 2 badges
+    return (
+      <Stack direction="row" spacing={0.5}>
+        {names.slice(0, 2).map((name, idx) => (
+          <Tooltip key={idx} title={name}>
+            <Chip
+              icon={<BusinessIcon sx={{ fontSize: '0.9rem !important' }} />}
+              label={name}
+              color="info"
+              size="small"
+              variant="outlined"
+              sx={{ height: 24, maxWidth: 120 }}
+            />
+          </Tooltip>
+        ))}
+        {names.length > 2 && (
+          <Tooltip title={names.slice(2).join('، ')}>
+            <Chip
+              label={`+${names.length - 2}`}
+              size="small"
+              color="info"
+              variant="filled"
+              sx={{ height: 24, minWidth: 24, px: 0.5 }}
+            />
+          </Tooltip>
+        )}
+      </Stack>
+    );
+  }, [providerDetails]);
 
   const localization = useMemo(() => <Localization />, []);
 
@@ -58,82 +158,68 @@ export default function HeaderContent() {
       {/* ✅ System Logo/Title - Different for Provider */}
       {!downLG && (
         <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-          {/* Legacy Provider Logic Removed - Always Show Company Branding */}
-          {(
-            // Company branding from settings (SINGLE SOURCE OF TRUTH)
-            <Stack direction="row" spacing={1} alignItems="center">
-              {/* Always show logo - uses fallback if no custom logo */}
-              {hasLogo() || waadLogoFallback ? (
-                <Box
-                  component="img"
-                  src={getLogoSrc()}
-                  alt={displayName}
-                  sx={{
-                    height: 32,
-                    width: 'auto',
-                    maxWidth: 100,
-                    objectFit: 'contain'
-                  }}
-                  onError={(e) => {
-                    // Fallback to avatar if both custom and static fallback fail
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-
-              {/* Fallback initials avatar (hidden by default, shown if img fails) */}
-              <Avatar
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* Always show logo - uses fallback if no custom logo */}
+            {hasLogo() || waadLogoFallback ? (
+              <Box
+                component="img"
+                src={getLogoSrc()}
+                alt={displayName}
                 sx={{
-                  bgcolor: 'primary.main',
-                  width: 32,
                   height: 32,
+                  width: 'auto',
+                  maxWidth: 100,
+                  objectFit: 'contain'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+
+            {/* Fallback initials avatar */}
+            <Avatar
+              sx={{
+                bgcolor: 'primary.main',
+                width: 32,
+                height: 32,
+                fontSize: '1rem',
+                display: hasLogo() || waadLogoFallback ? 'none' : 'flex'
+              }}
+            >
+              {getInitials()}
+            </Avatar>
+            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                  color: 'primary.main',
                   fontSize: '1rem',
-                  display: hasLogo() || waadLogoFallback ? 'none' : 'flex'
+                  whiteSpace: 'nowrap'
                 }}
               >
-                {getInitials()}
-              </Avatar>
-              <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 700,
-                    lineHeight: 1.1,
-                    color: 'primary.main',
-                    fontSize: '1rem',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {displayName}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    fontSize: '1rem',
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {settings?.businessType || 'إدارة التأمين الصحي'}
-                </Typography>
-              </Box>
-            </Stack>
-          )}
-        </Box>
-      )}
+                {displayName}
+              </Typography>
 
-      {/* ✅ Provider Info Section - Added to restore context while keeping Logo */}
-      {!downLG && isProvider && (
-        <Stack spacing={0.5} sx={{ mx: 2, borderRight: '2px solid', borderColor: 'divider', pr: 2, minWidth: 180 }}>
-          <Typography variant="subtitle2" color="primary.dark" fontWeight="800" sx={{ lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
-            {providerName || 'مقدم خدمة'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" fontWeight="600" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
-            مستشفى / مركز طبي
-          </Typography>
-        </Stack>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  fontSize: '1rem',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {settings?.businessType || 'إدارة التأمين الصحي'}
+              </Typography>
+            </Box>
+
+
+          </Stack>
+        </Box>
       )}
 
       {/* ✅ Navigation Horizontal - القائمة الأفقية */}

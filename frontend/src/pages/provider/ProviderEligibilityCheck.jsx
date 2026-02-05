@@ -1,6 +1,6 @@
 /**
  * Provider Portal - Eligibility Check Page
- * 
+ *
  * Corrected Professional Architectural Redesign (30/70 RTL Split)
  * Rightmost: 30% Scanner & Search (Unit of Control)
  * Left: 70% Results (Divided into Client Info & stats on right, Table on left)
@@ -19,13 +19,11 @@ import {
   Chip,
   CircularProgress,
   Paper,
-  InputAdornment,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -36,7 +34,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Container,
   useTheme,
   alpha,
   TablePagination
@@ -50,13 +47,14 @@ import {
   Refresh as RefreshIcon,
   LocalHospital as HospitalIcon,
   AccountBalanceWallet as WalletIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  VerifiedUser as VerifiedUserIcon
 } from '@mui/icons-material';
+import Tooltip from '@mui/material/Tooltip';
 import { Html5Qrcode } from 'html5-qrcode';
 import MainCard from 'components/MainCard';
 import { providerApi } from 'services/providerService';
-
-// Add useAuth import
 import useAuth from 'hooks/useAuth';
 
 export default function ProviderEligibilityCheck() {
@@ -73,6 +71,7 @@ export default function ProviderEligibilityCheck() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [allowedEmployers, setAllowedEmployers] = useState([]);
 
   // QR Scanner State
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -140,7 +139,7 @@ export default function ProviderEligibilityCheck() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedVisitType]); // Added selectedVisitType to dependency
 
   const handleSubmit = () => checkEligibility(searchValue);
   const handleKeyPress = (e) => e.key === 'Enter' && searchValue.trim() && handleSubmit();
@@ -189,171 +188,132 @@ export default function ProviderEligibilityCheck() {
   };
 
   useEffect(() => {
+    // Fetch allowed employers
+    const fetchEmployers = async () => {
+      try {
+        const res = await providerApi.getAllowedEmployers();
+        if (res.success) setAllowedEmployers(res.data);
+      } catch (err) {
+        console.error('Failed to load allowed employers', err);
+      }
+    };
+    fetchEmployers();
+
     return () => { if (html5QrCodeRef.current) html5QrCodeRef.current.stop().catch(() => { }); };
   }, []);
 
   return (
     <Box sx={{
       width: '100%',
-      height: 'calc(100vh - 80px)', // Fixed height to fit screen
+      // Use flex grow instead of fixed calc height to allow scrolling if needed, but preferably fit
+      height: '100%',
+      minHeight: 'calc(100vh - 120px)', // Account for Header + ContextBar
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
-      mx: 'auto'
+      mx: 'auto',
+      p: 3 // Add padding around the whole page content
     }}>
-      {/* Page Header - Detailed Hierarchy */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, px: 3, pt: 3, flexShrink: 0 }}>
-
-        {/* Right Side: Identity Hierarchy */}
-        <Stack direction="row" alignItems="center" spacing={4} divider={<Divider orientation="vertical" flexItem sx={{ height: 40, borderColor: 'divider' }} />}>
-
-          {/* 1. Waad Company Identity */}
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Box sx={{ width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/assets/images/waad-logo.png" alt="Waad Company" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/60?text=Waad'; }} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight="900" color="primary.main" sx={{ lineHeight: 1.2 }}>شركة وعد</Typography>
-              <Typography variant="body2" color="text.secondary" fontWeight="700">إدارة التأمين الصحي</Typography>
-            </Box>
-          </Stack>
-
-          {/* 2. Provider Identity (Hospital Name) */}
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Box sx={{
-              width: 48, height: 48,
-              borderRadius: 2,
-              bgcolor: 'primary.lighter',
-              color: 'primary.main',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <HospitalIcon fontSize="medium" />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight="800" color="text.primary" sx={{ lineHeight: 1.2 }}>
-                {user?.role === 'SUPER_ADMIN' ? 'مستشفى الرازي - بنغازي' : (user?.fullName || 'مستشفى الرازي')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" fontWeight="600">
-                {user?.providerType || 'مستشفى / مركز طبي'}
-              </Typography>
-            </Box>
-          </Stack>
-
-          {/* 3. Service Portal Label (Static Badge) */}
-          <Paper
-            elevation={0}
-            variant="outlined"
-            sx={{
-              px: 3, py: 1,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider'
-            }}
-          >
-            <Typography variant="subtitle1" fontWeight="800" color="primary.main">بوابة الخدمة</Typography>
-          </Paper>
-
-        </Stack>
-
-        {/* Left Side: Actions */}
-        {result && (
-          <Button
-            color="error"
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleReset}
-            sx={{ px: 3, fontWeight: 700 }}
-          >
-            إنهاء الجلسة
-          </Button>
-        )}
-      </Stack>
 
       {/* Main Layout Body - Flex Row to ensure full width usage */}
-      <Stack direction="row" spacing={2} sx={{ flexGrow: 1, overflow: 'hidden', px: 2, pb: 2 }}>
+      <Stack direction="row" spacing={3} sx={{ flexGrow: 1, overflow: 'hidden' }}>
 
         {/* 1. RIGHT COLUMN: Control & Scanner (Fixed Width) */}
         <Box sx={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <MainCard
-            contentSX={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}
-            title={
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <QrIcon color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="700">وحدة التحكم</Typography>
-              </Stack>
-            }
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-          >
-            <Stack spacing={2} sx={{ flexGrow: 1 }}>
-              {/* QR Section */}
-              <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), border: '1px dashed', borderColor: 'primary.main' }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={startQrScanner}
-                  startIcon={<QrIcon />}
-                  disabled={loading || scanning}
-                  sx={{ py: 1.5, fontWeight: 600 }}
-                >
-                  تشغيل الكاميرا
-                </Button>
-              </Box>
+          <Stack spacing={2} sx={{ height: '100%' }}>
+            {/* Header for Control Panel */}
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="h5" fontWeight="700" color="primary">التحقق من الأهلية</Typography>
+              <Typography variant="body2" color="text.secondary">قم بمسح البطاقة أو إدخال الرقم</Typography>
+            </Box>
 
-              <Divider><Typography variant="caption" color="text.secondary">أو البحث اليدوي</Typography></Divider>
-
-              {/* Manual Section */}
-              <Box sx={{ flexGrow: 1 }}>
-                <Stack spacing={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="رقم الهوية / البطاقة"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    disabled={loading}
-                    sx={{ '& input': { textAlign: 'center' } }}
-                  />
+            <MainCard
+              contentSX={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}
+              sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: theme.customShadows?.z1 }}
+            >
+              <Stack spacing={2} sx={{ flexGrow: 1 }}>
+                {/* QR Section */}
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), border: '1px dashed', borderColor: 'primary.main', textAlign: 'center' }}>
+                  <QrIcon color="primary" sx={{ fontSize: 40, mb: 1, opacity: 0.8 }} />
                   <Button
                     variant="contained"
-                    color="primary"
                     fullWidth
-                    onClick={handleSubmit}
-                    disabled={loading || !searchValue.trim()}
-                    startIcon={loading && <CircularProgress size={16} color="inherit" />}
+                    onClick={startQrScanner}
+                    disabled={loading || scanning}
+                    sx={{ py: 1.5, fontWeight: 600 }}
                   >
-                    {loading ? 'جاري الفحص...' : 'تحقق الآن'}
+                    تشغيل الكاميرا
                   </Button>
+                </Box>
 
-                  <Divider sx={{ my: 1 }} />
+                <Divider><Typography variant="caption" color="text.secondary">أو البحث اليدوي</Typography></Divider>
 
-                  {/* Move Visit Type Selection here for initial context awareness */}
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="select-visit-type-label">نوع الزيارة (السياق)</InputLabel>
-                    <Select
-                      labelId="select-visit-type-label"
-                      value={selectedVisitType}
-                      onChange={(e) => setSelectedVisitType(e.target.value)}
-                      label="نوع الزيارة (السياق)"
+                {/* Manual Section */}
+                <Box sx={{ flexGrow: 1 }}>
+                  <Stack spacing={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="رقم الهوية / البطاقة"
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      disabled={loading}
+                      sx={{ '& input': { textAlign: 'center' } }}
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      fullWidth
+                      onClick={handleSubmit}
+                      disabled={loading || !searchValue.trim()}
+                      startIcon={loading && <CircularProgress size={16} color="inherit" />}
                     >
-                      {VISIT_TYPE_OPTIONS.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-              </Box>
+                      {loading ? 'جاري الفحص...' : 'تحقق الآن'}
+                    </Button>
 
-              {error && (
-                <Alert severity="error" variant="outlined" sx={{ mt: 'auto', fontSize: '0.8rem' }}>
-                  {error}
-                </Alert>
-              )}
-            </Stack>
-          </MainCard>
+                    <Divider sx={{ my: 1 }} />
+
+                    {/* Move Visit Type Selection here for initial context awareness */}
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="select-visit-type-label">نوع الزيارة (السياق)</InputLabel>
+                      <Select
+                        labelId="select-visit-type-label"
+                        value={selectedVisitType}
+                        onChange={(e) => setSelectedVisitType(e.target.value)}
+                        label="نوع الزيارة (السياق)"
+                      >
+                        {VISIT_TYPE_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                </Box>
+
+                {error && (
+                  <Alert severity="error" variant="outlined" sx={{ mt: 'auto', fontSize: '0.8rem' }}>
+                    {error}
+                  </Alert>
+                )}
+
+                {result && (
+                  <Button
+                    color="error"
+                    variant="text"
+                    startIcon={<RefreshIcon />}
+                    onClick={handleReset}
+                    fullWidth
+                    sx={{ mt: 1 }}
+                  >
+                    إنهاء الجلسة / بحث جديد
+                  </Button>
+                )}
+              </Stack>
+            </MainCard>
+          </Stack>
         </Box>
 
         {/* 2. LEFT COLUMN: Results - Flex Grow to Fill Rest */}
@@ -377,7 +337,8 @@ export default function ProviderEligibilityCheck() {
                       bgcolor: result.eligible ? alpha(theme.palette.success.light, 0.05) : alpha(theme.palette.error.light, 0.05),
                       borderColor: result.eligible ? 'success.light' : 'error.light',
                       position: 'relative',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      boxShadow: theme.customShadows?.z1
                     }}
                   >
                     {/* Decorative Background Icon */}
@@ -387,20 +348,20 @@ export default function ProviderEligibilityCheck() {
 
                     <Stack spacing={0.5} sx={{ zIndex: 1, minWidth: 0, flex: 1 }}>
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="h5" fontWeight="900" color={result.eligible ? 'success.dark' : 'error.dark'}>
+                        <Typography variant="h4" fontWeight="900" color={result.eligible ? 'success.dark' : 'error.dark'}>
                           {result.eligible ? 'مؤهل للخدمة' : 'غير مؤهل'}
                         </Typography>
-                        {result.eligible && <Chip label="نشط" color="success" size="small" sx={{ height: 20, fontWeight: 'bold' }} />}
+                        {result.eligible && <Chip label="نشط" color="success" size="small" sx={{ height: 24, fontWeight: 'bold' }} />}
                       </Stack>
 
-                      <Typography variant="h6" fontWeight="700" noWrap>
+                      <Typography variant="h5" fontWeight="700" noWrap sx={{ mt: 1 }}>
                         {result.principalMember?.fullName}
                       </Typography>
 
                       <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
                         <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <HospitalIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.primary" fontWeight="600">
+                          <BusinessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                          <Typography variant="body1" color="text.primary" fontWeight="600">
                             {result.employerName || 'الشركة المتحدة للتأمين'}
                           </Typography>
                         </Stack>
@@ -415,7 +376,7 @@ export default function ProviderEligibilityCheck() {
                     </Stack>
 
                     <Box sx={{
-                      width: 70, height: 70,
+                      width: 80, height: 80,
                       flexShrink: 0,
                       borderRadius: '50%',
                       bgcolor: result.eligible ? 'success.main' : 'error.main',
@@ -428,14 +389,14 @@ export default function ProviderEligibilityCheck() {
                       borderColor: 'background.paper',
                       zIndex: 2
                     }}>
-                      {result.eligible ? <CheckIcon sx={{ fontSize: 40 }} /> : <CancelIcon sx={{ fontSize: 40 }} />}
+                      {result.eligible ? <CheckIcon sx={{ fontSize: 48 }} /> : <CancelIcon sx={{ fontSize: 48 }} />}
                     </Box>
                   </Paper>
                 </Box>
 
                 {/* Financial Stats (Matches Sidebar Width) */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <MainCard contentSX={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }} sx={{ height: '100%' }}>
+                  <MainCard contentSX={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }} sx={{ height: '100%', boxShadow: theme.customShadows?.z1 }}>
                     <Stack direction="row" sx={{ width: '100%' }} spacing={0} divider={<Divider orientation="vertical" flexItem />}>
                       {[
                         { label: 'الحد السنوي', value: result.principalAnnualLimit, color: 'primary', icon: <WalletIcon /> },
@@ -443,15 +404,6 @@ export default function ProviderEligibilityCheck() {
                         { label: 'المتـبقي', value: result.principalRemainingLimit, color: 'success', icon: <CheckIcon /> }
                       ].map((stat, idx) => (
                         <Box key={idx} sx={{ flex: 1, px: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Box sx={{
-                            width: 44, height: 44,
-                            borderRadius: 1.5,
-                            bgcolor: alpha(theme.palette[stat.color].main, 0.1),
-                            color: `${stat.color}.main`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}>
-                            {stat.icon}
-                          </Box>
                           <Box>
                             <Typography variant="caption" color="text.secondary" fontWeight="700" display="block">{stat.label}</Typography>
                             <Typography variant="h6" fontWeight="900" color={`${stat.color}.main`} sx={{ lineHeight: 1 }}>
@@ -471,12 +423,12 @@ export default function ProviderEligibilityCheck() {
                 <MainCard
                   title={
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="subtitle1" fontWeight="700">قائمة المستفيدين</Typography>
+                      <Typography variant="subtitle1" fontWeight="700">قائمة المستفيدين (العائلة)</Typography>
                       <Chip label={`${result.familyMembers.length}`} color="primary" size="small" />
                     </Stack>
                   }
                   contentSX={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
-                  sx={{ flex: 2, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, overflow: 'hidden' }}
+                  sx={{ flex: 2, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, overflow: 'hidden', boxShadow: theme.customShadows?.z1 }}
                 >
                   <TableContainer sx={{ flexGrow: 1, overflow: 'auto' }}>
                     <Table stickyHeader size="medium">
@@ -562,30 +514,30 @@ export default function ProviderEligibilityCheck() {
                     bgcolor: selectedMember ? alpha(theme.palette.primary.main, 0.02) : 'background.default',
                     borderColor: selectedMember ? 'primary.main' : 'divider',
                     borderWidth: selectedMember ? 2 : 1,
-                    transition: 'all 0.3s'
+                    transition: 'all 0.3s',
+                    boxShadow: theme.customShadows?.z1
                   }}
                 >
                   {selectedMember ? (
                     <Stack spacing={3} justifyContent="center" sx={{ height: '100%' }}>
                       <Box sx={{ textAlign: 'center' }}>
                         {/* Beneficiary Photo Verification Area */}
-                        <Paper elevation={3} sx={{
-                          width: 150,
-                          height: 150,
-                          borderRadius: 3,
-                          bgcolor: 'grey.100',
+                        <Paper elevation={0} variant="outlined" sx={{
+                          width: 120,
+                          height: 120,
+                          borderRadius: '50%', // Circle shape
+                          bgcolor: 'grey.50',
                           mx: 'auto',
                           mb: 2,
                           overflow: 'hidden',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: '1px solid',
+                          border: '2px solid',
                           borderColor: 'divider'
                         }}>
                           <Stack alignItems="center" spacing={1} sx={{ color: 'text.disabled' }}>
-                            <PersonIcon sx={{ fontSize: 80 }} />
-                            <Typography variant="caption" fontWeight="700">صورة الهوية</Typography>
+                            <PersonIcon sx={{ fontSize: 60 }} />
                           </Stack>
                         </Paper>
 
@@ -596,7 +548,7 @@ export default function ProviderEligibilityCheck() {
 
                       <Divider flexItem />
 
-                      <Box sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2 }}>
+                      <Box sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
                         <Stack spacing={2}>
 
                           {visitError && (
@@ -661,11 +613,12 @@ export default function ProviderEligibilityCheck() {
               borderColor: 'divider',
               borderRadius: 2,
               bgcolor: 'background.neutral',
-              gap: 2
+              gap: 2,
+              opacity: 0.7
             }}>
               <HospitalIcon sx={{ fontSize: 80, color: 'text.disabled', opacity: 0.2 }} />
-              <Typography variant="h5" color="text.secondary" fontWeight="700">جاهز للتحقق من الأهلية</Typography>
-              <Typography variant="body2" color="text.secondary">ابدأ بمسح البطاقة أو الإدخال اليدوي</Typography>
+              <Typography variant="h4" color="text.secondary" fontWeight="700">بانتظار التحقق</Typography>
+              <Typography variant="body1" color="text.secondary">استخدم وحدة التحكم للبدء</Typography>
             </Box>
           )}
         </Box>
@@ -680,6 +633,3 @@ export default function ProviderEligibilityCheck() {
     </Box >
   );
 }
-
-
-

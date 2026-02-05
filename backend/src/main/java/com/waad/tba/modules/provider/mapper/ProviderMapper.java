@@ -7,6 +7,12 @@ import com.waad.tba.modules.provider.dto.ProviderSelectorDto;
 import com.waad.tba.modules.provider.dto.ProviderUpdateDto;
 import com.waad.tba.modules.provider.dto.ProviderViewDto;
 import com.waad.tba.modules.provider.entity.Provider;
+import com.waad.tba.modules.providercontract.entity.ProviderContract;
+import com.waad.tba.modules.providercontract.entity.ProviderContract.ContractStatus;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Component
 public class ProviderMapper {
@@ -77,6 +83,9 @@ public class ProviderMapper {
         if (dto.getActive() != null) {
             provider.setActive(dto.getActive());
         }
+        if (dto.getAllowAllEmployers() != null) {
+            provider.setAllowAllEmployers(dto.getAllowAllEmployers());
+        }
     }
 
     /**
@@ -97,6 +106,59 @@ public class ProviderMapper {
         String networkStatusLabel = provider.getNetworkStatus() != null ? 
                 getNetworkStatusLabel(provider.getNetworkStatus()) : null;
         
+        // Calculate contract info
+        // Calculate contract info
+        List<String> employerNames = new ArrayList<>();
+        int activeContractCount = 0;
+        
+        if (provider.getContracts() != null) {
+            // Filter for relevant contracts (Active, Draft, Suspended)
+            // We exclude TERMINATED and EXPIRED from the main list view to avoid clutter
+            List<ProviderContract> activeContracts = provider.getContracts().stream()
+                    .filter(c -> Boolean.TRUE.equals(c.getActive()) && 
+                                 (c.getStatus() == ContractStatus.ACTIVE || 
+                                  c.getStatus() == ContractStatus.DRAFT || 
+                                  c.getStatus() == ContractStatus.SUSPENDED))
+                    .collect(Collectors.toList());
+                    
+            activeContractCount = activeContracts.size();
+            
+            if (!activeContracts.isEmpty()) {
+                activeContracts.stream()
+                        .filter(c -> c.getEmployer() != null)
+                        .map(c -> c.getEmployer().getName())
+                        .distinct()
+                        .forEach(employerNames::add);
+            }
+        }
+
+        // TPA Model: Add allowed employers (if not already in list)
+        if (provider.getAllowedEmployers() != null) {
+            provider.getAllowedEmployers().stream()
+                    .filter(pe -> Boolean.TRUE.equals(pe.getActive()) && pe.getEmployer() != null)
+                    .map(pe -> pe.getEmployer().getName())
+                    .filter(name -> !employerNames.contains(name)) 
+                    .forEach(name -> {
+                        employerNames.add(name);
+                         // Note: We might want to increment count, or keep contract count separate
+                         // For UI "X Employers", we usually want the total unique count.
+                    });
+        }
+        
+        // Update count to reflect total unique employers if we found extra from TPA model
+        if (employerNames.size() > activeContractCount) {
+             activeContractCount = employerNames.size();
+        }
+
+        // If 'Allow All Employers' is enabled, add a special indicator
+        if (Boolean.TRUE.equals(provider.getAllowAllEmployers())) {
+            employerNames.add(0, "الشبكة العامة (جميع الجهات)");
+            // Ensure count reflects this permission even if no physical contracts exist
+            if (activeContractCount == 0 || activeContractCount == employerNames.size() - 1) {
+                activeContractCount = employerNames.size();
+            }
+        }
+
         return ProviderViewDto.builder()
                 .id(provider.getId())
                 .name(provider.getName())
@@ -116,13 +178,11 @@ public class ProviderMapper {
                 .contractStartDate(provider.getContractStartDate())
                 .contractEndDate(provider.getContractEndDate())
                 .defaultDiscountRate(provider.getDefaultDiscountRate())
+                .allowAllEmployers(provider.getAllowAllEmployers())
                 .createdAt(provider.getCreatedAt())
                 .updatedAt(provider.getUpdatedAt())
-                .contractCount(provider.getContracts() != null ? provider.getContracts().size() : 0)
-                .contractedEmployerNames(provider.getContracts() != null ? 
-                        provider.getContracts().stream()
-                                .map(c -> "Contract " + c.getContractCode()) // Modified: Contract doesn't link to Employer directly anymore
-                                .collect(java.util.stream.Collectors.toList()) : java.util.Collections.emptyList())
+                .contractCount(activeContractCount)
+                .contractedEmployerNames(employerNames)
                 .hasDocuments(hasDocuments)
                 .build();
     }

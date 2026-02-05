@@ -324,39 +324,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
 
       {allRoles.length === 0 && <Alert severity="warning">لا توجد أدوار متاحة في النظام</Alert>}
 
-      {/* Custom Permissions for EMPLOYER users */}
-      {isEmployerRole && (
-        <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed', borderColor: 'warning.main' }}>
-          <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight="medium" gutterBottom>
-              صلاحيات مخصصة لمستخدم الشريك
-            </Typography>
-            <Typography variant="caption">حدد ما يمكن لهذا المستخدم رؤيته وإدارته في النظام</Typography>
-          </Alert>
 
-          <Grid container spacing={2}>
-            {[
-              { field: 'canViewClaims', label: 'المطالبات', sub: 'رؤية وإدارة المطالبات' },
-              { field: 'canViewVisits', label: 'الزيارات', sub: 'رؤية وإدارة الزيارات' },
-              { field: 'canViewReports', label: 'التقارير', sub: 'رؤية التقارير التحليلية' },
-              { field: 'canViewMembers', label: 'المؤمنين', sub: 'رؤية وإدارة المؤمنين' },
-              { field: 'canViewBenefitPolicies', label: 'وثائق المنافع', sub: 'رؤية وثائق التغطية' }
-            ].map((perm) => (
-              <Grid item xs={12} sm={6} key={perm.field}>
-                <FormControlLabel
-                  control={<Switch checked={form[perm.field]} onChange={(e) => setForm({ ...form, [perm.field]: e.target.checked })} color="primary" />}
-                  label={
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">{perm.label}</Typography>
-                      <Typography variant="caption" color="text.secondary">{perm.sub}</Typography>
-                    </Box>
-                  }
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
 
       {/* Provider Company Visibility */}
       {isProviderRole && (
@@ -474,12 +442,7 @@ const UserEdit = () => {
     confirmPassword: '',
     employerId: null,
     providerId: null,
-    // Custom permissions for EMPLOYER users
-    canViewClaims: true,
-    canViewVisits: true,
-    canViewReports: true,
-    canViewMembers: true,
-    canViewBenefitPolicies: true,
+
     // Provider specific
     allowAllCompanies: true,
     permittedCompanies: [],
@@ -518,12 +481,7 @@ const UserEdit = () => {
           active: user.active !== false && user.enabled !== false,
           employerId: user.employerId || null,
           providerId: user.providerId || null,
-          // Custom permissions for EMPLOYER users
-          canViewClaims: user.canViewClaims !== false,
-          canViewVisits: user.canViewVisits !== false,
-          canViewReports: user.canViewReports !== false,
-          canViewMembers: user.canViewMembers !== false,
-          canViewBenefitPolicies: user.canViewBenefitPolicies !== false
+
         });
 
         // Set current roles
@@ -593,19 +551,7 @@ const UserEdit = () => {
         active: form.active
       };
 
-      // Add custom permissions if EMPLOYER role is selected
-      const hasEmployerRole = selectedRoles.some((roleId) => {
-        const role = allRoles.find((r) => r?.id === roleId);
-        return role?.name === 'EMPLOYER_ADMIN' || role?.name === 'EMPLOYER_USER';
-      });
 
-      if (hasEmployerRole) {
-        payload.canViewClaims = form.canViewClaims;
-        payload.canViewVisits = form.canViewVisits;
-        payload.canViewReports = form.canViewReports;
-        payload.canViewMembers = form.canViewMembers;
-        payload.canViewBenefitPolicies = form.canViewBenefitPolicies;
-      }
 
       // Add provider specific fields
       const isProvider = selectedRoles.some((roleId) => {

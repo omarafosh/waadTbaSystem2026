@@ -27,12 +27,7 @@ public class UserUpdateDto {
     private Long employerId;
     private Long providerId;
     
-    // Custom permissions for EMPLOYER users
-    private Boolean canViewClaims;
-    private Boolean canViewVisits;
-    private Boolean canViewReports;
-    private Boolean canViewMembers;
-    private Boolean canViewBenefitPolicies;
+
 
     // Provider specific permissions
     private Boolean allowAllCompanies;

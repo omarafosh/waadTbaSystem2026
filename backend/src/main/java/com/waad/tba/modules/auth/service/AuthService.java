@@ -83,10 +83,12 @@ public class AuthService {
             throw new RuntimeException("Invalid email or password");
         }
 
-        // Extract roles only (no permissions)
+        // Extract roles and permissions
         List<String> roles = user.getRoles().stream()
                 .map(Role::getName)
                 .collect(Collectors.toList());
+        
+        List<String> permissions = flattenPermissions(user);
 
         // Generate JWT token
         String token = jwtTokenProvider.generateToken(user);
@@ -109,6 +111,7 @@ public class AuthService {
                         .fullName(user.getFullName())
                         .email(user.getEmail())
                         .roles(roles)
+                        .permissions(permissions)
                         .employerId(user.getEmployerId())
                         .providerId(user.getProviderId())
                         .providerName(providerName)
@@ -243,6 +246,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .roles(roles)
+                .permissions(flattenPermissions(user))
                 .employerId(user.getEmployerId())
                 .providerId(user.getProviderId())
                 .companyId(user.getCompanyId())
@@ -279,6 +283,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .roles(roles)
+                .permissions(flattenPermissions(user))
                 .employerId(user.getEmployerId())
                 .providerId(user.getProviderId())
                 .providerName(providerName)
@@ -364,5 +369,17 @@ public class AuthService {
         passwordResetTokenRepository.deleteByEmail(email);
 
         log.info("Password reset successfully for user: {}", user.getUsername());
+    }
+
+    /**
+     * Flatten permissions from user roles.
+     */
+    private List<String> flattenPermissions(User user) {
+        if (user.getRoles() == null) return List.of();
+        return user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(com.waad.tba.modules.rbac.entity.Permission::getName)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

@@ -70,38 +70,23 @@ public class CompanySettings {
     private Long employerId;
 
     /**
-     * Feature: Can EMPLOYER_ADMIN view claims?
-     * Default: false (claims are hidden by default)
+     * Feature Flags (Tenant-Level restrictions)
      */
-    @Builder.Default
     @Column(name = "can_view_claims", nullable = false)
+    @Builder.Default
     private Boolean canViewClaims = false;
 
-    /**
-     * Feature: Can EMPLOYER_ADMIN view visits?
-     * Default: false (visits are hidden by default)
-     */
-    @Builder.Default
     @Column(name = "can_view_visits", nullable = false)
+    @Builder.Default
     private Boolean canViewVisits = false;
 
-    /**
-     * Feature: Can EMPLOYER_ADMIN edit members?
-     * Default: true (members are editable by default)
-     * If false, members become read-only for this employer
-     */
-    @Builder.Default
     @Column(name = "can_edit_members", nullable = false)
+    @Builder.Default
     private Boolean canEditMembers = true;
 
-    /**
-     * Feature: Can download attachments (invoices, medical reports)?
-     * Default: true (attachments downloadable by default)
-     */
-    @Builder.Default
     @Column(name = "can_download_attachments", nullable = false)
+    @Builder.Default
     private Boolean canDownloadAttachments = true;
-
     /**
      * UI visibility configuration stored as JSONB in PostgreSQL.
      * We keep it as String here and parse/serialize using Jackson in the service layer.
@@ -120,24 +105,5 @@ public class CompanySettings {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    /**
-     * Helper method to check if all features are disabled
-     */
-    public boolean hasAnyFeatureEnabled() {
-        return canViewClaims || canViewVisits || canEditMembers || canDownloadAttachments;
-    }
 
-    /**
-     * Helper method to check if claim-related features are enabled
-     */
-    public boolean canAccessClaimData() {
-        return canViewClaims;
-    }
-
-    /**
-     * Helper method to check if visit-related features are enabled
-     */
-    public boolean canAccessVisitData() {
-        return canViewVisits;
-    }
 }

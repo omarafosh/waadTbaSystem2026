@@ -106,10 +106,6 @@ public class CompanySettingsService {
         CompanySettings settings = CompanySettings.builder()
                 .employerId(employerId)
                 .companyId(companyId != null ? companyId : 1L) // Default to company 1 if not specified
-                .canViewClaims(false)        // Hidden by default
-                .canViewVisits(false)        // Hidden by default
-                .canEditMembers(true)        // Editable by default
-                .canDownloadAttachments(true) // Downloadable by default
                 .uiVisibility(null)          // Null to avoid SQL errors if column doesn't exist
                 .build();
         
@@ -133,27 +129,16 @@ public class CompanySettingsService {
         CompanySettings settings = repository.findByEmployerId(employerId)
                 .orElseThrow(() -> new ResourceNotFoundException("CompanySettings", "employerId", employerId));
         
-        // Log feature changes
-        logFeatureChange("canViewClaims", employerId, settings.getCanViewClaims(), dto.getCanViewClaims());
-        logFeatureChange("canViewVisits", employerId, settings.getCanViewVisits(), dto.getCanViewVisits());
-        logFeatureChange("canEditMembers", employerId, settings.getCanEditMembers(), dto.getCanEditMembers());
-        logFeatureChange("canDownloadAttachments", employerId, settings.getCanDownloadAttachments(), 
-            dto.getCanDownloadAttachments());
+        // Update feature flags
+        if (dto.getCanViewClaims() != null) settings.setCanViewClaims(dto.getCanViewClaims());
+        if (dto.getCanViewVisits() != null) settings.setCanViewVisits(dto.getCanViewVisits());
+        if (dto.getCanEditMembers() != null) settings.setCanEditMembers(dto.getCanEditMembers());
+        if (dto.getCanDownloadAttachments() != null) settings.setCanDownloadAttachments(dto.getCanDownloadAttachments());
         
-        // Update fields
-        if (dto.getCanViewClaims() != null) {
-            settings.setCanViewClaims(dto.getCanViewClaims());
+        // Update UI visibility if provided
+        if (dto.getUiVisibility() != null) {
+            settings.setUiVisibility(toUiVisibilityJson(dto.getUiVisibility()));
         }
-        if (dto.getCanViewVisits() != null) {
-            settings.setCanViewVisits(dto.getCanViewVisits());
-        }
-        if (dto.getCanEditMembers() != null) {
-            settings.setCanEditMembers(dto.getCanEditMembers());
-        }
-        if (dto.getCanDownloadAttachments() != null) {
-            settings.setCanDownloadAttachments(dto.getCanDownloadAttachments());
-        }
-        
         CompanySettings updated = repository.save(settings);
         log.info("Settings updated successfully for employer: {}", employerId);
         
@@ -238,88 +223,27 @@ public class CompanySettingsService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Helper method to log feature changes.
-     * 
-     * @param featureName Name of the feature
-     * @param employerId Employer ID
-     * @param oldValue Old value
-     * @param newValue New value
-     */
-    private void logFeatureChange(String featureName, Long employerId, Boolean oldValue, Boolean newValue) {
-        if (newValue != null && !newValue.equals(oldValue)) {
-            log.info("Feature '{}' changed for employer {}: {} -> {}", 
-                featureName, employerId, oldValue, newValue);
-        }
-    }
+    // ============================================================================
+    // Feature Check Methods (for AuthorizationService)
+    // ============================================================================
 
-    /**
-     * Check if employer has claims access enabled.
-     * 
-     * @param employerId Employer ID
-     * @return true if canViewClaims is enabled
-     */
-    @Transactional(readOnly = true)
     public boolean canEmployerViewClaims(Long employerId) {
-        CompanySettings settings = getSettingsForEmployer(employerId);
-        boolean result = settings.getCanViewClaims();
-        
-        log.debug("FeatureCheck: employerId={} feature=VIEW_CLAIMS result={}", 
-            employerId, result ? "ALLOWED" : "DENIED");
-        
-        return result;
+        return getSettingsForEmployer(employerId).getCanViewClaims();
     }
 
-    /**
-     * Check if employer has visits access enabled.
-     * 
-     * @param employerId Employer ID
-     * @return true if canViewVisits is enabled
-     */
-    @Transactional(readOnly = true)
     public boolean canEmployerViewVisits(Long employerId) {
-        CompanySettings settings = getSettingsForEmployer(employerId);
-        boolean result = settings.getCanViewVisits();
-        
-        log.debug("FeatureCheck: employerId={} feature=VIEW_VISITS result={}", 
-            employerId, result ? "ALLOWED" : "DENIED");
-        
-        return result;
+        return getSettingsForEmployer(employerId).getCanViewVisits();
     }
 
-    /**
-     * Check if employer can edit members.
-     * 
-     * @param employerId Employer ID
-     * @return true if canEditMembers is enabled
-     */
-    @Transactional(readOnly = true)
     public boolean canEmployerEditMembers(Long employerId) {
-        CompanySettings settings = getSettingsForEmployer(employerId);
-        boolean result = settings.getCanEditMembers();
-        
-        log.debug("FeatureCheck: employerId={} feature=EDIT_MEMBERS result={}", 
-            employerId, result ? "ALLOWED" : "DENIED");
-        
-        return result;
+        return getSettingsForEmployer(employerId).getCanEditMembers();
     }
 
-    /**
-     * Check if employer can download attachments.
-     * 
-     * @param employerId Employer ID
-     * @return true if canDownloadAttachments is enabled
-     */
-    @Transactional(readOnly = true)
     public boolean canEmployerDownloadAttachments(Long employerId) {
-        CompanySettings settings = getSettingsForEmployer(employerId);
-        boolean result = settings.getCanDownloadAttachments();
-        
-        log.debug("FeatureCheck: employerId={} feature=DOWNLOAD_ATTACHMENTS result={}", 
-            employerId, result ? "ALLOWED" : "DENIED");
-        
-        return result;
+        return getSettingsForEmployer(employerId).getCanDownloadAttachments();
     }
+
+    // ============================================================================
 
     // ============================================================================
     // Phase B4 - UI Visibility Methods
@@ -367,10 +291,6 @@ public class CompanySettingsService {
                 CompanySettings created = new CompanySettings();
                 created.setEmployerId(employerId);
                 created.setCompanyId(1L); // Default company ID
-                created.setCanViewClaims(false);
-                created.setCanViewVisits(false);
-                created.setCanEditMembers(true);
-                created.setCanDownloadAttachments(true);
                 created.setUiVisibility(null); // Null to avoid SQL errors
                 return repository.save(created);
             });

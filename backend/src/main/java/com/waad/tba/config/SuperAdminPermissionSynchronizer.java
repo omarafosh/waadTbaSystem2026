@@ -65,18 +65,16 @@ public class SuperAdminPermissionSynchronizer implements CommandLineRunner {
         // System permissions
         "MANAGE_SYSTEM_SETTINGS",
         
-        // RBAC permissions (lowercase with dots - legacy format)
-        "users.view", "users.manage", "users.assign_roles",
-        "roles.view", "roles.manage", "roles.assign_permissions",
-        "permissions.view", "permissions.manage",
+        // RBAC permissions (Unified)
+        "MANAGE_USERS", "VIEW_USERS",
+        "MANAGE_ROLES", "VIEW_ROLES", "ASSIGN_ROLES",
+        "MANAGE_PERMISSIONS", "VIEW_PERMISSIONS", "ASSIGN_PERMISSIONS",
         
         // Provider permissions
         "MANAGE_PROVIDERS", "VIEW_PROVIDERS",
         
-        // Provider Contract permissions (NEW - AUDIT FIX)
-        "provider_contracts.view", "provider_contracts.create",
-        "provider_contracts.update", "provider_contracts.delete",
-        "provider_contracts.activate", "provider_contracts.pricing.manage",
+        // Provider Contract permissions (Unified)
+        "MANAGE_PROVIDER_CONTRACTS", "VIEW_PROVIDER_CONTRACTS",
         
         // Insurance permissions
         "MANAGE_INSURANCE", "VIEW_INSURANCE",
@@ -86,13 +84,13 @@ public class SuperAdminPermissionSynchronizer implements CommandLineRunner {
         
         // Member permissions
         "MANAGE_MEMBERS", "VIEW_MEMBERS",
-        "members.import", "members.import_logs", // NEW - AUDIT FIX
+        "IMPORT_MEMBERS", // Unified
         
         // Claims permissions  
         "MANAGE_CLAIMS", "VIEW_CLAIMS", "CREATE_CLAIM", "UPDATE_CLAIM",
         "APPROVE_CLAIMS", "REJECT_CLAIMS", "VIEW_CLAIM_STATUS",
         
-        // Settlement permissions (NEW)
+        // Settlement permissions
         "MANAGE_SETTLEMENTS", "VIEW_SETTLEMENTS",
         "CREATE_SETTLEMENT_BATCH", "CONFIRM_SETTLEMENT_BATCH",
         "PAY_SETTLEMENT_BATCH", "CANCEL_SETTLEMENT_BATCH",
@@ -102,16 +100,14 @@ public class SuperAdminPermissionSynchronizer implements CommandLineRunner {
         
         // Pre-auth permissions
         "MANAGE_PREAUTH", "VIEW_PREAUTH",
-        "CREATE_PRE_APPROVAL", "VIEW_PRE_APPROVAL", "APPROVE_PRE_APPROVAL",
-        "PROVIDER_STAFF", "TPA_STAFF", "MEDICAL_REVIEWER", "TPA_MANAGER",
+        "CREATE_PRE_AUTH", "VIEW_PRE_AUTH", "APPROVE_PRE_AUTH", "REJECT_PRE_AUTH", "CANCEL_PRE_AUTH",
         
         // Medical categories/services permissions
         "VIEW_MEDICAL_CATEGORIES", "MANAGE_MEDICAL_CATEGORIES",
         "VIEW_MEDICAL_SERVICES", "MANAGE_MEDICAL_SERVICES",
         
         // Medical packages permissions
-        "MEDICAL_PACKAGE_READ", "MEDICAL_PACKAGE_CREATE",
-        "MEDICAL_PACKAGE_UPDATE", "MEDICAL_PACKAGE_DELETE",
+        "VIEW_MEDICAL_PACKAGES", "MANAGE_MEDICAL_PACKAGES",
         
         // Reports permissions
         "VIEW_REPORTS", "MANAGE_REPORTS",
@@ -123,12 +119,11 @@ public class SuperAdminPermissionSynchronizer implements CommandLineRunner {
         "MANAGE_REVIEWER", "VIEW_REVIEWER",
         
         // Policy permissions
-        "VIEW_POLICIES", "MANAGE_POLICIES",
+        "VIEW_BENEFIT_POLICIES", "MANAGE_BENEFIT_POLICIES",
         "VIEW_BENEFIT_PACKAGES", "MANAGE_BENEFIT_PACKAGES",
-        "MANAGE_BENEFIT_POLICIES", // NEW - AUDIT FIX
         
-        // Eligibility permissions (NEW - AUDIT FIX)
-        "eligibility.check", "eligibility.view_logs",
+        // Eligibility permissions (Unified)
+        "CHECK_ELIGIBILITY",
         
         // Basic access
         "VIEW_BASIC_DATA",

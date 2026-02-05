@@ -9,7 +9,8 @@ export function useLocalStorage(key, defaultValue) {
 
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
+      const parsed = item ? JSON.parse(item) : defaultValue;
+      return parsed === null ? defaultValue : parsed;
     } catch (err) {
       console.warn(`Error reading localStorage key “${key}”:`, err);
       return defaultValue;

@@ -53,22 +53,26 @@ export default function Localization() {
   return (
     <Box sx={{ flexShrink: 0 }}>
       <Tooltip title="Multi-Language" disableInteractive>
-        <IconButton
-          color="secondary"
-          variant="light"
-          sx={(theme) => ({
-            color: 'text.primary',
-            bgcolor: open ? 'grey.100' : 'transparent',
-            ...theme.applyStyles('dark', { bgcolor: open ? 'background.default' : 'transparent' })
-          })}
-          aria-label="open localization"
+        <Box
+          sx={{ display: 'inline-block' }}
           ref={anchorRef}
           aria-controls={open ? 'localization-grow' : undefined}
           aria-haspopup="true"
           onClick={handleToggle}
         >
-          <TranslationOutlined />
-        </IconButton>
+          <IconButton
+            color="secondary"
+            variant="light"
+            sx={(theme) => ({
+              color: 'text.primary',
+              bgcolor: open ? 'grey.100' : 'transparent',
+              ...theme.applyStyles('dark', { bgcolor: open ? 'background.default' : 'transparent' })
+            })}
+            aria-label="open localization"
+          >
+            <TranslationOutlined />
+          </IconButton>
+        </Box>
       </Tooltip>
       <Popper
         placement={downMD ? 'bottom-start' : 'bottom'}

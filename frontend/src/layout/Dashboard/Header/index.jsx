@@ -21,6 +21,7 @@ import MenuUnfoldOutlined from '@ant-design/icons/MenuUnfoldOutlined';
 // ==============================|| MAIN LAYOUT - HEADER ||============================== //
 
 export default function Header() {
+  console.log('[Header] Rendering Header Component'); // Force HMR Update
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
   const { state } = useConfig();
 

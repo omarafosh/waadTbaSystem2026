@@ -30,6 +30,12 @@ public class ProviderContractUpdateDto {
     private PricingModel pricingModel;
 
     /**
+     * Employer ID (optional - if explicitly set to null, it might mean unlink depending on logic, 
+     * but here standard update usually overwrites)
+     */
+    private Long employerId;
+
+    /**
      * Default discount percentage
      */
     @DecimalMin(value = "0.00", message = "Discount must be >= 0")

@@ -25,8 +25,9 @@ import { ModernPageHeader } from 'components/tba';
 import GenericDataTable from 'components/GenericDataTable';
 import useTableState from 'hooks/useTableState';
 import { settlementService } from 'services/api';
-import useApi from 'hooks/useApi';
-import { useRBAC } from 'contexts/RBACContext';
+import useFetch from 'hooks/useFetch';
+
+import useAuth from 'hooks/useAuth';
 
 /**
  * Settlement Batches List Page
@@ -35,7 +36,9 @@ import { useRBAC } from 'contexts/RBACContext';
  */
 const SettlementBatchesList = () => {
     const navigate = useNavigate();
-    const { hasPermission } = useRBAC();
+    const { user } = useAuth();
+    const hasPermission = (permission) => user?.permissions?.includes(permission) || user?.role === 'ADMIN';
+
 
     // Table State
     const tableState = useTableState({
@@ -44,15 +47,15 @@ const SettlementBatchesList = () => {
     });
 
     // API Hook
-    const { data, isLoading, reload } = useApi(
+    const { data, loading: isLoading, refetch: reload } = useFetch(
         () => settlementService.getBatches({
             page: tableState.page + 1,
             size: tableState.pageSize,
-            sortBy: tableState.sort.field,
-            sortDir: tableState.sort.direction,
-            search: tableState.search || ''
+            sortBy: tableState.sorting.length > 0 ? tableState.sorting[0].id : 'createdAt',
+            sortDir: tableState.sorting.length > 0 ? (tableState.sorting[0].desc ? 'DESC' : 'ASC') : 'DESC',
+            search: ''
         }),
-        [tableState.page, tableState.pageSize, tableState.sort, tableState.search]
+        [tableState.page, tableState.pageSize, tableState.sorting]
     );
 
     // Columns Configuration

@@ -144,7 +144,6 @@ const UnifiedMembersList = () => {
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     title: '',
-    content: '',
     html: false,
     onConfirm: null,
     confirmText: 'نعم',
@@ -285,9 +284,8 @@ const UnifiedMembersList = () => {
     {
       accessorKey: 'fullName',
       header: 'الاسم',
-      size: 200,
-      headerAlign: 'center', // Header title in the center
-      align: 'right',        // Content to the right
+      headerAlign: 'center',
+      align: 'right',
       size: 180,
       cell: ({ row }) => (
         <Stack direction="row" spacing={1} alignItems="center">

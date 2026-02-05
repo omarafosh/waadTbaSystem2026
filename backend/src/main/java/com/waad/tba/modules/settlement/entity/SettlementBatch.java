@@ -186,7 +186,8 @@ public class SettlementBatch {
     /**
      * Items in this batch (claims)
      */
-    @OneToMany(mappedBy = "settlementBatchId", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "settlementBatch", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
     @Builder.Default
     private List<SettlementBatchItem> items = new ArrayList<>();
 

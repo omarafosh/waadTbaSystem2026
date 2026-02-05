@@ -23,10 +23,16 @@ export default function useFetch(fetchFn, deps = [], options = {}) {
       setError(null);
       const result = await fetchFn();
 
-      if (result?.success) {
-        setData(result.data);
+      // Handle both wrapped (ApiResponse) and unwrapped (direct data) responses
+      if (result && typeof result.success === 'boolean') {
+        if (result.success) {
+          setData(result.data);
+        } else {
+          setError(result.error || 'An error occurred');
+        }
       } else {
-        setError(result?.error || 'An error occurred');
+        // Assume unwrapped success if no error was thrown
+        setData(result);
       }
     } catch (err) {
       setError(err.message || 'Network error');

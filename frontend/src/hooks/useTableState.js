@@ -50,22 +50,24 @@ export const useTableState = (config = {}) => {
   const page = parseInt(searchParams.get('page') || '0', 10);
 
   // Size Priority: URL -> localStorage -> Config
+  const allowedPageSizesStr = JSON.stringify(allowedPageSizes);
   const pageSize = useMemo(() => {
+    const sizes = JSON.parse(allowedPageSizesStr);
     const fromUrl = searchParams.get('size');
     if (fromUrl) {
       const parsed = parseInt(fromUrl, 10);
-      if (allowedPageSizes.includes(parsed)) return parsed;
+      if (sizes.includes(parsed)) return parsed;
     }
 
     // Only verify localStorage if storageKey is provided
     const fromStorage = localStorage.getItem(storageKey);
     if (fromStorage) {
       const parsed = parseInt(fromStorage, 10);
-      if (allowedPageSizes.includes(parsed)) return parsed;
+      if (sizes.includes(parsed)) return parsed;
     }
 
     return initialPageSize;
-  }, [searchParams, initialPageSize, storageKey, allowedPageSizes]);
+  }, [searchParams, initialPageSize, storageKey, allowedPageSizesStr]);
 
   const setPage = useCallback((newPage) => {
     setSearchParams(prev => {
@@ -93,17 +95,20 @@ export const useTableState = (config = {}) => {
   // SORTING STATE (Synced with URL)
   // ========================================
 
+  const defaultSortField = defaultSort?.field;
+  const defaultSortDirection = defaultSort?.direction;
+
   const sorting = useMemo(() => {
     const sortParam = searchParams.get('sort');
     if (sortParam) {
       const [id, dir] = sortParam.split(',');
       return [{ id, desc: dir === 'desc' }];
     }
-    if (defaultSort) {
-      return [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
+    if (defaultSortField) {
+      return [{ id: defaultSortField, desc: defaultSortDirection === 'desc' }];
     }
     return [];
-  }, [searchParams, defaultSort]);
+  }, [searchParams, defaultSortField, defaultSortDirection]);
 
   const setSorting = useCallback((updater) => {
     setSearchParams(prev => {

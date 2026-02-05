@@ -3,6 +3,7 @@ package com.waad.tba.modules.provider.controller;
 import com.waad.tba.common.dto.ApiResponse;
 import com.waad.tba.modules.provider.dto.ProviderEligibilityRequest;
 import com.waad.tba.modules.provider.dto.ProviderEligibilityResponse;
+import com.waad.tba.modules.provider.dto.AllowedEmployerDto;
 import com.waad.tba.modules.provider.dto.ProviderClaimRequest;
 import com.waad.tba.modules.provider.dto.ProviderClaimResponse;
 import com.waad.tba.modules.provider.dto.ProviderVisitRegisterRequest;
@@ -64,9 +65,19 @@ public class ProviderPortalController {
     private final ProviderServiceService providerServiceService;
     private final ProviderContractService providerContractService;
     
+
+
+    private final com.waad.tba.modules.provider.service.ProviderService providerService;
+    
     // NEW: Modern provider contract module service for my-contract endpoints
     @Qualifier("providerContractModuleService")
     private final com.waad.tba.modules.providercontract.service.ProviderContractService modernContractService;
+    
+    // ... (other fields)
+
+    // ... (existing code)
+
+
     private final ProviderContractPricingItemService pricingItemService;
     
     // For pre-approval services lookup
@@ -721,6 +732,37 @@ public class ProviderPortalController {
         }
     }
     
+    /**
+     * Get all pricing items (services with prices) for the current PROVIDER's active contract.
+     * 
+     * SECURITY: Provider can only access their own contract pricing (via ProviderContextGuard).
+     * 
+
+    /**
+     * Get allowed employers for the current provider.
+     * Used by Service Portal to display supported entities.
+     * 
+     * GET /api/provider/allowed-employers
+     */
+    @GetMapping("/allowed-employers")
+    @PreAuthorize("hasAnyRole('PROVIDER', 'SUPER_ADMIN', 'INSURANCE_ADMIN')")
+    @Operation(summary = "Get allowed employers")
+    public ResponseEntity<ApiResponse<List<AllowedEmployerDto>>> getAllowedEmployers() {
+        Long providerId = providerContextGuard.getProviderFilter();
+        if (providerId == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("No provider bound"));
+        }
+        
+        try {
+            // Use ProviderService (TPA Model) to get allowed employers from provider_allowed_employers table
+            List<AllowedEmployerDto> employers = providerService.getAllowedEmployers(providerId);
+            return ResponseEntity.ok(ApiResponse.success(employers));
+        } catch (Exception e) {
+            log.error("Error fetching allowed employers", e);
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     /**
      * Get all pricing items (services with prices) for the current PROVIDER's active contract.
      * 

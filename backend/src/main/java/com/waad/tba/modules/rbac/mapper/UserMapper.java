@@ -32,12 +32,7 @@ public class UserMapper {
                 // Employer/Provider associations
                 .employerId(user.getEmployerId())
                 .providerId(user.getProviderId())
-                // Custom permissions
-                .canViewClaims(user.getCanViewClaims())
-                .canViewVisits(user.getCanViewVisits())
-                .canViewReports(user.getCanViewReports())
-                .canViewMembers(user.getCanViewMembers())
-                .canViewBenefitPolicies(user.getCanViewBenefitPolicies())
+
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
                 .permittedCompanies(user.getPermittedOrganizations() != null ?
@@ -72,12 +67,7 @@ public class UserMapper {
                 // Employer/Provider associations (2026-01-16)
                 .employerId(dto.getEmployerId())
                 .providerId(dto.getProviderId())
-                // Custom permissions for EMPLOYER users
-                .canViewClaims(dto.getCanViewClaims() != null ? dto.getCanViewClaims() : true)
-                .canViewVisits(dto.getCanViewVisits() != null ? dto.getCanViewVisits() : true)
-                .canViewReports(dto.getCanViewReports() != null ? dto.getCanViewReports() : true)
-                .canViewMembers(dto.getCanViewMembers() != null ? dto.getCanViewMembers() : true)
-                .canViewBenefitPolicies(dto.getCanViewBenefitPolicies() != null ? dto.getCanViewBenefitPolicies() : true)
+
                 .allowAllCompanies(dto.getAllowAllCompanies() != null ? dto.getAllowAllCompanies() : true)
                 .build();
     }

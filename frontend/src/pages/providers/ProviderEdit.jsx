@@ -62,8 +62,10 @@ import {
     Block,
     CheckCircle,
     Visibility,
-    VisibilityOff
+    VisibilityOff,
+    VerifiedUser
 } from '@mui/icons-material';
+import GregorianDatePicker from 'components/common/GregorianDatePicker';
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import RBACGuard from 'components/tba/RBACGuard';
@@ -141,7 +143,8 @@ const ProviderEdit = () => {
         contractStartDate: '',
         contractEndDate: '',
         defaultDiscountRate: '',
-        active: true
+        active: true,
+        allowAllEmployers: false
     });
 
     const [errors, setErrors] = useState({});
@@ -174,7 +177,8 @@ const ProviderEdit = () => {
                 contractStartDate: provider.contractStartDate || '',
                 contractEndDate: provider.contractEndDate || '',
                 defaultDiscountRate: provider.defaultDiscountRate || '',
-                active: provider.active !== undefined ? provider.active : true
+                active: provider.active !== undefined ? provider.active : true,
+                allowAllEmployers: provider.allowAllEmployers || false
             });
         }
     }, [provider]);
@@ -189,25 +193,21 @@ const ProviderEdit = () => {
                 const employersRes = await getEmployerSelectors();
                 const allEmployers = Array.isArray(employersRes) ? employersRes : (employersRes.data || []);
 
-                // 2. Get Active Contracts for this Provider
-                // contracts usually contain { employerId, status, ... }
-                const contractsRes = await providersService.getContracts(id);
-                const activeContracts = Array.isArray(contractsRes) ? contractsRes : [];
+                // 2. Get Allowed Employer IDs (TPA Model)
+                const allowedIds = await providersService.getAllowedEmployerIds(id);
+                const allowedSet = new Set(Array.isArray(allowedIds) ? allowedIds : []);
 
                 // 3. Map status
                 const mapped = allEmployers.map(emp => {
                     const empId = emp.id || emp.value;
-                    const hasActiveContract = activeContracts.some(
-                        c => (c.employerId === empId || c.employer?.id === empId)
-                    );
+                    const isAllowed = allowedSet.has(empId);
 
                     return {
                         id: empId,
                         name: emp.label || emp.name,
                         code: emp.code || 'EMP',
                         logo: (emp.label || emp.name || 'X').charAt(0).toUpperCase(),
-                        enabled: hasActiveContract, // True validity from DB based on contract existence
-                        contractId: activeContracts.find(c => (c.employerId === empId || c.employer?.id === empId))?.id // Keep track if needed
+                        enabled: isAllowed
                     };
                 });
 
@@ -317,7 +317,7 @@ const ProviderEdit = () => {
                 // First fetch roles to find ID
                 const rolesRes = await rolesService.getAllRoles();
                 const roles = rolesRes?.data?.data || rolesRes?.data || [];
-                const providerRole = roles.find(r => r.name === 'PROVIDER' || r.code === 'PROVIDER');
+                const providerRole = roles.find(r => r.name === 'PROVIDER');
 
                 if (providerRole) {
                     await usersService.assignRoles(userId, [providerRole.id]);
@@ -622,14 +622,31 @@ const ProviderEdit = () => {
                 </Grid>
             </Grid>
 
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>معلومات العقد (للمرجعية)</Typography>
+        </Box>
+    );
+
+    const renderContractInfo = () => (
+        <Box sx={{ p: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                <VerifiedUser color="primary" />
+                <Typography variant="h5">معلومات العقد</Typography>
+            </Box>
             <Grid container spacing={3}>
                 <Grid item xs={12} md={4}>
-                    <TextField fullWidth type="date" label="بداية العقد" value={formData.contractStartDate} onChange={handleChange('contractStartDate')} InputLabelProps={{ shrink: true }} />
+                    <GregorianDatePicker
+                        label="بداية العقد"
+                        name="contractStartDate"
+                        value={formData.contractStartDate}
+                        onChange={handleChange('contractStartDate')}
+                    />
                 </Grid>
                 <Grid item xs={12} md={4}>
-                    <TextField fullWidth type="date" label="نهاية العقد" value={formData.contractEndDate} onChange={handleChange('contractEndDate')} InputLabelProps={{ shrink: true }} />
+                    <GregorianDatePicker
+                        label="نهاية العقد"
+                        name="contractEndDate"
+                        value={formData.contractEndDate}
+                        onChange={handleChange('contractEndDate')}
+                    />
                 </Grid>
                 <Grid item xs={12} md={4}>
                     <TextField fullWidth type="number" label="نسبة الخصم %" value={formData.defaultDiscountRate} onChange={handleChange('defaultDiscountRate')} />
@@ -640,11 +657,34 @@ const ProviderEdit = () => {
 
     const renderPartners = () => (
         <Box sx={{ p: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Handshake color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h5">صلاحيات شركات التأمين</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Handshake color="primary" sx={{ mr: 1 }} />
+                    <Typography variant="h5">صلاحيات شركات التأمين</Typography>
+                </Box>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={formData.allowAllEmployers}
+                            onChange={(e) => setFormData({ ...formData, allowAllEmployers: e.target.checked })}
+                            color="primary"
+                        />
+                    }
+                    label="السماح لجميع الجهات (شبكة عامة)"
+                    labelPlacement="start"
+                />
             </Box>
-            {loadingPayers ? (
+
+            {formData.allowAllEmployers ? (
+                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: 'success.lighter', borderColor: 'success.light' }}>
+                    <Typography variant="h6" color="success.main" gutterBottom>
+                        تم تفعيل وضع الشبكة العامة
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        يمكن لهذا المزود تقديم الخدمات لجميع الجهات المتعاقدة دون الحاجة لتحديد صلاحيات فردية.
+                    </Typography>
+                </Paper>
+            ) : loadingPayers ? (
                 <CircularProgress size={24} />
             ) : (
                 <>
@@ -1146,6 +1186,7 @@ const ProviderEdit = () => {
                     <Tabs value={activeTab} onChange={handleTabChange}>
                         <Tab icon={<Business />} label="البيانات الأساسية" iconPosition="start" />
                         <Tab icon={<LocationOn />} label="الموقع والتواصل" iconPosition="start" />
+                        <Tab icon={<VerifiedUser />} label="العقود" iconPosition="start" />
                         <Tab icon={<Handshake />} label="الصلاحيات والشركاء" iconPosition="start" />
                         <Tab icon={<People />} label="حسابات المستخدمين" iconPosition="start" />
                         <Tab icon={<Description />} label="المستندات" iconPosition="start" />
@@ -1154,9 +1195,10 @@ const ProviderEdit = () => {
                 <Box sx={{ mb: 4, minHeight: 400 }}>
                     <Box hidden={activeTab !== 0}>{activeTab === 0 && renderBasicInfo()}</Box>
                     <Box hidden={activeTab !== 1}>{activeTab === 1 && renderLocationContact()}</Box>
-                    <Box hidden={activeTab !== 2}>{activeTab === 2 && renderPartners()}</Box>
-                    <Box hidden={activeTab !== 3}>{activeTab === 3 && renderUsers()}</Box>
-                    <Box hidden={activeTab !== 4}>{activeTab === 4 && renderDocuments()}</Box>
+                    <Box hidden={activeTab !== 2}>{activeTab === 2 && renderContractInfo()}</Box>
+                    <Box hidden={activeTab !== 3}>{activeTab === 3 && renderPartners()}</Box>
+                    <Box hidden={activeTab !== 4}>{activeTab === 4 && renderUsers()}</Box>
+                    <Box hidden={activeTab !== 5}>{activeTab === 5 && renderDocuments()}</Box>
                 </Box>
             </MainCard>
 

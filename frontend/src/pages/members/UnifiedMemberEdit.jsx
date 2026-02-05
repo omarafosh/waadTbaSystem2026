@@ -293,7 +293,6 @@ const UnifiedMemberEdit = () => {
         nationalNumber: form.nationalNumber?.trim() || null,
         birthDate: form.birthDate ? dayjs(form.birthDate).format('YYYY-MM-DD') : null,
         gender: form.gender || 'UNDEFINED',
-        gender: form.gender || 'UNDEFINED',
         nationality: form.nationality || 'ليبي',
         phone: form.phone || null,
         email: form.email || null,

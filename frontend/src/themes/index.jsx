@@ -19,7 +19,8 @@ import Typography from './typography';
 // ==============================|| DEFAULT THEME - MAIN ||============================== //
 
 export default function ThemeCustomization({ children }) {
-  const { state } = useConfig();
+  const { state: configState } = useConfig();
+  const state = configState || {};
   // Get Company Settings to access primaryColor
   const { settings } = useCompanySettings();
 

@@ -409,7 +409,7 @@ const GenericDataTable = memo(({
             الفلاتر النشطة:
           </Typography>
           {Object.entries(tableState.columnFilters).map(([columnId, value]) => {
-            const column = columns.find((col) => col.accessorKey === columnId);
+            const column = columns.find((col) => (col.accessorKey || col.id) === columnId);
             return (
               <Chip
                 key={columnId}
@@ -523,7 +523,8 @@ GenericDataTable.displayName = 'GenericDataTable';
 GenericDataTable.propTypes = {
   columns: PropTypes.arrayOf(
     PropTypes.shape({
-      accessorKey: PropTypes.string.isRequired,
+      accessorKey: PropTypes.string,
+      id: PropTypes.string,
       header: PropTypes.string.isRequired,
       cell: PropTypes.func,
       enableSorting: PropTypes.bool,

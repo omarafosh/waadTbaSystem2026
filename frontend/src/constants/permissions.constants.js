@@ -18,15 +18,9 @@
 // ROLES - User Role Constants
 // ============================================================================
 
-export const ROLES = {
-  SUPER_ADMIN: 'SUPER_ADMIN', // Full system access - bypasses all checks
-  ADMIN: 'ADMIN', // Legacy admin role
-  INSURANCE_ADMIN: 'INSURANCE_ADMIN', // Insurance company administrator
-  EMPLOYER_ADMIN: 'EMPLOYER_ADMIN', // Employer organization administrator
-  PROVIDER: 'PROVIDER', // Healthcare provider (hospital, clinic, etc.)
-  REVIEWER: 'REVIEWER', // Claims reviewer
-  USER: 'USER' // Basic user
-};
+import { SystemRole as ROLES } from './rbac';
+
+export { ROLES };
 
 // ============================================================================
 // PERMISSIONS - Granular Authority Constants (Match Backend Exactly)
@@ -34,94 +28,77 @@ export const ROLES = {
 
 export const PERMISSIONS = {
   // ========== Employers ==========
-  MANAGE_EMPLOYERS: 'MANAGE_EMPLOYERS', // Create, Update, Delete employers
-  VIEW_EMPLOYERS: 'VIEW_EMPLOYERS', // View employer list and details
+  MANAGE_EMPLOYERS: 'EMPLOYER_EDIT',
+  VIEW_EMPLOYERS: 'EMPLOYER_VIEW',
 
   // ========== Members ==========
-  MANAGE_MEMBERS: 'MANAGE_MEMBERS', // Create, Update, Delete members
-  VIEW_MEMBERS: 'VIEW_MEMBERS', // View member list and details
-  IMPORT_MEMBERS: 'IMPORT_MEMBERS', // Bulk import members from Excel
+  MANAGE_MEMBERS: 'MEMBER_EDIT',
+  VIEW_MEMBERS: 'MEMBER_VIEW',
+  IMPORT_MEMBERS: 'MEMBER_IMPORT',
 
   // ========== Providers ==========
-  MANAGE_PROVIDERS: 'MANAGE_PROVIDERS', // Create, Update, Delete providers
-  VIEW_PROVIDERS: 'VIEW_PROVIDERS', // View provider list and details
+  MANAGE_PROVIDERS: 'PROVIDER_EDIT',
+  VIEW_PROVIDERS: 'PROVIDER_VIEW',
 
   // ========== Provider Contracts ==========
-  MANAGE_PROVIDER_CONTRACTS: 'MANAGE_PROVIDER_CONTRACTS',
-  VIEW_PROVIDER_CONTRACTS: 'VIEW_PROVIDER_CONTRACTS',
+  MANAGE_PROVIDER_CONTRACTS: 'CONTRACT_EDIT',
+  VIEW_PROVIDER_CONTRACTS: 'CONTRACT_VIEW',
 
   // ========== Medical Services ==========
-  MANAGE_MEDICAL_SERVICES: 'MANAGE_MEDICAL_SERVICES',
-  VIEW_MEDICAL_SERVICES: 'VIEW_MEDICAL_SERVICES',
+  MANAGE_MEDICAL_SERVICES: 'MEDICAL_SERVICE_EDIT',
+  VIEW_MEDICAL_SERVICES: 'MEDICAL_SERVICE_VIEW',
 
   // ========== Medical Categories ==========
-  MANAGE_MEDICAL_CATEGORIES: 'MANAGE_MEDICAL_CATEGORIES',
-  VIEW_MEDICAL_CATEGORIES: 'VIEW_MEDICAL_CATEGORIES',
+  MANAGE_MEDICAL_CATEGORIES: 'MEDICAL_CATEGORY_EDIT',
+  VIEW_MEDICAL_CATEGORIES: 'MEDICAL_CATEGORY_VIEW',
 
   // ========== Medical Packages ==========
-  MANAGE_MEDICAL_PACKAGES: 'MANAGE_MEDICAL_PACKAGES',
-  VIEW_MEDICAL_PACKAGES: 'VIEW_MEDICAL_PACKAGES',
+  MANAGE_MEDICAL_PACKAGES: 'MEDICAL_PACKAGE_EDIT',
+  VIEW_MEDICAL_PACKAGES: 'MEDICAL_PACKAGE_VIEW',
 
   // ========== Benefit Packages ==========
-  MANAGE_BENEFIT_PACKAGES: 'MANAGE_BENEFIT_PACKAGES',
-  VIEW_BENEFIT_PACKAGES: 'VIEW_BENEFIT_PACKAGES',
+  MANAGE_BENEFIT_PACKAGES: 'BENEFIT_PACKAGE_EDIT',
+  VIEW_BENEFIT_PACKAGES: 'BENEFIT_PACKAGE_VIEW',
 
   // ========== Benefit Policies ==========
-  MANAGE_BENEFIT_POLICIES: 'MANAGE_BENEFIT_POLICIES',
-  VIEW_BENEFIT_POLICIES: 'VIEW_BENEFIT_POLICIES',
+  MANAGE_BENEFIT_POLICIES: 'POLICY_EDIT',
+  VIEW_BENEFIT_POLICIES: 'POLICY_VIEW',
 
   // ========== Claims ==========
-  // Granular permissions (match Backend exactly)
-  VIEW_CLAIMS: 'VIEW_CLAIMS', // View claims list and details
-  CREATE_CLAIM: 'CREATE_CLAIM', // Create claims
-  UPDATE_CLAIM: 'UPDATE_CLAIM', // Update claims
-  APPROVE_CLAIMS: 'APPROVE_CLAIMS', // Approve claims
-  REJECT_CLAIMS: 'REJECT_CLAIMS', // Reject claims
-  SETTLE_CLAIMS: 'SETTLE_CLAIMS', // Financial settlement
-  VIEW_CLAIM_STATUS: 'VIEW_CLAIM_STATUS', // View claim status only
-  MANAGE_CLAIMS: 'MANAGE_CLAIMS', // Full CRUD access
-  PROCESS_CLAIMS: 'APPROVE_CLAIMS', // Alias for processing
+  VIEW_CLAIMS: 'CLAIM_VIEW',
+  CREATE_CLAIM: 'CLAIM_CREATE',
+  UPDATE_CLAIM: 'CLAIM_EDIT',
+  APPROVE_CLAIMS: 'CLAIM_EDIT', // Reviewers edit to approve
+  REJECT_CLAIMS: 'CLAIM_EDIT',
+  SETTLE_CLAIMS: 'CLAIM_EDIT',
+  VIEW_CLAIM_STATUS: 'CLAIM_VIEW',
+  MANAGE_CLAIMS: 'CLAIM_EDIT',
+  PROCESS_CLAIMS: 'CLAIM_EDIT',
 
-  // ========== Pre-Approvals / Pre-Authorization ==========
-  // Granular permissions (match Backend exactly)
-  VIEW_PRE_AUTH: 'VIEW_PRE_AUTH',
-  CREATE_PRE_AUTH: 'CREATE_PRE_AUTH',
-  UPDATE_PRE_AUTH: 'UPDATE_PRE_AUTH',
-  APPROVE_PRE_AUTH: 'APPROVE_PRE_AUTH',
-  REJECT_PRE_AUTH: 'REJECT_PRE_AUTH',
-  CANCEL_PRE_AUTH: 'CANCEL_PRE_AUTH',
-  DELETE_PRE_AUTH: 'DELETE_PRE_AUTH',
-  // Legacy aliases (for backward compatibility)
-  MANAGE_PRE_APPROVALS: 'MANAGE_PREAUTH',
-  VIEW_PRE_APPROVALS: 'VIEW_PRE_AUTH',
-  PROCESS_PRE_APPROVALS: 'APPROVE_PRE_AUTH',
-  // Alias for convenience
-  PREAPPROVAL_READ: 'VIEW_PRE_AUTH',
-  PREAPPROVAL_WRITE: 'APPROVE_PRE_AUTH',
+  // ========== Pre-Approvals ==========
+  VIEW_PRE_AUTH: 'PREAUTH_VIEW',
+  CREATE_PRE_AUTH: 'PREAUTH_CREATE',
+  APPROVE_PRE_AUTH: 'PREAUTH_EDIT',
+  REJECT_PRE_AUTH: 'PREAUTH_EDIT',
+  MANAGE_PREAUTH: 'PREAUTH_EDIT',
 
   // ========== Visits ==========
-  MANAGE_VISITS: 'MANAGE_VISITS',
-  VIEW_VISITS: 'VIEW_VISITS',
-
-  // ========== Insurance Policies ==========
-  MANAGE_INSURANCE_POLICIES: 'MANAGE_INSURANCE_POLICIES',
-  VIEW_INSURANCE_POLICIES: 'VIEW_INSURANCE_POLICIES',
-
-  // ========== Insurance Companies ==========
-  MANAGE_INSURANCE_COMPANIES: 'MANAGE_INSURANCE_COMPANIES',
-  VIEW_INSURANCE_COMPANIES: 'VIEW_INSURANCE_COMPANIES',
+  MANAGE_VISITS: 'VISIT_EDIT',
+  VIEW_VISITS: 'VISIT_VIEW',
 
   // ========== Users & RBAC ==========
-  MANAGE_USERS: 'MANAGE_USERS',
-  VIEW_USERS: 'VIEW_USERS',
-  MANAGE_ROLES: 'MANAGE_ROLES',
-  VIEW_ROLES: 'VIEW_ROLES',
+  MANAGE_USERS: 'USER_EDIT',
+  VIEW_USERS: 'USER_VIEW',
+  MANAGE_ROLES: 'USER_EDIT', // Roles managed by user admin
+  VIEW_ROLES: 'USER_VIEW',
 
   // ========== System ==========
-  VIEW_AUDIT_LOGS: 'VIEW_AUDIT_LOGS',
-  EXPORT_AUDIT: 'EXPORT_AUDIT',
-  MANAGE_SETTINGS: 'MANAGE_SETTINGS',
-  VIEW_REPORTS: 'VIEW_REPORTS'
+  VIEW_AUDIT_LOGS: 'AUDIT_VIEW',
+  MANAGE_SETTINGS: 'SETTINGS_EDIT',
+  VIEW_REPORTS: 'REPORTS_VIEW',
+
+  // ========== Provider Portal ==========
+  VIEW_PROVIDER_PORTAL: 'PROVIDER_PORTAL_VIEW'
 };
 
 // ============================================================================

@@ -13,21 +13,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { PERMISSIONS } from 'constants/permissions.constants';
-
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * ROLE DEFINITIONS
- * ═══════════════════════════════════════════════════════════════════════════
- */
-export const ROLES = {
-  SYSTEM_ADMIN: 'SYSTEM_ADMIN',
-  SERVICE_PROVIDER: 'SERVICE_PROVIDER',
-  PARTNER_MANAGER: 'PARTNER_MANAGER',
-  MEDICAL_REVIEWER: 'MEDICAL_REVIEWER',
-  ACCOUNTANT: 'ACCOUNTANT',
-  EMPLOYER: 'EMPLOYER'
-};
+import { ROLES, PERMISSIONS, hasPermission } from 'constants/permissions.constants';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -36,37 +22,34 @@ export const ROLES = {
  */
 export const ROLE_PERMISSIONS = {
   [ROLES.SERVICE_PROVIDER]: [
-    'VISITS_VIEW', 'VISITS_CREATE', 'VISITS_UPDATE',
-    'CLAIMS_VIEW', 'CLAIMS_CREATE', 'CLAIMS_UPDATE',
-    'PREAUTH_VIEW', 'PREAUTH_CREATE', 'PREAUTH_UPDATE',
-    'MEMBERS_VIEW',
-    'DOCUMENTS_VIEW', 'DOCUMENTS_UPLOAD',
-    'PROVIDER_REPORTS', 'PROVIDER_SETTLEMENT'
+    PERMISSIONS.VIEW_VISITS, PERMISSIONS.MANAGE_VISITS,
+    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.CREATE_CLAIM, PERMISSIONS.UPDATE_CLAIM,
+    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.CREATE_PRE_AUTH,
+    PERMISSIONS.VIEW_MEMBERS,
+    PERMISSIONS.VIEW_PROVIDER_PORTAL
   ],
 
   [ROLES.PARTNER_MANAGER]: [
-    'VISITS_VIEW',
-    'CLAIMS_VIEW',
-    'PREAUTH_VIEW',
-    'PARTNER_REPORTS'
+    PERMISSIONS.VIEW_VISITS,
+    PERMISSIONS.VIEW_CLAIMS,
+    PERMISSIONS.VIEW_PRE_AUTH,
+    PERMISSIONS.VIEW_REPORTS
   ],
 
   [ROLES.MEDICAL_REVIEWER]: [
-    'CLAIMS_VIEW', 'CLAIMS_REVIEW', 'CLAIMS_APPROVE', 'CLAIMS_REJECT',
-    'PREAUTH_VIEW', 'PREAUTH_REVIEW', 'PREAUTH_APPROVE', 'PREAUTH_REJECT',
-    'DOCUMENTS_VIEW',
-    'MEDICAL_REPORTS'
+    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS,
+    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH,
+    PERMISSIONS.VIEW_REPORTS
   ],
 
   [ROLES.ACCOUNTANT]: [
-    'FINANCIAL_REPORTS',
-    'PROVIDER_SETTLEMENT',
-    'PARTNER_FINANCIAL_REPORTS',
-    'CLAIMS_VIEW',
-    'DOCUMENTS_VIEW'
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.SETTLE_CLAIMS,
+    PERMISSIONS.VIEW_CLAIMS,
+    PERMISSIONS.VIEW_PROVIDERS
   ],
 
-  [ROLES.SYSTEM_ADMIN]: ['ALL_PERMISSIONS']
+  [ROLES.SUPER_ADMIN]: ['ALL_PERMISSIONS']
 };
 
 /**
@@ -82,25 +65,14 @@ export const ROLE_PERMISSIONS = {
  * @returns {Array} Filtered menu items
  */
 export const filterMenuByPermissions = (menuItems, user) => {
-  if (!user || !user.permissions) {
+  if (!user) {
     return [];
   }
 
-  const userPermissions = user.permissions || [];
-  const userRole = user.role;
-
-  // System Admin sees everything
-  if (userRole === 'SYSTEM_ADMIN' || userRole === 'ADMIN') {
+  // SUPER_ADMIN bypasses all menu filtering
+  if (user.roles?.includes('SUPER_ADMIN')) {
     return menuItems;
   }
-
-  /**
-   * Check if user has permission for menu item
-   */
-  const hasPermission = (permission) => {
-    if (!permission) return true; // No permission required
-    return userPermissions.includes(permission);
-  };
 
   /**
    * Filter recursive menu items
@@ -112,7 +84,7 @@ export const filterMenuByPermissions = (menuItems, user) => {
         if (item.children) {
           const filteredChildren = filterRecursive(item.children);
 
-          // If no children remain, hide the parent
+          // If no children remain, hide the parent (group or collapse)
           if (filteredChildren.length === 0) {
             return null;
           }
@@ -123,8 +95,11 @@ export const filterMenuByPermissions = (menuItems, user) => {
           };
         }
 
-        // Check permission for leaf item
-        if (item.permission && !hasPermission(item.permission)) {
+        // Check permission using centralized logic
+        // Use either item.permission (inline) or item.id (centralized map)
+        const canView = hasMenuPermission(user, item.id) || (item.permission && hasPermission(user, item.permission));
+
+        if (!canView) {
           return null;
         }
 
@@ -150,96 +125,76 @@ export const filterMenuByPermissions = (menuItems, user) => {
  * 'menu-id': 'PERMISSION_1' // Single permission
  */
 export const MENU_PERMISSIONS = {
-  // ═══════════════════════════════════════════════════════════════════════════
   // 📊 DASHBOARD
-  // ═══════════════════════════════════════════════════════════════════════════
-  'dashboard': null, // Everyone can access dashboard (will show role-appropriate content)
-  'employer-dashboard': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
+  'dashboard': null,
+  'employer-dashboard': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_EMPLOYERS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 👥 MEMBERS (المستفيدين)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 👥 MEMBERS
   'members': [PERMISSIONS.VIEW_MEMBERS, PERMISSIONS.MANAGE_MEMBERS],
-  'members-list': [PERMISSIONS.VIEW_MEMBERS, PERMISSIONS.MANAGE_MEMBERS],
-  'eligibility-check': [PERMISSIONS.VIEW_MEMBERS], // Basic member lookup
+  'eligibility-check': [PERMISSIONS.VIEW_MEMBERS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🏢 EMPLOYERS (الشركاء)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏢 EMPLOYERS
   'employers': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
   'employers-list': [PERMISSIONS.VIEW_EMPLOYERS, PERMISSIONS.MANAGE_EMPLOYERS],
+  'benefit-policies': [PERMISSIONS.VIEW_BENEFIT_POLICIES, PERMISSIONS.MANAGE_BENEFIT_POLICIES],
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🏥 PROVIDERS (مقدمو الخدمة)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏥 PROVIDERS
   'providers': [PERMISSIONS.VIEW_PROVIDERS, PERMISSIONS.MANAGE_PROVIDERS],
   'providers-list': [PERMISSIONS.VIEW_PROVIDERS, PERMISSIONS.MANAGE_PROVIDERS],
   'provider-contracts': [PERMISSIONS.VIEW_PROVIDER_CONTRACTS, PERMISSIONS.MANAGE_PROVIDER_CONTRACTS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 💰 CLAIMS & APPROVALS
-  // ═══════════════════════════════════════════════════════════════════════════
-  'claims': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.CREATE_CLAIM, PERMISSIONS.MANAGE_CLAIMS],
-  'claims-history': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.MANAGE_CLAIMS],
-  'claims-inbox': [PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS], // Review only
+  'claims-approvals': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.APPROVE_PRE_AUTH],
+  'claims-inbox': [PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS],
+  'pre-approvals-inbox': [PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH],
+  'unified-approvals-dashboard': [PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.APPROVE_PRE_AUTH],
+  'settlement-inbox': [PERMISSIONS.SETTLE_CLAIMS],
 
-  'pre-approvals': [PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.CREATE_PRE_AUTH, PERMISSIONS.MANAGE_PREAUTH],
-  'pre-approvals-inbox': [PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH], // Review only
+  // 💰 SETTLEMENT Management
+  'settlement': [PERMISSIONS.SETTLE_CLAIMS],
+  'settlement-batches': [PERMISSIONS.SETTLE_CLAIMS],
+  'provider-accounts': [PERMISSIONS.SETTLE_CLAIMS, PERMISSIONS.VIEW_PROVIDERS],
 
-  'settlement-inbox': [PERMISSIONS.SETTLE_CLAIMS, PERMISSIONS.MANAGE_CLAIMS],
-  'unified-approvals-dashboard': [
-    PERMISSIONS.APPROVE_CLAIMS,
-    PERMISSIONS.APPROVE_PRE_AUTH,
-    PERMISSIONS.REJECT_CLAIMS,
-    PERMISSIONS.REJECT_PRE_AUTH
-  ],
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // 🏥 VISITS
-  // ═══════════════════════════════════════════════════════════════════════════
   'visits': [PERMISSIONS.VIEW_VISITS, PERMISSIONS.MANAGE_VISITS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 📋 POLICIES & PACKAGES
-  // ═══════════════════════════════════════════════════════════════════════════
-  'benefit-policies': [PERMISSIONS.VIEW_BENEFIT_POLICIES, PERMISSIONS.MANAGE_BENEFIT_POLICIES],
   'benefit-packages': [PERMISSIONS.VIEW_BENEFIT_PACKAGES, PERMISSIONS.MANAGE_BENEFIT_PACKAGES],
-
   'medical-categories': [PERMISSIONS.VIEW_MEDICAL_CATEGORIES, PERMISSIONS.MANAGE_MEDICAL_CATEGORIES],
   'medical-services': [PERMISSIONS.VIEW_MEDICAL_SERVICES, PERMISSIONS.MANAGE_MEDICAL_SERVICES],
   'medical-packages': [PERMISSIONS.VIEW_MEDICAL_PACKAGES, PERMISSIONS.MANAGE_MEDICAL_PACKAGES],
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 📈 REPORTS
-  // ═══════════════════════════════════════════════════════════════════════════
-  'reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.MANAGE_REPORTS],
+  'reports': [PERMISSIONS.VIEW_REPORTS],
   'claims-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_CLAIMS],
+  'pre-approvals-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_PRE_AUTH],
+  'financial-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.SETTLE_CLAIMS],
+  'provider-pdf-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_PROVIDERS],
+  'provider-settlement-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.SETTLE_CLAIMS],
+  'employer-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_EMPLOYERS],
   'visits-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_VISITS],
   'benefit-policy-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_BENEFIT_POLICIES],
   'beneficiaries-report': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_MEMBERS],
-  'financial-reports': [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.SETTLE_CLAIMS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 📂 DOCUMENTS
-  // ═══════════════════════════════════════════════════════════════════════════
-  'documents-center': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.VIEW_MEMBERS],
+  'documents-library': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.VIEW_MEMBERS],
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 🏥 PROVIDER PORTAL
-  // ═══════════════════════════════════════════════════════════════════════════
-  'provider-portal': [PERMISSIONS.MANAGE_VISITS], // Provider-specific
-  'provider-eligibility-check': [PERMISSIONS.VIEW_MEMBERS],
-  'provider-visit-log': [PERMISSIONS.MANAGE_VISITS],
-  'provider-documents': [PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH],
+  'group-provider-portal': [PERMISSIONS.VIEW_PROVIDER_PORTAL, PERMISSIONS.MANAGE_VISITS, PERMISSIONS.VIEW_MEMBERS],
+  'provider-portal': [PERMISSIONS.VIEW_PROVIDER_PORTAL, PERMISSIONS.MANAGE_VISITS, PERMISSIONS.VIEW_MEMBERS],
+  'provider-eligibility-check': [PERMISSIONS.VIEW_PROVIDER_PORTAL, PERMISSIONS.VIEW_MEMBERS],
+  'provider-visit-log': [PERMISSIONS.VIEW_PROVIDER_PORTAL, PERMISSIONS.MANAGE_VISITS],
+  'provider-documents': [PERMISSIONS.VIEW_PROVIDER_PORTAL, PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.VIEW_PRE_AUTH],
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ⚙️ SYSTEM SETTINGS & ADMIN
-  // ═══════════════════════════════════════════════════════════════════════════
-  'rbac': [PERMISSIONS.MANAGE_USERS, PERMISSIONS.MANAGE_ROLES],
-  'admin-users': [PERMISSIONS.MANAGE_USERS],
-  'settings': [PERMISSIONS.MANAGE_SETTINGS],
-  'audit': [PERMISSIONS.VIEW_AUDIT_LOG],
-  'system-settings': [PERMISSIONS.MANAGE_SYSTEM_SETTINGS]
+  // ⚙️ SYSTEM SETTINGS
+  'audit': [PERMISSIONS.VIEW_AUDIT_LOGS],
+  'medical-taxonomy': [PERMISSIONS.VIEW_MEDICAL_CATEGORIES, PERMISSIONS.VIEW_MEDICAL_SERVICES, PERMISSIONS.VIEW_MEDICAL_PACKAGES],
+  'organization-settings': [PERMISSIONS.MANAGE_SETTINGS, PERMISSIONS.MANAGE_USERS, PERMISSIONS.MANAGE_ROLES],
+  'company-settings': [PERMISSIONS.MANAGE_SETTINGS],
+  'users-management': [PERMISSIONS.MANAGE_USERS],
+  'roles-management': [PERMISSIONS.MANAGE_ROLES],
+  'permissions-list': [PERMISSIONS.MANAGE_ROLES],
+  'permission-matrix': [PERMISSIONS.MANAGE_ROLES]
 };
 
 /**
@@ -333,7 +288,7 @@ export const ROLE_PERMISSION_REFERENCE = {
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 🏥 PROVIDER (مقدم الخدمة) - Visit-Centric Only
+  // 🏥 PROVIDER (مقدم الخدمة)
   // ───────────────────────────────────────────────────────────────────────────
   PROVIDER: [
     PERMISSIONS.VIEW_MEMBERS, // ✅ Eligibility check only

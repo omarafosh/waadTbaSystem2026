@@ -1,13 +1,12 @@
 /**
- * RBAC Role Details Page - Phase D3 Step 2
- * Manages role permissions with toggle ON/OFF
- *
- * ⚠️ Key Features:
- * 1. Role info header
- * 2. Permissions grouped by module
- * 3. Toggle permissions ON/OFF with switches
- * 4. SUPER_ADMIN role is protected
- * 5. Optimistic UI updates
+ * RBAC Role Details Page - Granular Permissions Grid
+ * Replaced Accordion list with Resource-Action Matrix
+ * 
+ * Features:
+ * - Grid Layout: Rows (Resources) x Columns (Actions)
+ * - Granular Control: View, Create, Edit, Delete, Print, Export
+ * - Bulk Actions: Select All Row / Select All Column
+ * - Optimistic Updates
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -20,30 +19,37 @@ import {
   Avatar,
   Stack,
   Chip,
-  Switch,
   Grid,
   Alert,
   CircularProgress,
   Tooltip,
   Paper,
   Button,
-  FormGroup,
-  FormControlLabel,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Checkbox,
+  IconButton
 } from '@mui/material';
 
 // MUI Icons
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SecurityIcon from '@mui/icons-material/Security';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockIcon from '@mui/icons-material/Lock';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import PersonIcon from '@mui/icons-material/Person';
 import SaveIcon from '@mui/icons-material/Save';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import PrintIcon from '@mui/icons-material/Print';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 // Project Components
 import MainCard from 'components/MainCard';
@@ -52,55 +58,43 @@ import CircularLoader from 'components/CircularLoader';
 
 // Services
 import { rolesService, permissionsService } from 'services/rbac';
-
-// Hooks
 import useAuth from 'hooks/useAuth';
+import { openSnackbar } from 'api/snackbar';
 
 // ============================================================================
-// CONSTANTS
+// CONSTANTS & MAPPINGS
 // ============================================================================
 
 const PROTECTED_ROLES = ['SUPER_ADMIN'];
 
-const PERMISSION_MODULES = {
-  users: { label: 'المستخدمين', icon: PersonIcon, order: 1 },
-  roles: { label: 'الأدوار', icon: AdminPanelSettingsIcon, order: 2 },
-  permissions: { label: 'الصلاحيات', icon: SecurityIcon, order: 3 },
-  members: { label: 'الأعضاء', icon: PersonIcon, order: 4 },
-  employers: { label: 'جهات العمل', icon: PersonIcon, order: 5 },
-  providers: { label: 'مقدمي الخدمات', icon: PersonIcon, order: 6 },
-  claims: { label: 'المطالبات', icon: PersonIcon, order: 7 },
-  policies: { label: 'الوثائق', icon: PersonIcon, order: 8 },
-  pre_approvals: { label: 'الموافقات المسبقة', icon: PersonIcon, order: 9 },
-  medical_services: { label: 'الخدمات الطبية', icon: PersonIcon, order: 10 },
-  medical_packages: { label: 'الباقات الطبية', icon: PersonIcon, order: 11 },
-  benefit_packages: { label: 'باقات المنافع', icon: PersonIcon, order: 12 },
-  reports: { label: 'التقارير', icon: PersonIcon, order: 13 },
-  settings: { label: 'الإعدادات', icon: PersonIcon, order: 14 },
-  audit: { label: 'سجل التدقيق', icon: PersonIcon, order: 15 }
-};
+// Resource Definitions (Rows)
+const RESOURCES = [
+  { key: 'USERS', labels: ['USER'], title: 'المستخدمين' },
+  { key: 'ROLES', labels: ['ROLE', 'RBAC', 'PERMISSION'], title: 'الأدوار والصلاحيات' },
+  { key: 'MEMBERS', labels: ['MEMBER'], title: 'الأعضاء' },
+  { key: 'CLAIMS', labels: ['CLAIM'], title: 'المطالبات' },
+  { key: 'PREAUTH', labels: ['PREAUTH', 'PRE_AUTH'], title: 'الموافقات المسبقة' },
+  { key: 'VISITS', labels: ['VISIT'], title: 'الزيارات' },
+  { key: 'PROVIDER_PORTAL', labels: ['PROVIDER_PORTAL'], title: 'بوابة مقدم الخدمة' },
+  { key: 'PROVIDERS', labels: ['PROVIDER', 'PROVIDER_CONTRACT'], title: 'مقدمي الخدمات والعقود' },
+  { key: 'COMPANIES', labels: ['COMPANY', 'EMPLOYER', 'INSURANCE', 'REVIEWER'], title: 'الشركات والجهات' },
+  { key: 'MEDICAL', labels: ['MEDICAL_SERVICE', 'MEDICAL_PACKAGE', 'BENEFIT_POLICY'], title: 'البيانات الطبية والتأمين' },
+  { key: 'FINANCIAL', labels: ['SETTLEMENT'], title: 'التسويات المالية' },
+  { key: 'REPORTS', labels: ['REPORT', 'DASHBOARD'], title: 'التقارير والإحصائيات' },
+  { key: 'SYSTEM', labels: ['SYSTEM', 'BASIC_DATA'], title: 'إعدادات النظام' }
+];
 
-const ACTION_LABELS = {
-  view: 'عرض',
-  create: 'إنشاء',
-  edit: 'تعديل',
-  delete: 'حذف',
-  manage: 'إدارة',
-  assign_roles: 'تعيين أدوار',
-  assign_permissions: 'تعيين صلاحيات',
-  export: 'تصدير',
-  import: 'استيراد',
-  approve: 'موافقة',
-  reject: 'رفض'
-};
+// Action Definitions (Columns)
+const ACTIONS = [
+  { key: 'VIEW', label: 'عرض', icon: VisibilityIcon, color: 'info' },
+  { key: 'CREATE', label: 'إضافة', icon: AddCircleIcon, color: 'success' },
+  { key: 'UPDATE', label: 'تعديل', icon: EditIcon, color: 'warning' },
+  { key: 'DELETE', label: 'حذف', icon: DeleteIcon, color: 'error' },
+  { key: 'PRINT', label: 'طباعة', icon: PrintIcon, color: 'secondary' },
+  { key: 'EXPORT', label: 'تصدير', icon: FileDownloadIcon, color: 'primary' }
+];
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Get role color based on role name
- */
+// Helper to determine role color
 const getRoleColor = (roleName) => {
   const roleColors = {
     SUPER_ADMIN: 'error',
@@ -113,145 +107,6 @@ const getRoleColor = (roleName) => {
   return roleColors[roleName] || 'primary';
 };
 
-/**
- * Group permissions by module
- */
-const groupPermissionsByModule = (permissions) => {
-  const grouped = {};
-
-  permissions.forEach((perm) => {
-    const parts = (perm?.name || '').split('.');
-    const module = parts[0] || 'other';
-
-    if (!grouped[module]) {
-      grouped[module] = [];
-    }
-    grouped[module].push(perm);
-  });
-
-  // Sort modules by order
-  const sortedModules = Object.keys(grouped).sort((a, b) => {
-    const orderA = PERMISSION_MODULES[a]?.order || 999;
-    const orderB = PERMISSION_MODULES[b]?.order || 999;
-    return orderA - orderB;
-  });
-
-  const sorted = {};
-  sortedModules.forEach((key) => {
-    sorted[key] = grouped[key];
-  });
-
-  return sorted;
-};
-
-// ============================================================================
-// PERMISSION MODULE COMPONENT
-// ============================================================================
-
-const PermissionModule = ({ module, permissions, assignedIds, onToggle, isProtected, loading }) => {
-  const moduleInfo = PERMISSION_MODULES[module] || { label: module, icon: SecurityIcon };
-  const ModuleIcon = moduleInfo.icon;
-  const activeCount = permissions.filter((p) => assignedIds.has(p?.id)).length;
-  const allActive = activeCount === permissions.length;
-
-  const handleToggleAll = () => {
-    if (isProtected) return;
-    const allIds = permissions.map((p) => p?.id);
-    if (allActive) {
-      // Remove all permissions in this module
-      allIds.forEach((id) => {
-        if (assignedIds.has(id)) {
-          onToggle(id, false);
-        }
-      });
-    } else {
-      // Add all permissions in this module
-      allIds.forEach((id) => {
-        if (!assignedIds.has(id)) {
-          onToggle(id, true);
-        }
-      });
-    }
-  };
-
-  return (
-    <Accordion defaultExpanded={activeCount > 0}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%', pr: 2 }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <ModuleIcon color="primary" />
-            <Typography variant="subtitle1" fontWeight="medium">
-              {moduleInfo.label}
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              label={`${activeCount} / ${permissions.length}`}
-              size="small"
-              color={allActive ? 'success' : activeCount > 0 ? 'warning' : 'default'}
-            />
-            <Tooltip title={isProtected ? 'دور محمي' : allActive ? 'إلغاء الكل' : 'تفعيل الكل'}>
-              <span>
-                <Switch
-                  checked={allActive}
-                  onChange={handleToggleAll}
-                  disabled={isProtected || loading}
-                  onClick={(e) => e.stopPropagation()}
-                  size="small"
-                />
-              </span>
-            </Tooltip>
-          </Stack>
-        </Stack>
-      </AccordionSummary>
-      <AccordionDetails>
-        <Grid container spacing={1}>
-          {permissions.map((permission) => {
-            const isActive = assignedIds.has(permission?.id);
-            const permName = permission?.name || '';
-            const action = permName.split('.')[1] || permName;
-
-            return (
-              <Grid item xs={6} sm={4} md={3} key={permission?.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 1.5,
-                    border: '1px solid',
-                    borderColor: isActive ? 'success.light' : 'grey.200',
-                    borderRadius: 1,
-                    bgcolor: isActive ? 'success.lighter' : 'background.paper',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {isActive ? <CheckCircleIcon color="success" fontSize="small" /> : <SecurityIcon color="disabled" fontSize="small" />}
-                      <Typography variant="body2" color={isActive ? 'success.dark' : 'text.secondary'}>
-                        {ACTION_LABELS[action] || action}
-                      </Typography>
-                    </Stack>
-                    <Tooltip title={isProtected ? 'لا يمكن تعديل صلاحيات الدور المحمي' : isActive ? 'إلغاء الصلاحية' : 'تفعيل الصلاحية'}>
-                      <span>
-                        <Switch
-                          checked={isActive}
-                          onChange={() => onToggle(permission?.id, !isActive)}
-                          disabled={isProtected || loading}
-                          size="small"
-                        />
-                      </span>
-                    </Tooltip>
-                  </Stack>
-                </Paper>
-              </Grid>
-            );
-          })}
-        </Grid>
-      </AccordionDetails>
-    </Accordion>
-  );
-};
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -259,182 +114,202 @@ const PermissionModule = ({ module, permissions, assignedIds, onToggle, isProtec
 const RoleDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
-
-  // ========================================
-  // VALIDATE ID - Must be numeric
-  // ========================================
-
-  const numericId = Number(id);
-  const isValidId = id && !isNaN(numericId) && numericId > 0;
+  const { user: currentUser } = useAuth(); // Available for logic if needed
 
   // State
   const [role, setRole] = useState(null);
   const [allPermissions, setAllPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [pendingChanges, setPendingChanges] = useState(new Set()); // Track pending permission changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Derived state
+  const numericId = Number(id);
+  const isValidId = id && !isNaN(numericId) && numericId > 0;
   const isProtected = PROTECTED_ROLES.includes(role?.name);
-  const assignedPermissionIds = useMemo(() => new Set((role?.permissions || []).map((p) => p?.id)), [role]);
-  const groupedPermissions = useMemo(() => groupPermissionsByModule(allPermissions), [allPermissions]);
+
+  // Derived Mappings
+  const permissionGridMap = useMemo(() => {
+    const map = {}; // Keys: RESOURCE_KEY, Values: { ACTION_KEY: PermissionObject }
+
+    // Initialize map
+    RESOURCES.forEach(res => {
+      map[res.key] = {};
+    });
+
+    // Populate map
+    allPermissions.forEach(perm => {
+      const name = perm.name;
+
+      // Find Resource
+      const resourceObj = RESOURCES.find(r => r.labels.some(label => name.includes(label)));
+      if (!resourceObj) return; // Skip unknown permissions
+
+      // Find Action
+      const actionObj = ACTIONS.find(a => name.startsWith(a.key) || name.includes(`_${a.key}`));
+
+      // Special Handling for "MANAGE_" (Legacy) -> Map to all? No, just list it if strictly needed, 
+      // or ignore if we want strict grid. For now, let's try to map MANAGE to UPDATE for fallback?
+      // Better: The backend now has granular permissions. Focus on those.
+
+      if (actionObj) {
+        map[resourceObj.key][actionObj.key] = perm;
+      }
+    });
+
+    return map;
+  }, [allPermissions]);
+
+  const assignedPermissionIds = useMemo(() => {
+    return new Set((role?.permissions || []).map(p => p.id));
+  }, [role]);
 
   // ========================================
-  // DATA LOADING
+  // LOAD DATA
   // ========================================
-
   const loadData = useCallback(async () => {
-    // Guard: Don't load if ID is invalid
     if (!isValidId) return;
-
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      const [roleRes, permsRes] = await Promise.all([rolesService.getRoleById(numericId), permissionsService.getAllPermissions()]);
-
-      setRole(roleRes?.data?.data || roleRes?.data || null);
+      const [roleRes, permsRes] = await Promise.all([
+        rolesService.getRoleById(numericId),
+        permissionsService.getAllPermissions()
+      ]);
+      setRole(roleRes?.data?.data || roleRes?.data);
       setAllPermissions(permsRes?.data?.data || permsRes?.data || []);
+      setHasUnsavedChanges(false);
     } catch (err) {
-      console.error('[RoleDetails] Load error:', err);
-      setError(err?.response?.data?.message || 'فشل تحميل بيانات الدور');
+      console.error('Error loading role details:', err);
+      openSnackbar({
+        open: true,
+        message: 'فشل تحميل البيانات',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
     } finally {
       setLoading(false);
     }
   }, [numericId, isValidId]);
 
   useEffect(() => {
-    // Redirect to roles list if ID is invalid (e.g., "add" instead of number)
-    if (!isValidId) {
-      console.warn('[RoleDetails] Invalid role ID:', id);
-      navigate('/rbac/roles', { replace: true });
-      return;
-    }
     loadData();
-  }, [loadData, isValidId, id, navigate]);
+  }, [loadData]);
 
   // ========================================
-  // PERMISSION TOGGLE HANDLER
+  // TOGGLE HANDLERS
   // ========================================
 
-  const handleTogglePermission = useCallback(
-    async (permissionId, shouldAssign) => {
-      if (isProtected || !isValidId) return;
+  const handleToggle = (permissionId) => {
+    if (isProtected) return;
 
-      // Update local state immediately (optimistic update)
-      setRole((prev) => {
-        if (!prev) return prev;
+    setRole(prev => {
+      const currentPerms = prev.permissions || [];
+      const exists = currentPerms.find(p => p.id === permissionId);
 
-        if (shouldAssign) {
-          const permToAdd = allPermissions.find((p) => p?.id === permissionId);
-          return {
-            ...prev,
-            permissions: [...(prev.permissions || []), permToAdd]
-          };
-        } else {
-          return {
-            ...prev,
-            permissions: (prev.permissions || []).filter((p) => p?.id !== permissionId)
-          };
-        }
+      let newPerms;
+      if (exists) {
+        newPerms = currentPerms.filter(p => p.id !== permissionId);
+      } else {
+        const permObj = allPermissions.find(p => p.id === permissionId);
+        newPerms = [...currentPerms, permObj];
+      }
+      return { ...prev, permissions: newPerms };
+    });
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRowToggle = (resourceKey, selectAll) => {
+    if (isProtected) return;
+
+    // Get all permissions for this row
+    const rowPerms = Object.values(permissionGridMap[resourceKey] || {})
+      .filter(p => p) // valid perms
+      .map(p => p.id);
+
+    setRole(prev => {
+      const currentIds = new Set((prev.permissions || []).map(p => p.id));
+
+      rowPerms.forEach(id => {
+        if (selectAll) currentIds.add(id);
+        else currentIds.delete(id);
       });
 
-      // Mark as pending change
-      setPendingChanges((prev) => {
-        const newSet = new Set(prev);
-        newSet.add({ permissionId, shouldAssign });
-        return newSet;
+      const newPermList = allPermissions.filter(p => currentIds.has(p.id));
+      return { ...prev, permissions: newPermList };
+    });
+    setHasUnsavedChanges(true);
+  };
+
+  const handleColumnToggle = (actionKey, selectAll) => {
+    if (isProtected) return;
+
+    // Get all permissions for this column across all rows
+    const colPerms = [];
+    RESOURCES.forEach(res => {
+      const perm = permissionGridMap[res.key]?.[actionKey];
+      if (perm) colPerms.push(perm.id);
+    });
+
+    setRole(prev => {
+      const currentIds = new Set((prev.permissions || []).map(p => p.id));
+
+      colPerms.forEach(id => {
+        if (selectAll) currentIds.add(id);
+        else currentIds.delete(id);
       });
 
-      setHasUnsavedChanges(true);
-    },
-    [isValidId, isProtected, allPermissions]
-  );
+      const newPermList = allPermissions.filter(p => currentIds.has(p.id));
+      return { ...prev, permissions: newPermList };
+    });
+    setHasUnsavedChanges(true);
+  };
 
-  // Save all pending changes
-  const handleSaveChanges = useCallback(async () => {
-    if (!hasUnsavedChanges || isProtected || !isValidId) return;
+  // ========================================
+  // SAVE
+  // ========================================
 
+  // ========================================
+  // SAVE
+  // ========================================
+
+  const handleSave = async () => {
+    if (!hasUnsavedChanges || isProtected) return;
+    setSaving(true);
     try {
-      setSaving(true);
+      const ids = (role.permissions || []).map(p => p.id);
+      await rolesService.assignPermissions(numericId, ids);
 
-      // Get all currently assigned permission IDs from the local state
-      const allAssignedIds = (role?.permissions || []).map(p => p?.id);
+      openSnackbar({
+        open: true,
+        message: 'تم حفظ الصلاحيات بنجاح',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
 
-      // Send the complete list of assigned permissions to the backend
-      // The backend will replace all permissions with this list
-      await rolesService.assignPermissions(numericId, allAssignedIds);
-
-      // Clear pending changes
-      setPendingChanges(new Set());
-      setHasUnsavedChanges(false);
-
-      // Refresh data to confirm
+      // CRITICAL: Reload data to ensure frontend state matches backend reality
+      // This fixes the "State Mismatch" issue where user sees one thing but backend has another
       await loadData();
 
-      alert('تم حفظ التغييرات بنجاح');
+      setHasUnsavedChanges(false);
     } catch (err) {
-      console.error('[RoleDetails] Save changes error:', err);
-      // Revert on error
-      loadData();
-      alert(err?.response?.data?.message || 'فشل حفظ التغييرات');
+      console.error('Save error:', err);
+      openSnackbar({
+        open: true,
+        message: 'فشل حفظ الصلاحيات',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
     } finally {
       setSaving(false);
     }
-  }, [numericId, isValidId, isProtected, role, hasUnsavedChanges, loadData]);
+  };
 
-  // ========================================
-  // LOADING STATE
-  // ========================================
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularLoader />
-      </Box>
-    );
-  }
-
-  // ========================================
-  // ERROR STATE
-  // ========================================
-
-  if (error) {
-    return (
-      <Box>
-        <ModernPageHeader
-          title="تفاصيل الدور"
-          icon={AdminPanelSettingsIcon}
-          breadcrumbs={[
-            { label: 'الرئيسية', path: '/' },
-            { label: 'الصلاحيات', path: '/rbac' },
-            { label: 'الأدوار', path: '/rbac/roles' },
-            { label: 'تفاصيل' }
-          ]}
-        />
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      </Box>
-    );
-  }
-
-  // ========================================
-  // MAIN RENDER
-  // ========================================
-
-  const activeCount = role?.permissions?.length || 0;
-  const totalCount = allPermissions.length;
+  if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularLoader /></Box>;
 
   return (
     <Box>
-      {/* ====== PAGE HEADER ====== */}
       <ModernPageHeader
         title={role?.name || 'تفاصيل الدور'}
-        subtitle="إدارة صلاحيات الدور"
+        subtitle="إدارة الصلاحيات المتقدمة"
         icon={AdminPanelSettingsIcon}
         breadcrumbs={[
           { label: 'الرئيسية', path: '/' },
@@ -444,117 +319,148 @@ const RoleDetails = () => {
         ]}
         actions={
           <Stack direction="row" spacing={2}>
-            {hasUnsavedChanges && !isProtected && (
+            {!isProtected && (
               <Button
                 variant="contained"
                 startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
-                onClick={handleSaveChanges}
-                disabled={saving}
-                color="success"
+                onClick={handleSave}
+                disabled={!hasUnsavedChanges || saving}
+                color={hasUnsavedChanges ? "primary" : "inherit"}
+                sx={{
+                  minWidth: 140,
+                  opacity: (!hasUnsavedChanges && !saving) ? 0.7 : 1
+                }}
               >
-                {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                {saving ? 'جاري الحفظ...' : (hasUnsavedChanges ? 'حفظ التغييرات' : 'تم الحفظ')}
               </Button>
             )}
             <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/rbac/roles')}>
-              العودة للقائمة
+              العودة
             </Button>
           </Stack>
         }
       />
 
-      {/* ====== ROLE INFO CARD ====== */}
-      <MainCard sx={{ mb: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ sm: 'center' }}>
-          <Avatar
-            sx={{
-              width: 80,
-              height: 80,
-              bgcolor: `${getRoleColor(role?.name)}.main`,
-              fontSize: '2rem'
-            }}
-          >
-            <AdminPanelSettingsIcon sx={{ fontSize: 40 }} />
-          </Avatar>
-
-          <Box sx={{ flex: 1 }}>
-            <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-              <Typography variant="h5">{role?.name || '-'}</Typography>
-              {isProtected && <Chip label="دور محمي" size="small" color="error" icon={<LockIcon sx={{ fontSize: '14px !important' }} />} />}
+      {/* Role Info */}
+      <MainCard sx={{ mb: 3 }} content={false}>
+        <Box sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={3}>
+            <Avatar sx={{ width: 64, height: 64, bgcolor: `${getRoleColor(role?.name)}.main` }}>
+              <AdminPanelSettingsIcon fontSize="large" />
+            </Avatar>
+            <Box flex={1}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography variant="h4">{role?.name || '-'}</Typography>
+                {isProtected && <Chip label="دور محمي" color="error" size="small" icon={<LockIcon />} />}
+              </Stack>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>{role?.description || role?.descriptionAr || '-'}</Typography>
+            </Box>
+            <Stack alignItems="end">
+              <Typography variant="caption" color="text.secondary">عدد الصلاحيات</Typography>
+              <Typography variant="h3" color="primary">{(role?.permissions || []).length}</Typography>
             </Stack>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {role?.description || role?.descriptionAr || '-'}
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip
-                label={`${activeCount} صلاحية من ${totalCount}`}
-                color="primary"
-                size="small"
-                icon={<SecurityIcon sx={{ fontSize: '14px !important' }} />}
-              />
-              <Chip label={role?.active !== false ? 'نشط' : 'معطل'} color={role?.active !== false ? 'success' : 'default'} size="small" />
-            </Stack>
-          </Box>
-
-          <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-            <Typography variant="caption" color="text.secondary" display="block">
-              عدد المستخدمين
-            </Typography>
-            <Typography variant="h4" color="primary.main">
-              {role?.usersCount || role?.users?.length || 0}
-            </Typography>
-          </Box>
-        </Stack>
+          </Stack>
+        </Box>
       </MainCard>
 
-      {/* ====== PERMISSIONS CARD ====== */}
-      <MainCard title="صلاحيات الدور">
-        {/* Warning for protected roles */}
-        {isProtected && (
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            هذا دور محمي من النظام ولا يمكن تعديل صلاحياته. دور المدير الأعلى يمتلك جميع الصلاحيات تلقائياً.
-          </Alert>
-        )}
+      {/* Permissions Grid */}
+      <MainCard
+        title={
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <SecurityIcon color="primary" />
+            <Typography variant="h5">مصفوفة الصلاحيات (Resource-Action Matrix)</Typography>
+          </Stack>
+        }
+        content={false}
+      >
+        <TableContainer>
+          <Table sx={{ minWidth: 800 }}>
+            <TableHead sx={{ bgcolor: 'grey.50' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>القسم / المورد</TableCell>
+                {ACTIONS.map(action => (
+                  <TableCell key={action.key} align="center" sx={{ minWidth: 100 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                      <action.icon fontSize="small" color={action.color} />
+                      <Typography variant="subtitle2">{action.label}</Typography>
+                    </Stack>
+                    {/* Column Select All */}
+                    {!isProtected && (
+                      <Tooltip title={`تحديد الكل: ${action.label}`}>
+                        <Checkbox
+                          size="small"
+                          icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+                          checkedIcon={<CheckBoxIcon fontSize="small" />}
+                          onChange={(e) => handleColumnToggle(action.key, e.target.checked)}
+                          sx={{ p: 0.5, mt: 0.5 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                ))}
+                <TableCell align="center" width="5%">الكل</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {RESOURCES.map((resource) => {
+                const rowActions = permissionGridMap[resource.key] || {};
+                const hasPermissions = Object.keys(rowActions).length > 0;
 
-        {/* Info alert */}
-        {!isProtected && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            قم بتفعيل أو تعطيل الصلاحيات لهذا الدور. {hasUnsavedChanges ? 'لديك تغييرات غير محفوظة - اضغط على زر "حفظ التغييرات" في الأعلى.' : 'التغييرات تُحفظ عند الضغط على زر الحفظ.'}
-          </Alert>
-        )}
+                // If this resource has no permissions at all, skip it or show disabled
+                if (!hasPermissions) {
+                  // Optional: enable this to hide empty rows
+                  // return null; 
+                }
 
-        {/* Unsaved changes warning */}
-        {hasUnsavedChanges && !isProtected && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            لديك {pendingChanges.size} تغيير غير محفوظ. لا تنسَ الضغط على زر "حفظ التغييرات" في الأعلى.
-          </Alert>
-        )}
+                // Check row state
+                const rowPerms = Object.values(rowActions).filter(p => p);
+                const activeCount = rowPerms.filter(p => assignedPermissionIds.has(p.id)).length;
+                const isFullRow = rowPerms.length > 0 && activeCount === rowPerms.length;
 
-        {/* Saving indicator */}
-        {saving && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CircularProgress size={16} />
-              <span>جاري الحفظ...</span>
-            </Stack>
-          </Alert>
-        )}
+                return (
+                  <TableRow key={resource.key} hover>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight="bold">{resource.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">{resource.key}</Typography>
+                    </TableCell>
 
-        {/* Permission Modules */}
-        <Box sx={{ mt: 2 }}>
-          {Object.entries(groupedPermissions).map(([module, permissions]) => (
-            <PermissionModule
-              key={module}
-              module={module}
-              permissions={permissions}
-              assignedIds={assignedPermissionIds}
-              onToggle={handleTogglePermission}
-              isProtected={isProtected}
-              loading={saving}
-            />
-          ))}
-        </Box>
+                    {ACTIONS.map(action => {
+                      const perm = rowActions[action.key];
+                      const isAssigned = perm && assignedPermissionIds.has(perm.id);
 
-        {Object.keys(groupedPermissions).length === 0 && <Alert severity="warning">لا توجد صلاحيات معرّفة في النظام</Alert>}
+                      return (
+                        <TableCell key={action.key} align="center">
+                          {perm ? (
+                            <Checkbox
+                              checked={isAssigned}
+                              onChange={() => handleToggle(perm.id)}
+                              disabled={isProtected}
+                              color={action.color}
+                              size="small"
+                            />
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">-</Typography>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+
+                    {/* Row Select All */}
+                    <TableCell align="center">
+                      {rowPerms.length > 0 && !isProtected && (
+                        <Checkbox
+                          checked={isFullRow}
+                          onChange={(e) => handleRowToggle(resource.key, e.target.checked)}
+                          color="primary"
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </MainCard>
     </Box>
   );

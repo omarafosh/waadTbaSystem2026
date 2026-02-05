@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "providers")
@@ -69,6 +70,15 @@ public class Provider {
     @Column(precision = 5, scale = 2)
     private BigDecimal defaultDiscountRate;
 
+    /**
+     * Allow all employers (global network access)
+     * If true, provider can serve all employers without specific contract per employer
+     * السماح لجميع الجهات (شبكة عامة)
+     */
+    @Column(name = "allow_all_employers", nullable = false)
+    @Builder.Default
+    private Boolean allowAllEmployers = false;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -83,6 +93,15 @@ public class Provider {
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ProviderContract> contracts = new ArrayList<>();
+
+    /**
+     * TPA Model: Specific list of employers this provider is allowed to serve.
+     */
+    @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProviderAllowedEmployer> allowedEmployers = new ArrayList<>();
+
+
 
     @PrePersist
     protected void onCreate() {
