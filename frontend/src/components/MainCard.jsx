@@ -27,7 +27,6 @@ export default function MainCard({
   codeHighlight = false,
   codeString,
   modal = false,
-  ref,
   ...others
 }) {
   const { colorScheme } = useColorScheme();
@@ -59,7 +58,6 @@ export default function MainCard({
         }),
         ...(typeof sx === 'function' ? sx(theme) : sx || {})
       })}
-      ref={ref}
       {...others}
     >
       {/* card header and action */}
