@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RBAC User Create Page - Phase D3 Step 3
  * 2-Step Stepper: User Info → Roles Assignment
  *
@@ -34,7 +34,8 @@ import {
   Stack,
   Avatar,
   Chip,
-  Autocomplete
+  Autocomplete,
+  Collapse
 } from '@mui/material';
 
 // MUI Icons
@@ -82,14 +83,14 @@ const INITIAL_FORM = {
   password: '',
   confirmPassword: '',
   fullName: '',
-  email: '',
+
   phone: '',
   active: true,
   employerId: null,
   providerId: null,
 
   // Provider specific permissions
-  allowAllCompanies: true,
+  allowAllCompanies: false,
   permittedCompanies: []
 };
 
@@ -134,12 +135,7 @@ const validateStep1 = (form) => {
     errors.fullName = 'الاسم الكامل مطلوب';
   }
 
-  // Email validation
-  if (!form.email?.trim()) {
-    errors.email = 'البريد الإلكتروني مطلوب';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    errors.email = 'البريد الإلكتروني غير صالح';
-  }
+
 
   // Password validation - NEW: Use contract policy
   const passwordValidation = validatePassword(form.password);
@@ -207,26 +203,7 @@ const Step1UserInfo = ({ form, setForm, errors, setErrors }) => {
           />
         </Grid>
 
-        {/* Email */}
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="البريد الإلكتروني"
-            type="email"
-            value={form.email}
-            onChange={handleChange('email')}
-            error={!!errors.email}
-            helperText={errors.email}
-            required
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailIcon color="action" />
-                </InputAdornment>
-              )
-            }}
-          />
-        </Grid>
+
 
         {/* Phone */}
         <Grid item xs={12} sm={6}>
@@ -554,7 +531,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                   <Autocomplete
                     multiple
                     options={allEmployers}
-                    getOptionLabel={(option) => option?.label || option?.code || ''}
+                    getOptionLabel={(option) => option?.label || option?.name || option?.code || ''}
                     value={form.permittedCompanies || []}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     onChange={(event, newValue) => {
@@ -570,16 +547,19 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, allProviders, a
                       />
                     )}
                     renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          key={option.id}
-                          variant="outlined"
-                          label={option.label}
-                          size="small"
-                          color="primary"
-                          {...getTagProps({ index })}
-                        />
-                      ))
+                      value.map((option, index) => {
+                        const { key, ...tagProps } = getTagProps({ index });
+                        return (
+                          <Chip
+                            key={key}
+                            variant="outlined"
+                            label={option?.label || option?.name || '-'}
+                            size="small"
+                            color="primary"
+                            {...tagProps}
+                          />
+                        );
+                      })
                     }
                   />
                   {(!form.permittedCompanies || form.permittedCompanies.length === 0) && (
@@ -667,7 +647,6 @@ const UserCreate = () => {
       setLoadingProviders(true);
       // Use getSelector endpoint which returns simple array for dropdowns
       const providers = await providersService.getSelector();
-      console.log('[UserCreate] Loaded providers from selector:', Array.isArray(providers) ? providers.length : 0);
       setAllProviders(Array.isArray(providers) ? providers : []);
     } catch (err) {
       console.error('[UserCreate] Load providers error:', err);
@@ -682,7 +661,6 @@ const UserCreate = () => {
       setLoadingEmployers(true);
       // Use getEmployerSelectors endpoint which returns simple array for dropdowns
       const employers = await employersService.getEmployerSelectors();
-      console.log('[UserCreate] Loaded employers from selectors:', Array.isArray(employers) ? employers.length : 0);
       setAllEmployers(Array.isArray(employers) ? employers : []);
     } catch (err) {
       console.error('[UserCreate] Load employers error:', err);
@@ -770,11 +748,15 @@ const UserCreate = () => {
       }
 
       // Prepare payload - NO ROLES (contract requirement)
+      // Auto-generate email based on unified username system
+      // Standard Format: username@tba.ly
+      const generatedEmail = `${form.username.trim()}@tba.ly`;
+
       const payload = {
         username: form.username.trim(),
         password: form.password,
         fullName: form.fullName.trim(),
-        email: form.email.trim(),
+        email: generatedEmail,
         phone: form.phone?.trim() || null
       };
 

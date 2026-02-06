@@ -18,7 +18,7 @@ const ClaimsRoutes = [
             createRoute({
                 path: '',
                 element: ClaimsList,
-                roles: [...ROLES.ADMIN_EMPLOYER, 'REVIEWER']
+                roles: [...ROLES.ADMIN_EMPLOYER, 'REVIEWER', 'PROVIDER']
             }),
             createRoute({
                 path: 'inbox',
@@ -33,12 +33,12 @@ const ClaimsRoutes = [
             createRoute({
                 path: 'edit/:id',
                 element: ClaimEdit,
-                roles: ROLES.ADMIN_EMPLOYER
+                roles: [...ROLES.ADMIN_EMPLOYER, 'PROVIDER']
             }),
             createRoute({
                 path: ':id',
                 element: ClaimView,
-                roles: [...ROLES.ADMIN_EMPLOYER, 'REVIEWER']
+                roles: [...ROLES.ADMIN_EMPLOYER, 'REVIEWER', 'PROVIDER']
             })
         ]
     },

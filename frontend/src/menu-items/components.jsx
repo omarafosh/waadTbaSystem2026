@@ -102,12 +102,6 @@ const menuItem = [
         url: '/dashboard',
         icon: DashboardIcon,
         breadcrumbs: false,
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small',
-          variant: 'filled'
-        }
       }
     ]
   },
@@ -129,30 +123,22 @@ const menuItem = [
         url: '/members',
         icon: PeopleAltIcon,
         breadcrumbs: false,
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small',
-          variant: 'filled'
-        }
       }
     ]
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🏥 PROVIDER PORTAL (VISIT-CENTRIC FLOW 2026-01-14)
+  // 🏥 PROVIDER OPERATIONS (Daily Workflow)
   // ═══════════════════════════════════════════════════════════════════════════
-  // ARCHITECTURAL RULE: No standalone Pre-Authorization access
-  // Pre-Auth can ONLY be created from Visit Log
   {
     id: 'group-provider-portal',
-    title: 'بوابة مقدم الخدمة',
+    title: 'بوابة الخدمة',
     titleEn: 'Provider Portal',
     type: 'group',
     children: [
       {
         id: 'provider-portal',
-        title: 'بوابة مقدم الخدمة',
+        title: 'بوابة الخدمة',
         titleEn: 'Provider Portal',
         type: 'collapse',
         icon: LocalHospitalIcon,
@@ -164,11 +150,6 @@ const menuItem = [
             type: 'item',
             url: '/provider/eligibility-check',
             icon: HowToRegIcon,
-            chip: {
-              label: '1️⃣',
-              color: 'primary',
-              size: 'small'
-            }
           },
           {
             id: 'provider-visit-log',
@@ -177,11 +158,6 @@ const menuItem = [
             type: 'item',
             url: '/provider/visits',
             icon: AssignmentIcon,
-            chip: {
-              label: '2️⃣',
-              color: 'info',
-              size: 'small'
-            }
           },
           {
             id: 'provider-documents',
@@ -190,15 +166,44 @@ const menuItem = [
             type: 'item',
             url: '/provider/documents',
             icon: FolderIcon,
-            chip: {
-              label: '3️⃣',
-              color: 'secondary',
-              size: 'small'
-            }
           }
-          // NOTE (2026-01-14): Pre-Approvals menu item REMOVED
-          // Per Visit-Centric Architecture: Pre-Auth can ONLY be created from Visit Log
-          // This prevents standalone pre-authorization workflow
+        ]
+      }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📂 MY SERVICES (History & Tracking)
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'group-my-services',
+    title: 'خدماتي',
+    titleEn: 'My Services',
+    type: 'group',
+    children: [
+      {
+        id: 'my-services',
+        title: 'خدماتي',
+        titleEn: 'My Services',
+        type: 'collapse',
+        icon: AssignmentIndIcon,
+        children: [
+          {
+            id: 'provider-claims',
+            title: 'مطالباتي',
+            titleEn: 'My Claims',
+            type: 'item',
+            url: '/claims',
+            icon: ReceiptIcon,
+          },
+          {
+            id: 'provider-pre-approvals',
+            title: 'موافقاتي',
+            titleEn: 'My Pre-Approvals',
+            type: 'item',
+            url: '/pre-approvals',
+            icon: AssignmentIcon,
+          }
         ]
       }
     ]
@@ -227,11 +232,6 @@ const menuItem = [
             type: 'item',
             url: '/employers',
             icon: FormatListBulletedIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'benefit-policies',
@@ -241,11 +241,6 @@ const menuItem = [
             url: '/benefit-policies',
             icon: PolicyIcon,
             permission: ['benefit_policies.view'],
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           }
         ]
       }
@@ -275,11 +270,6 @@ const menuItem = [
             type: 'item',
             url: '/providers',
             icon: FormatListBulletedIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'provider-contracts',
@@ -288,11 +278,6 @@ const menuItem = [
             type: 'item',
             url: '/provider-contracts',
             icon: HandshakeIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           }
           // REMOVED (2026-01-14): provider-network (used deleted provider-dashboard)
           // REMOVED (2026-01-14): provider-portal link (Provider Portal is NOT part of Provider Management)
@@ -326,11 +311,6 @@ const menuItem = [
             type: 'item',
             url: '/claims/inbox',
             icon: InboxIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'pre-approvals-inbox',
@@ -339,11 +319,6 @@ const menuItem = [
             type: 'item',
             url: '/pre-approvals/inbox',
             icon: InboxIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'unified-approvals-dashboard',
@@ -352,11 +327,6 @@ const menuItem = [
             type: 'item',
             url: '/approvals/dashboard',
             icon: DashboardIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'settlement-inbox',
@@ -365,11 +335,6 @@ const menuItem = [
             type: 'item',
             url: '/claims/settlement',
             icon: PaymentIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           }
           // NOTE (2026-01-23): Removed 'pre-approvals' (list page) and 'claims' (history page)
           // Reviewers access everything through Inbox pages
@@ -403,11 +368,6 @@ const menuItem = [
             type: 'item',
             url: '/settlement/batches',
             icon: ReceiptIcon,
-            chip: {
-              label: 'New',
-              color: 'primary',
-              size: 'small'
-            }
           },
           {
             id: 'provider-accounts',
@@ -445,11 +405,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/claims',
             icon: ReceiptIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'pre-approvals-report',
@@ -458,11 +413,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/pre-approvals',
             icon: AssignmentIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'financial-reports',
@@ -471,11 +421,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/financial',
             icon: PaymentIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'provider-pdf-reports',
@@ -484,11 +429,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/providers',
             icon: LocalHospitalIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'provider-settlement-reports',
@@ -497,11 +437,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/provider-settlement',
             icon: LocalHospitalIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'employer-reports',
@@ -510,11 +445,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/employer-dashboard',
             icon: BusinessIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'visits-report',
@@ -523,11 +453,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/visits',
             icon: AssignmentIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'benefit-policy-report',
@@ -536,11 +461,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/benefit-policy',
             icon: PolicyIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'beneficiaries-report',
@@ -549,11 +469,6 @@ const menuItem = [
             type: 'item',
             url: '/reports/beneficiaries',
             icon: PeopleAltIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'export-center',
@@ -562,11 +477,6 @@ const menuItem = [
             type: 'item',
             url: '/under-development',
             icon: DescriptionIcon,
-            chip: {
-              label: '⏳',
-              color: 'warning',
-              size: 'small'
-            }
           }
         ]
       }
@@ -590,11 +500,6 @@ const menuItem = [
         url: '/documents',
         icon: DescriptionIcon,
         permission: ['claims.view', 'pre_approvals.view'],
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small'
-        }
       }
     ]
   },
@@ -618,12 +523,6 @@ const menuItem = [
         type: 'item',
         url: '/audit',
         icon: TimelineIcon,
-        chip: {
-          label: '✅',
-          color: 'success',
-          size: 'small',
-          variant: 'outlined'
-        }
       },
       // ────────────────────────────────────────────────────────────────────────
       // التصنيف الطبي
@@ -642,11 +541,6 @@ const menuItem = [
             type: 'item',
             url: '/medical-categories',
             icon: CategoryIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'medical-services',
@@ -655,11 +549,6 @@ const menuItem = [
             type: 'item',
             url: '/medical-services',
             icon: MedicalServicesIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'medical-packages',
@@ -668,11 +557,6 @@ const menuItem = [
             type: 'item',
             url: '/medical-packages',
             icon: InventoryIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           }
         ]
       },
@@ -694,11 +578,6 @@ const menuItem = [
             type: 'item',
             url: '/settings/company',
             icon: BusinessIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'users-management',
@@ -707,11 +586,6 @@ const menuItem = [
             type: 'item',
             url: '/rbac/users',
             icon: ManageAccountsIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           },
           {
             id: 'roles-management',
@@ -720,11 +594,6 @@ const menuItem = [
             type: 'item',
             url: '/rbac/roles',
             icon: SecurityIcon,
-            chip: {
-              label: '✅',
-              color: 'success',
-              size: 'small'
-            }
           }
         ]
       }

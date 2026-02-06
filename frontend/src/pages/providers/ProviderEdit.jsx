@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import {
-    getEmployerSelectors
-} from 'services/api/employers.service';
-import {
-    providersService
-} from 'services/api/providers.service'; // Import service for contracts
+import { getEmployerSelectors } from 'services/api/employers.service';
+import { providersService } from 'services/api/providers.service';
 import { usersService } from 'services/rbac/users.service';
 import { rolesService } from 'services/rbac/roles.service';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 import {
     Box,
     Button,
@@ -26,6 +23,13 @@ import {
     Switch,
     FormControlLabel,
     Avatar,
+    Stack,
+    IconButton,
+    CircularProgress,
+    Autocomplete,
+    Card,
+    CardContent,
+    CardActions,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -37,11 +41,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    TablePagination,
-    Stack,
-
-    IconButton,
-    CircularProgress
+    TablePagination
 } from '@mui/material';
 import {
     ArrowBack,
@@ -52,18 +52,21 @@ import {
     Phone,
     Description,
     Handshake,
-    Warning,
     People,
-    Add as AddIcon,
     Person,
     Lock,
     VpnKey,
-    Delete as DeleteIcon,
     Block,
     CheckCircle,
+    VerifiedUser,
+    Link as LinkIcon,
+    LinkOff,
+    PersonAdd,
+    Email,
+    Add as AddIcon,
+    Delete as DeleteIcon,
     Visibility,
-    VisibilityOff,
-    VerifiedUser
+    Warning
 } from '@mui/icons-material';
 import GregorianDatePicker from 'components/common/GregorianDatePicker';
 import MainCard from 'components/MainCard';
@@ -92,44 +95,15 @@ const ProviderEdit = () => {
     const { enqueueSnackbar } = useSnackbar();
     const { provider, loading } = useProviderDetails(id);
     const { update, updating } = useUpdateProvider();
+    const { triggerRefresh } = useTableRefresh();
 
-    // State
+    // ─────────────────────────────────────────────────────────────────────────────
+    // STATE
+    // ─────────────────────────────────────────────────────────────────────────────
+
     const [activeTab, setActiveTab] = useState(0);
-    const [payers, setPayers] = useState([]);
-    const [loadingPayers, setLoadingPayers] = useState(false);
 
-    // User Account State
-    const [linkedUser, setLinkedUser] = useState(null);
-    const [loadingUser, setLoadingUser] = useState(false);
-    const [userForm, setUserForm] = useState({ username: '', password: '', confirmPassword: '' });
-    const [showPassword, setShowPassword] = useState(false);
-
-    // Password Reset Dialog State
-    const [resetPasswordDialog, setResetPasswordDialog] = useState({
-        open: false,
-        newPassword: '',
-        confirmPassword: ''
-    });
-
-    // Documents State
-    const [documents, setDocuments] = useState([]);
-    const [loadingDocs, setLoadingDocs] = useState(false);
-    const [docDialog, setDocDialog] = useState({ open: false, type: 'LICENSE', expiryDate: '', notes: '', fileName: '' });
-    const [deleteDocDialog, setDeleteDocDialog] = useState({ open: false, docId: null });
-    const [previewDialog, setPreviewDialog] = useState({ open: false, url: '', title: '' });
-    const [previewLoading, setPreviewLoading] = useState(false);
-    const [docPage, setDocPage] = useState(0);
-    const [docRowsPerPage, setDocRowsPerPage] = useState(3);
-
-    const DOC_TYPE_LABELS = {
-        'LICENSE': 'رخصة مزاولة مهنة',
-        'COMMERCIAL_REGISTER': 'سجل تجاري',
-        'TAX_CERTIFICATE': 'شهادة ضريبية',
-        'CONTRACT_COPY': 'نسخة العقد',
-        'OTHER': 'أخرى'
-    };
-
-    // Form State
+    // Form Data
     const [formData, setFormData] = useState({
         name: '',
         licenseNumber: '',
@@ -146,20 +120,48 @@ const ProviderEdit = () => {
         active: true,
         allowAllEmployers: false
     });
-
     const [errors, setErrors] = useState({});
 
-    // Confirm Dialog
-    const [confirmDialog, setConfirmDialog] = useState({
-        open: false,
-        payerId: null,
-        action: 'enable',
-        payerName: ''
-    });
-
-    // Pagination
+    // Partners / Payers State
+    const [payers, setPayers] = useState([]);
+    const [loadingPayers, setLoadingPayers] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, payerId: null, action: 'enable', payerName: '' });
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(3);
+
+    // Documents State
+    const [documents, setDocuments] = useState([]);
+    const [loadingDocs, setLoadingDocs] = useState(false);
+    const [docDialog, setDocDialog] = useState({ open: false, type: 'LICENSE', expiryDate: '', notes: '', fileName: '', file: null });
+    const [deleteDocDialog, setDeleteDocDialog] = useState({ open: false, docId: null });
+    const [previewDialog, setPreviewDialog] = useState({ open: false, url: '', title: '' });
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [docPage, setDocPage] = useState(0);
+    const [docRowsPerPage, setDocRowsPerPage] = useState(3);
+
+    const DOC_TYPE_LABELS = {
+        'LICENSE': 'رخصة مزاولة مهنة',
+        'COMMERCIAL_REGISTER': 'سجل تجاري',
+        'TAX_CERTIFICATE': 'شهادة ضريبية',
+        'CONTRACT_COPY': 'نسخة العقد',
+        'OTHER': 'أخرى'
+    };
+
+    // User Management State (Single Responsible)
+    const [activeUser, setActiveUser] = useState(null);
+    const [loadingUser, setLoadingUser] = useState(false);
+    const [linkMode, setLinkMode] = useState('LINK'); // 'LINK' | 'CREATE'
+    const [unassignedUsers, setUnassignedUsers] = useState([]);
+    const [selectedUserToLink, setSelectedUserToLink] = useState(null);
+    const [loadingUnassigned, setLoadingUnassigned] = useState(false);
+    const [newUserForm, setNewUserForm] = useState({ username: '', password: '', confirmPassword: '', fullName: '' });
+
+    // Unlink Dialog Confirmation State
+    const [unlinkDialog, setUnlinkDialog] = useState({ open: false, confirmationText: '' });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // EFFECTS
+    // ─────────────────────────────────────────────────────────────────────────────
 
     // Load Provider Data
     useEffect(() => {
@@ -183,207 +185,71 @@ const ProviderEdit = () => {
         }
     }, [provider]);
 
-    // Load Payers and Contracts to determine status
+    // Load Payers
     useEffect(() => {
         const loadPartnersData = async () => {
             if (!id) return;
             setLoadingPayers(true);
             try {
-                // 1. Get All Possible Employers
                 const employersRes = await getEmployerSelectors();
                 const allEmployers = Array.isArray(employersRes) ? employersRes : (employersRes.data || []);
-
-                // 2. Get Allowed Employer IDs (TPA Model)
                 const allowedIds = await providersService.getAllowedEmployerIds(id);
                 const allowedSet = new Set(Array.isArray(allowedIds) ? allowedIds : []);
 
-                // 3. Map status
-                const mapped = allEmployers.map(emp => {
-                    const empId = emp.id || emp.value;
-                    const isAllowed = allowedSet.has(empId);
-
-                    return {
-                        id: empId,
-                        name: emp.label || emp.name,
-                        code: emp.code || 'EMP',
-                        logo: (emp.label || emp.name || 'X').charAt(0).toUpperCase(),
-                        enabled: isAllowed
-                    };
-                });
-
+                const mapped = allEmployers.map(emp => ({
+                    id: emp.id || emp.value,
+                    name: emp.label || emp.name,
+                    code: emp.code || 'EMP',
+                    logo: (emp.label || emp.name || 'X').charAt(0).toUpperCase(),
+                    enabled: allowedSet.has(emp.id || emp.value)
+                }));
                 setPayers(mapped);
             } catch (error) {
-                console.error('Error loading partners data', error);
-                enqueueSnackbar('فشل تحميل بيانات الشركاء والعقود', { variant: 'error' });
+                console.error(error);
+                enqueueSnackbar('فشل تحميل بيانات الشركاء', { variant: 'error' });
             } finally {
                 setLoadingPayers(false);
             }
         };
+        if (activeTab === 3) loadPartnersData();
+    }, [activeTab, id, enqueueSnackbar]);
 
-        loadPartnersData();
-    }, [id, enqueueSnackbar]);
-
-    // Load Linked User
-    useEffect(() => {
-        const fetchLinkedUser = async () => {
-            if (!id) return;
-
-            setLoadingUser(true);
-            try {
-                let users = [];
-                // Strategy: Search by email (primary) or Name (secondary)
-                // This ensures we find the user even if they have a dummy email (e.g. @provider.local)
-                const query = formData.email || formData.name;
-
-                if (query) {
-                    const response = await usersService.searchUsers(query);
-                    const data = response?.data?.data || response?.data || response || [];
-                    if (Array.isArray(data)) users = data;
-                }
-
-                // Find best match
-                // 1. Match by Email (Exact)
-                // 2. Match by Name (Exact)
-                // 3. Match by Name (Contains) - Optional, maybe too loose
-
-                let match = null;
-                if (users.length > 0) {
-                    match = users.find(u =>
-                        (formData.email && u.email?.toLowerCase() === formData.email?.toLowerCase()) ||
-                        (u.fullName === formData.name) ||
-                        (u.username === formData.email) // Edge case: searching by username
-                    );
-
-                    // Fallback: if we searched by name and found only one user with that name
-                    if (!match && !formData.email && users.length > 0) {
-                        // Filter strictly by name to avoid partial matches on common words
-                        const nameMatches = users.filter(u => u.fullName === formData.name);
-                        if (nameMatches.length === 1) match = nameMatches[0];
-                    }
-                }
-
-                setLinkedUser(match);
-            } catch (error) {
-                console.error('Error fetching linked user:', error);
-            } finally {
-                setLoadingUser(false);
-            }
-        };
-
-        if (activeTab === 3) {
-            fetchLinkedUser();
-        }
-    }, [activeTab, id, formData.email, formData.name]);
-
-    const handleCreateUser = async () => {
-        if (!userForm.username || !userForm.password) {
-            enqueueSnackbar('يرجى تعبئة اسم المستخدم وكلمة المرور', { variant: 'warning' });
-            return;
-        }
-        if (userForm.password !== userForm.confirmPassword) {
-            enqueueSnackbar('كلمة المرور غير متطابقة', { variant: 'error' });
-            return;
-        }
-
+    // Load User
+    const fetchLinkedUser = async () => {
+        if (!id) return;
+        setLoadingUser(true);
         try {
-            setLoadingUser(true);
-
-            // Auto-generate email if not provided to bypass backend validation
-            // Checks if username is already an email address to avoid double suffix
-            let finalEmail = formData.email;
-            if (!finalEmail) {
-                const isEmailRaw = userForm.username.includes('@') && userForm.username.includes('.');
-                finalEmail = isEmailRaw ? userForm.username : `${userForm.username}@provider.local`;
+            const users = await usersService.getUsersByProvider(id);
+            if (Array.isArray(users) && users.length > 0) {
+                setActiveUser(users[0]);
+            } else {
+                setActiveUser(null);
+                fetchUnassignedUsers();
             }
-
-            // 1. Create User
-            // Note: passing providerId to link explicitly if backend supports it
-            const payload = {
-                username: userForm.username,
-                password: userForm.password,
-                email: finalEmail, // Use real or generated email
-                fullName: formData.name, // Enforce same name
-                providerId: id,
-                enabled: true,
-                roles: [] // Will assign role next
-            };
-
-            const createdUser = await usersService.createUser(payload);
-            // Fix: Extract ID from the standard ApiResponse structure (data.data.id)
-            const userId = createdUser?.data?.data?.id || createdUser?.data?.id || createdUser?.id;
-
-            if (userId) {
-                // 2. Assign PROVIDER role
-                // First fetch roles to find ID
-                const rolesRes = await rolesService.getAllRoles();
-                const roles = rolesRes?.data?.data || rolesRes?.data || [];
-                const providerRole = roles.find(r => r.name === 'PROVIDER');
-
-                if (providerRole) {
-                    await usersService.assignRoles(userId, [providerRole.id]);
-                }
-
-                enqueueSnackbar('تم إنشاء حساب المستخدم بنجاح', { variant: 'success' });
-                // Refresh
-                setLinkedUser({ ...payload, id: userId });
-            }
-
         } catch (error) {
             console.error(error);
-            enqueueSnackbar(error.response?.data?.message || 'فشل إنشاء الحساب', { variant: 'error' });
         } finally {
             setLoadingUser(false);
         }
     };
 
-    // User Actions
-    const handleToggleUserStatus = async () => {
-        if (!linkedUser) return;
+    const fetchUnassignedUsers = async () => {
+        setLoadingUnassigned(true);
         try {
-            setLoadingUser(true);
-            const res = await usersService.toggleUserStatus(linkedUser.id);
-            // res is expected to be { success: true, data: user }
-            const updatedUser = res?.data || res;
-            // Update local state, handling potentially different field names (active vs enabled)
-            const isActive = updatedUser.active !== undefined ? updatedUser.active : updatedUser.enabled;
-            setLinkedUser(prev => ({ ...prev, active: isActive, enabled: isActive }));
-
-            enqueueSnackbar(isActive ? 'تم تفعيل الحساب' : 'تم إيقاف الحساب', { variant: 'success' });
+            const users = await usersService.getUnassignedProviders();
+            setUnassignedUsers(users || []);
         } catch (error) {
             console.error(error);
-            enqueueSnackbar('فشل تحديث حالة الحساب', { variant: 'error' });
         } finally {
-            setLoadingUser(false);
+            setLoadingUnassigned(false);
         }
     };
 
-    const handleOpenResetPassword = () => {
-        setResetPasswordDialog({ open: true, newPassword: '', confirmPassword: '' });
-    };
-
-    const handleSubmitResetPassword = async () => {
-        if (resetPasswordDialog.newPassword !== resetPasswordDialog.confirmPassword) {
-            enqueueSnackbar('كلمة المرور غير متطابقة', { variant: 'error' });
-            return;
-        }
-        try {
-            await usersService.resetUserPassword(linkedUser.id, resetPasswordDialog.newPassword);
-            enqueueSnackbar('تم تغيير كلمة المرور بنجاح', { variant: 'success' });
-            setResetPasswordDialog({ ...resetPasswordDialog, open: false });
-        } catch (error) {
-            console.error(error);
-            enqueueSnackbar('فشل تغيير كلمة المرور', { variant: 'error' });
-        }
-    };
-
-
-    // Handlers for Documents
     useEffect(() => {
-        if (activeTab === 4 && id) {
-            fetchDocuments();
-        }
+        if (activeTab === 4) fetchLinkedUser();
     }, [activeTab, id]);
 
+    // Load Documents
     const fetchDocuments = async () => {
         try {
             setLoadingDocs(true);
@@ -396,75 +262,156 @@ const ProviderEdit = () => {
         }
     };
 
-    const handleAddDocument = async () => {
-        if (!docDialog.fileName || !docDialog.type) {
-            enqueueSnackbar('يرجى اختيار نوع المستند والملف', { variant: 'warning' });
-            return;
-        }
+    useEffect(() => {
+        if (activeTab === 5 && id) fetchDocuments();
+    }, [activeTab, id]);
 
-        // Prevent duplicate upload
-        if (documents.some(d => d.fileName === docDialog.fileName)) {
-            enqueueSnackbar('هذا الملف موجود مسبقاً. يرجى تغيير الاسم أو اختيار ملف آخر.', { variant: 'warning' });
-            return;
-        }
+    // ─────────────────────────────────────────────────────────────────────────────
+    // HANDLERS
+    // ─────────────────────────────────────────────────────────────────────────────
 
-        try {
-            const formData = new FormData();
+    // Form Handlers
+    const handleChange = (field) => (event) => {
+        setFormData({ ...formData, [field]: event.target.value });
+        if (errors[field]) setErrors({ ...errors, [field]: '' });
+    };
 
-            const dto = {
-                providerId: id,
-                type: docDialog.type,
-                fileName: docDialog.fileName,
-                // fileUrl will be generated by backend
-                expiryDate: docDialog.expiryDate || null,
-                notes: docDialog.notes,
-                documentNumber: `DOC-${Date.now()}` // Or allow user input
-            };
+    const validateForm = () => {
+        const newErrors = {};
+        if (!formData.name) newErrors.name = 'اسم مقدم الخدمة مطلوب';
+        if (!formData.licenseNumber) newErrors.licenseNumber = 'رقم الترخيص مطلوب';
+        if (!formData.providerType) newErrors.providerType = 'نوع المزود مطلوب';
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'بريد غير صحيح';
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) setActiveTab(0);
+        return Object.keys(newErrors).length === 0;
+    };
 
-            formData.append('data', new Blob([JSON.stringify(dto)], { type: 'application/json' }));
-
-            if (docDialog.file) {
-                formData.append('file', docDialog.file);
-            }
-
-            await providersService.addDocument(id, formData);
-            enqueueSnackbar('تم إضافة المستند بنجاح', { variant: 'success' });
-            setDocDialog({ open: false, type: 'LICENSE', expiryDate: '', notes: '', fileName: '', file: null });
-            fetchDocuments();
-        } catch (error) {
-            console.error('Upload error:', error);
-            const errorMsg = error.response?.data?.message || error.technicalMessage || 'فشل إضافة المستند';
-            enqueueSnackbar(`فشل إضافة المستند: ${errorMsg}`, { variant: 'error' });
-        } finally {
-            setLoadingDocs(false);
+    const handleSubmit = async () => {
+        if (!validateForm()) return;
+        const payload = { ...formData, allowedPayers: payers.filter(p => p.enabled).map(p => p.id) };
+        const result = await update(id, payload);
+        if (result.success) {
+            enqueueSnackbar('تم التحديث بنجاح', { variant: 'success' });
+            triggerRefresh();
+            navigate('/providers');
+        } else {
+            enqueueSnackbar(result.error || 'فشل التحديث', { variant: 'error' });
         }
     };
 
-    const handleDeleteDocument = async (docId) => {
-        // Legacy direct call replaced by dialog
+    // Partners Handlers
+    const handlePayerToggleRequest = (payer) => {
+        setConfirmDialog({ open: true, payerId: payer.id, action: payer.enabled ? 'disable' : 'enable', payerName: payer.name });
+    };
+
+    const handleConfirmToggle = () => {
+        const { payerId } = confirmDialog;
+        setPayers(prev => prev.map(p => p.id === payerId ? { ...p, enabled: !p.enabled } : p));
+        setConfirmDialog({ ...confirmDialog, open: false });
+        triggerRefresh(); // Notify other tabs that partner visibility changed
+    };
+
+    // User Link/Unlink Handlers
+    const handleUnlinkUser = async () => {
+        if (!activeUser) return;
+        try {
+            setLoadingUser(true);
+            const rawUserRes = await usersService.getUserById(activeUser.id);
+            const userDto = rawUserRes?.data?.data || rawUserRes?.data || rawUserRes;
+            await usersService.updateUser(activeUser.id, { ...userDto, providerId: null });
+            enqueueSnackbar('تم فك الارتباط بنجاح', { variant: 'success' });
+            setActiveUser(null);
+            fetchUnassignedUsers();
+        } catch (error) {
+            enqueueSnackbar('فشل فك الارتباط', { variant: 'error' });
+        } finally {
+            setLoadingUser(false);
+        }
+    };
+
+    const handleLinkUser = async () => {
+        if (!selectedUserToLink) {
+            enqueueSnackbar('اختر مستخدماً للربط', { variant: 'warning' });
+            return;
+        }
+        try {
+            setLoadingUser(true);
+            const rawUserRes = await usersService.getUserById(selectedUserToLink.id);
+            const userDto = rawUserRes?.data?.data || rawUserRes?.data || rawUserRes;
+            await usersService.updateUser(selectedUserToLink.id, { ...userDto, providerId: id });
+            enqueueSnackbar('تم الربط بنجاح', { variant: 'success' });
+            fetchLinkedUser();
+        } catch (error) {
+            enqueueSnackbar('فشل الربط', { variant: 'error' });
+            setLoadingUser(false);
+        }
+    };
+
+    const handleCreateAndLinkUser = async () => {
+        const { username, password, confirmPassword, fullName } = newUserForm;
+        if (!username || !password) return;
+        if (password !== confirmPassword) {
+            enqueueSnackbar('كلمة المرور غير متطابقة', { variant: 'error' });
+            return;
+        }
+        try {
+            setLoadingUser(true);
+            const userPayload = {
+                username, password, fullName: fullName || formData.name,
+                email: `${username}@provider.local`, providerId: id, enabled: true
+            };
+            const userRes = await usersService.createUser(userPayload);
+            const userId = userRes?.data?.data?.id || userRes?.data?.id || userRes?.id;
+            if (userId) {
+                const rolesRes = await rolesService.getAllRoles();
+                const providerRole = (rolesRes?.data?.data || rolesRes?.data || []).find(r => r.name === 'PROVIDER');
+                if (providerRole) await usersService.assignRoles(userId, [providerRole.id]);
+                enqueueSnackbar('تم إنشاء الحساب وربطه بنجاح', { variant: 'success' });
+                setNewUserForm({ username: '', password: '', confirmPassword: '', fullName: '' });
+                fetchLinkedUser();
+            }
+        } catch (error) {
+            enqueueSnackbar('فشل إنشاء الحساب', { variant: 'error' });
+            setLoadingUser(false);
+        }
+    };
+
+    // Documents Handlers
+    const handleAddDocument = async () => {
+        if (!docDialog.fileName || !docDialog.type) {
+            enqueueSnackbar('بيانات المستند ناقصة', { variant: 'warning' });
+            return;
+        }
+        try {
+            const formDataDocs = new FormData();
+            const dto = {
+                providerId: id, type: docDialog.type, fileName: docDialog.fileName,
+                expiryDate: docDialog.expiryDate || null, notes: docDialog.notes,
+                documentNumber: `DOC-${Date.now()}`
+            };
+            formDataDocs.append('data', new Blob([JSON.stringify(dto)], { type: 'application/json' }));
+            if (docDialog.file) formDataDocs.append('file', docDialog.file);
+
+            await providersService.addDocument(id, formDataDocs);
+            enqueueSnackbar('تم الإضافة بنجاح', { variant: 'success' });
+            setDocDialog({ open: false, type: 'LICENSE', expiryDate: '', notes: '', fileName: '', file: null });
+            fetchDocuments();
+        } catch (error) {
+            enqueueSnackbar('فشل رفع المستند', { variant: 'error' });
+        }
     };
 
     const handlePreview = async (doc) => {
         try {
-            if (!doc.fileUrl) {
-                enqueueSnackbar('رابط الملف غير متوفر', { variant: 'error' });
-                return;
-            }
-
-            // Cleanup old blob URL if exists
-            if (previewDialog.url && previewDialog.url.startsWith('blob:')) {
-                URL.revokeObjectURL(previewDialog.url);
-            }
-
+            if (!doc.fileUrl) throw new Error('No URL');
             setPreviewLoading(true);
             setPreviewDialog({ open: true, url: '', title: doc.fileName });
-
             const blob = await providersService.downloadDocument(doc.fileUrl);
             const objectUrl = URL.createObjectURL(blob);
             setPreviewDialog({ open: true, url: objectUrl, title: doc.fileName });
         } catch (error) {
-            console.error('Preview error:', error);
-            enqueueSnackbar('فشل تحميل الملف للمعاينة', { variant: 'error' });
+            enqueueSnackbar('فشل المعاينة', { variant: 'error' });
             setPreviewDialog({ ...previewDialog, open: false });
         } finally {
             setPreviewLoading(false);
@@ -475,126 +422,92 @@ const ProviderEdit = () => {
         if (!deleteDocDialog.docId) return;
         try {
             await providersService.deleteDocument(id, deleteDocDialog.docId);
-            enqueueSnackbar('تم حذف المستند بنجاح', { variant: 'success' });
+            enqueueSnackbar('تم الحذف بنجاح', { variant: 'success' });
             fetchDocuments();
-        } catch (error) {
-            enqueueSnackbar('فشل حذف المستند', { variant: 'error' });
+        } catch {
+            enqueueSnackbar('فشل الحذف', { variant: 'error' });
         } finally {
             setDeleteDocDialog({ open: false, docId: null });
         }
     };
 
-    const handleChange = (field) => (event) => {
-        setFormData({ ...formData, [field]: event.target.value });
-        if (errors[field]) setErrors({ ...errors, [field]: '' });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    const handleOpenUnlinkDialog = () => {
+        setUnlinkDialog({ open: true, confirmationText: '' });
     };
 
-    const handleTabChange = (event, newValue) => setActiveTab(newValue);
+    const handleConfirmUnlink = async () => {
+        if (!activeUser) return;
 
-    const handlePayerToggleRequest = (payer) => {
-        setConfirmDialog({
-            open: true,
-            payerId: payer.id,
-            action: payer.enabled ? 'disable' : 'enable',
-            payerName: payer.name
-        });
-    };
-
-    const handleConfirmToggle = async () => {
-        // Here we should ideally call an API to create/suspend a contract
-        // For now, we update the UI state and assume the user will click "Save" to persist changes
-        // OR if the user wants "Instant" validation, we might need a separate API call here.
-        // Given "Move control to Edit", simpler is to batch save, OR call toggle endpoint.
-        // But to correct verify from DB, better to rely on what we loaded. 
-        // For this UI interaction, we'll update local state and send the new "allowed list" or similar on Save.
-        // WARNING: Real contract management is complex (dates, terms). 
-        // We will treat this as a quick "Allow/Disallow" switch.
-
-        const { payerId } = confirmDialog;
-        setPayers(prev => prev.map(p => p.id === payerId ? { ...p, enabled: !p.enabled } : p));
-        setConfirmDialog({ ...confirmDialog, open: false });
-    };
-
-    const validateForm = () => {
-        const newErrors = {};
-        if (!formData.name) newErrors.name = 'اسم مقدم الخدمة مطلوب';
-        if (!formData.licenseNumber) newErrors.licenseNumber = 'رقم الترخيص مطلوب';
-        if (!formData.providerType) newErrors.providerType = 'نوع المزود مطلوب';
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = 'البريد الإلكتروني غير صحيح';
+        if (unlinkDialog.confirmationText !== activeUser.username) {
+            enqueueSnackbar('النص المدخل غير صحيح. يجب كتابة اسم المستخدم للتأكيد.', { variant: 'error' });
+            return;
         }
-        setErrors(newErrors);
 
-        if (newErrors.name || newErrors.licenseNumber) setActiveTab(0);
-        else if (newErrors.email) setActiveTab(1);
+        try {
+            setLoadingUser(true);
+            const rawUserRes = await usersService.getUserById(activeUser.id);
+            const user = rawUserRes?.data?.data || rawUserRes?.data || rawUserRes;
 
-        return Object.keys(newErrors).length === 0;
-    };
+            // Construct a clean UserUpdateDto payload
+            const updatePayload = {
+                fullName: user.fullName,
+                email: user.email,
+                phone: user.phone,
+                active: user.active,
+                employerId: user.employerId,
+                providerId: null, // Critical: Unlink
+                allowAllCompanies: user.allowAllCompanies,
+                permittedCompanyIds: user.permittedCompanies?.map(c => c.id) || []
+            };
 
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
+            await usersService.updateUser(activeUser.id, updatePayload);
 
-        // Prepare payload
-        // We include allowedPayers IDs/Codes if the backend supports updating them via this endpoint
-        // If not, we might need a separate loop to create contracts for new ones.
-        const payload = {
-            ...formData,
-            allowedPayers: payers.filter(p => p.enabled).map(p => p.id) // Send IDs of enabled payers
-        };
+            enqueueSnackbar('تم فك الارتباط بنجاح', { variant: 'success' });
 
-        const result = await update(id, payload);
+            // Update local state and close dialog
+            setActiveUser(null);
+            setUnlinkDialog({ open: false, confirmationText: '' });
 
-        if (result.success) {
-            enqueueSnackbar('تم تحديث بيانات مقدم الخدمة وصلاحيات الشركاء بنجاح', { variant: 'success' });
-            navigate('/providers');
-        } else {
-            enqueueSnackbar(result.error || 'فشل التحديث', { variant: 'error' });
+            // Refresh the unassigned list
+            await fetchUnassignedUsers();
+        } catch (error) {
+            console.error('Unlink error:', error);
+            enqueueSnackbar('فشل فك الارتباط: ' + (error.response?.data?.message || error.message), { variant: 'error' });
+        } finally {
+            setLoadingUser(false);
         }
     };
 
-    // Render Helpers
+    // ─────────────────────────────────────────────────────────────────────────────
+    // RENDERERS
+    // ─────────────────────────────────────────────────────────────────────────────
+
     const renderBasicInfo = () => (
         <Box sx={{ p: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <Business color="primary" />
-                <Typography variant="h5">البيانات الأساسية</Typography>
+                <Business color="primary" /> <Typography variant="h5">البيانات الأساسية</Typography>
             </Box>
             <Grid container spacing={3}>
                 <Grid item xs={12}>
-                    <TextField
-                        fullWidth required label="اسم مقدم الخدمة" value={formData.name}
-                        onChange={handleChange('name')} error={!!errors.name} helperText={errors.name}
-                    />
+                    <TextField fullWidth required label="اسم مقدم الخدمة" value={formData.name} onChange={handleChange('name')} error={!!errors.name} helperText={errors.name} />
                 </Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth required label="رقم الترخيص" value={formData.licenseNumber} disabled /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="الرقم الضريبي" value={formData.taxNumber} onChange={handleChange('taxNumber')} /></Grid>
                 <Grid item xs={12} md={6}>
-                    <TextField fullWidth required label="رقم الترخيص" value={formData.licenseNumber} disabled />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="الرقم الضريبي" value={formData.taxNumber} onChange={handleChange('taxNumber')} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                    <TextField
-                        fullWidth required select label="نوع مقدم الخدمة" value={formData.providerType}
-                        onChange={handleChange('providerType')} error={!!errors.providerType}
-                    >
+                    <TextField fullWidth required select label="نوع مقدم الخدمة" value={formData.providerType} onChange={handleChange('providerType')}>
                         {PROVIDER_TYPES.map(op => <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>)}
                     </TextField>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                    <TextField
-                        fullWidth select label="حالة الشبكة" value={formData.networkStatus}
-                        onChange={handleChange('networkStatus')}
-                    >
+                    <TextField fullWidth select label="حالة الشبكة" value={formData.networkStatus} onChange={handleChange('networkStatus')}>
                         {NETWORK_STATUS_OPTIONS.map(op => <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>)}
                     </TextField>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                    <TextField
-                        fullWidth select label="الحالة التشغيلية" value={formData.active}
-                        onChange={(e) => setFormData({ ...formData, active: e.target.value === 'true' })}
-                    >
-                        <MenuItem value={true}>نشط</MenuItem>
-                        <MenuItem value={false}>غير نشط</MenuItem>
+                    <TextField fullWidth select label="الحالة التشغيلية" value={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.value === 'true' })}>
+                        <MenuItem value={true}>نشط</MenuItem><MenuItem value={false}>غير نشط</MenuItem>
                     </TextField>
                 </Grid>
             </Grid>
@@ -604,53 +517,30 @@ const ProviderEdit = () => {
     const renderLocationContact = () => (
         <Box sx={{ p: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <LocationOn color="primary" />
-                <Typography variant="h5">الموقع والتواصل</Typography>
+                <LocationOn color="primary" /> <Typography variant="h5">الموقع والتواصل</Typography>
             </Box>
             <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="المدينة" value={formData.city} onChange={handleChange('city')} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="العنوان" value={formData.address} onChange={handleChange('address')} multiline rows={1} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="رقم الهاتف" value={formData.phone} onChange={handleChange('phone')} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="البريد الإلكتروني" value={formData.email} onChange={handleChange('email')} error={!!errors.email} helperText={errors.email} />
-                </Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="المدينة" value={formData.city} onChange={handleChange('city')} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="العنوان" value={formData.address} onChange={handleChange('address')} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="رقم الهاتف" value={formData.phone} onChange={handleChange('phone')} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="البريد الإلكتروني" value={formData.email} onChange={handleChange('email')} error={!!errors.email} helperText={errors.email} /></Grid>
             </Grid>
-
         </Box>
     );
 
     const renderContractInfo = () => (
         <Box sx={{ p: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <VerifiedUser color="primary" />
-                <Typography variant="h5">معلومات العقد</Typography>
+                <VerifiedUser color="primary" /> <Typography variant="h5">معلومات العقد</Typography>
             </Box>
             <Grid container spacing={3}>
                 <Grid item xs={12} md={4}>
-                    <GregorianDatePicker
-                        label="بداية العقد"
-                        name="contractStartDate"
-                        value={formData.contractStartDate}
-                        onChange={handleChange('contractStartDate')}
-                    />
+                    <GregorianDatePicker label="بداية العقد" name="contractStartDate" value={formData.contractStartDate} onChange={handleChange('contractStartDate')} />
                 </Grid>
                 <Grid item xs={12} md={4}>
-                    <GregorianDatePicker
-                        label="نهاية العقد"
-                        name="contractEndDate"
-                        value={formData.contractEndDate}
-                        onChange={handleChange('contractEndDate')}
-                    />
+                    <GregorianDatePicker label="نهاية العقد" name="contractEndDate" value={formData.contractEndDate} onChange={handleChange('contractEndDate')} />
                 </Grid>
-                <Grid item xs={12} md={4}>
-                    <TextField fullWidth type="number" label="نسبة الخصم %" value={formData.defaultDiscountRate} onChange={handleChange('defaultDiscountRate')} />
-                </Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth type="number" label="نسبة الخصم %" value={formData.defaultDiscountRate} onChange={handleChange('defaultDiscountRate')} /></Grid>
             </Grid>
         </Box>
     );
@@ -658,498 +548,261 @@ const ProviderEdit = () => {
     const renderPartners = () => (
         <Box sx={{ p: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Handshake color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="h5">صلاحيات شركات التأمين</Typography>
-                </Box>
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={formData.allowAllEmployers}
-                            onChange={(e) => setFormData({ ...formData, allowAllEmployers: e.target.checked })}
-                            color="primary"
-                        />
-                    }
-                    label="السماح لجميع الجهات (شبكة عامة)"
-                    labelPlacement="start"
-                />
+                <Box sx={{ display: 'flex' }}><Handshake color="primary" sx={{ mr: 1 }} /> <Typography variant="h5">الشركاء</Typography></Box>
+                <FormControlLabel control={<Switch checked={formData.allowAllEmployers} onChange={(e) => setFormData({ ...formData, allowAllEmployers: e.target.checked })} />} label="شبكة عامة" />
             </Box>
-
             {formData.allowAllEmployers ? (
-                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: 'success.lighter', borderColor: 'success.light' }}>
-                    <Typography variant="h6" color="success.main" gutterBottom>
-                        تم تفعيل وضع الشبكة العامة
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        يمكن لهذا المزود تقديم الخدمات لجميع الجهات المتعاقدة دون الحاجة لتحديد صلاحيات فردية.
-                    </Typography>
-                </Paper>
-            ) : loadingPayers ? (
-                <CircularProgress size={24} />
-            ) : (
+                <Alert severity="success">وضع الشبكة العامة مفعل. جميع الجهات مسموح بها.</Alert>
+            ) : loadingPayers ? <CircularProgress /> : (
                 <>
-                    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 250 }}>
-                        <Table stickyHeader>
-                            <TableHead sx={{ bgcolor: 'grey.50' }}>
-                                <TableRow>
-                                    <TableCell sx={{ bgcolor: 'grey.50' }}>شريك التأمين</TableCell>
-                                    <TableCell align="center" sx={{ bgcolor: 'grey.50' }}>الرمز</TableCell>
-                                    <TableCell align="right" sx={{ bgcolor: 'grey.50' }}>الحالة</TableCell>
-                                </TableRow>
-                            </TableHead>
+                    <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                            <TableHead><TableRow><TableCell>شريك التأمين</TableCell><TableCell align="right">الحالة</TableCell></TableRow></TableHead>
                             <TableBody>
                                 {payers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((payer) => (
-                                    <TableRow key={payer.id} hover>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Avatar sx={{ bgcolor: payer.enabled ? 'primary.main' : 'grey.300', color: '#fff' }}>{payer.logo}</Avatar>
-                                                <Typography fontWeight={payer.enabled ? 'bold' : 'normal'}>{payer.name}</Typography>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell align="center">
-                                            <Chip label={payer.code} size="small" variant={payer.enabled ? "filled" : "outlined"} color={payer.enabled ? "primary" : "default"} />
-                                        </TableCell>
+                                    <TableRow key={payer.id}>
+                                        <TableCell>{payer.name}</TableCell>
                                         <TableCell align="right">
-                                            <FormControlLabel
-                                                control={<Switch checked={payer.enabled} onChange={() => handlePayerToggleRequest(payer)} />}
-                                                label={payer.enabled ? "مصرح به" : "محظور"}
-                                                labelPlacement="start"
-                                                sx={{ m: 0 }}
-                                            />
+                                            <Switch checked={payer.enabled} onChange={() => handlePayerToggleRequest(payer)} />
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {rowsPerPage > 0 && payers.length > 0 && (
-                                    <TableRow style={{ height: 73 * Math.max(0, rowsPerPage - Math.min(rowsPerPage, payers.length - page * rowsPerPage)) }}>
-                                        <TableCell colSpan={3} />
-                                    </TableRow>
-                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>
                     <TablePagination
-                        rowsPerPageOptions={[3, 6, 9]}
-                        component="div"
-                        count={payers.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={(_, p) => setPage(p)}
-                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                        labelRowsPerPage="صفوف لكل صفحة"
-                        labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
-                        showFirstButton showLastButton
-                        sx={{
-                            direction: 'ltr',
-                            borderTop: '1px solid',
-                            borderColor: 'divider',
-                            '& .MuiToolbar-root': { minHeight: 40, height: 40, pl: 2 },
-                            '& .MuiTablePagination-actions': { marginLeft: 1 },
-                            '& .MuiIconButton-root': { padding: '4px' },
-                            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { m: 0 }
-                        }}
+                        rowsPerPageOptions={[3, 5]} component="div" count={payers.length} rowsPerPage={rowsPerPage} page={page}
+                        onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
                     />
                 </>
             )}
         </Box>
     );
 
-    const renderUsers = () => {
-        // Determine active status: supporting both property names for safety
-        const isUserActive = linkedUser && (linkedUser.active === true || linkedUser.enabled === true);
-
-        return (
-            <Box sx={{ p: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <People color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="h5">حساب إدارة النظام</Typography>
-                </Box>
-
-                {loadingUser ? <CircularProgress /> : linkedUser ? (
-                    <Paper
-                        variant="outlined"
-                        sx={{
-                            p: 3,
-                            bgcolor: isUserActive ? 'success.lighter' : 'error.lighter',
-                            borderColor: isUserActive ? 'success.light' : 'error.light'
-                        }}
-                    >
-                        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                            <Avatar sx={{ bgcolor: isUserActive ? 'success.main' : 'error.main' }}>
-                                {isUserActive ? <CheckCircle /> : <Block />}
-                            </Avatar>
-                            <Box>
-                                <Typography variant="h6">{isUserActive ? 'الحساب نشط' : 'الحساب متوقف'}</Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    {isUserActive
-                                        ? 'يوجد حساب مسؤول فعال مرتبط بمقدم الخدمة هذا'
-                                        : 'تم إيقاف حساب المسؤول لهذا المزود، لن يتمكن من الدخول للنظام'}
-                                </Typography>
-                            </Box>
-                        </Stack>
-                        <Divider sx={{ my: 2 }} />
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="caption" color="text.secondary">اسم الدخول</Typography>
-                                <Typography variant="body1" fontWeight="bold">{linkedUser.username}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="caption" color="text.secondary">البريد الإلكتروني</Typography>
-                                <Typography variant="body1">{linkedUser.email}</Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                    <Button variant="outlined" color="primary" startIcon={<VpnKey />} onClick={handleOpenResetPassword}>تغيير كلمة المرور</Button>
-                                    <Button
-                                        variant="outlined"
-                                        color={isUserActive ? "error" : "success"}
-                                        startIcon={isUserActive ? <Block /> : <CheckCircle />}
-                                        onClick={handleToggleUserStatus}
-                                    >
-                                        {isUserActive ? 'إيقاف الحساب' : 'تفعيل الحساب'}
-                                    </Button>
-                                </Box>
-                            </Grid>
-                        </Grid>
-                    </Paper>
-                ) : (
-                    <Paper variant="outlined" sx={{ p: 3 }}>
-                        <Alert severity="warning" sx={{ mb: 3 }}>
-                            لا يوجد حالياً حساب دخول لهذا المزود. يجب إنشاء حساب واحد فقط للمسؤول عن إدارة بوابة الخدمة.
-                        </Alert>
-
-                        <Grid container spacing={3} maxWidth="sm">
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    required
-                                    label="اسم المستخدم"
-                                    value={userForm.username}
-                                    onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                                    placeholder="مثال: admin_hospital"
-                                    InputProps={{
-                                        startAdornment: <InputAdornment position="start"><Person /></InputAdornment>
-                                    }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    required
-                                    type={showPassword ? "text" : "password"}
-                                    label="كلمة المرور"
-                                    value={userForm.password}
-                                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                                    InputProps={{
-                                        startAdornment: <InputAdornment position="start"><Lock /></InputAdornment>,
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    edge="end"
-                                                >
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    required
-                                    type={showPassword ? "text" : "password"}
-                                    label="تأكيد كلمة المرور"
-                                    value={userForm.confirmPassword}
-                                    onChange={(e) => setUserForm({ ...userForm, confirmPassword: e.target.value })}
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <Button
-                                    variant="contained"
-                                    size="large"
-                                    fullWidth
-                                    onClick={handleCreateUser}
-                                    disabled={!userForm.username || !userForm.password}
-                                >
-                                    إنشاء الحساب وتفعيل الدخول
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    </Paper>
-                )}
+    const renderResponsibleUser = () => (
+        <Box sx={{ p: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                <People color="primary" /> <Typography variant="h5">مدير الحساب ({activeUser ? 'مرتبط' : 'غير مرتبط'})</Typography>
             </Box>
-        );
-    };
-
+            {loadingUser ? <CircularProgress /> : activeUser ? (
+                <Card variant="outlined" sx={{ maxWidth: 600, mx: 'auto', textAlign: 'center', p: 3 }}>
+                    <Avatar sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: 'primary.main', fontSize: 24 }}>{activeUser.fullName?.charAt(0)}</Avatar>
+                    <Typography variant="h5">{activeUser.fullName}</Typography>
+                    <Typography color="text.secondary" gutterBottom>{activeUser.email}</Typography>
+                    <Chip label={activeUser.active ? 'نشط' : 'متوقف'} color={activeUser.active ? 'success' : 'error'} size="small" sx={{ mb: 2 }} />
+                    <Divider sx={{ my: 2 }} />
+                    <Button variant="outlined" color="error" startIcon={<LinkOff />} onClick={handleOpenUnlinkDialog}>فك الارتباط</Button>
+                </Card>
+            ) : (
+                <Paper variant="outlined" sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+                    <Alert severity="warning" sx={{ mb: 3 }}>لا يوجد مدير حساب. يرجى الربط.</Alert>
+                    <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 3 }}>
+                        <Button variant={linkMode === 'LINK' ? 'contained' : 'outlined'} onClick={() => setLinkMode('LINK')} startIcon={<LinkIcon />}>ربط موجود</Button>
+                        <Button variant={linkMode === 'CREATE' ? 'contained' : 'outlined'} onClick={() => setLinkMode('CREATE')} startIcon={<PersonAdd />}>إنشاء جديد</Button>
+                    </Stack>
+                    {linkMode === 'LINK' ? (
+                        <Box sx={{ maxWidth: 500, mx: 'auto' }}>
+                            <Autocomplete
+                                options={unassignedUsers} getOptionLabel={(o) => `${o.fullName} (${o.username})`}
+                                loading={loadingUnassigned} value={selectedUserToLink} onChange={(e, v) => setSelectedUserToLink(v)}
+                                renderInput={(p) => <TextField {...p} label="اختر مستخدماً" />} noOptionsText="لا يوجد مستخدمين"
+                            />
+                            <Button fullWidth variant="contained" sx={{ mt: 2 }} onClick={handleLinkUser} disabled={!selectedUserToLink}>ربط</Button>
+                        </Box>
+                    ) : (
+                        <Grid container spacing={2} maxWidth="sm" sx={{ mx: 'auto' }}>
+                            <Grid item xs={12}><TextField fullWidth label="الاسم الكامل" value={newUserForm.fullName} onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })} /></Grid>
+                            <Grid item xs={12}><TextField fullWidth label="اسم المستخدم" value={newUserForm.username} onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })} /></Grid>
+                            <Grid item xs={12}><TextField fullWidth type="password" label="كلمة المرور" value={newUserForm.password} onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} /></Grid>
+                            <Grid item xs={12}><TextField fullWidth type="password" label="تأكيد" value={newUserForm.confirmPassword} onChange={(e) => setNewUserForm({ ...newUserForm, confirmPassword: e.target.value })} /></Grid>
+                            <Grid item xs={12}><Button fullWidth variant="contained" onClick={handleCreateAndLinkUser}>إنشاء وربط</Button></Grid>
+                        </Grid>
+                    )}
+                </Paper>
+            )}
+        </Box>
+    );
 
     const renderDocuments = () => (
         <Box sx={{ p: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Description color="primary" />
-                    <Typography variant="h5">المستندات والمرفقات</Typography>
-                </Box>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDocDialog({ ...docDialog, open: true })}>إضافة مستند</Button>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                <Box sx={{ display: 'flex' }}><Description color="primary" sx={{ mr: 1 }} /> <Typography variant="h5">المستندات</Typography></Box>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDocDialog({ ...docDialog, open: true })}> إضافة</Button>
             </Box>
-
-            <Alert severity="info" sx={{ mb: 3 }}>
-                يمكنك رفع صور الرخص، السجل التجاري، والشهادات الضريبية.
-            </Alert>
-
             {loadingDocs ? <CircularProgress /> : (
-                <>
-                    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 250 }}>
-                        <Table stickyHeader>
-                            <TableHead sx={{ bgcolor: 'grey.50' }}>
-                                <TableRow>
-                                    <TableCell align="center">نوع المستند</TableCell>
-                                    <TableCell align="center">اسم الملف</TableCell>
-                                    <TableCell align="center">رقم المستند</TableCell>
-                                    <TableCell align="center">الملاحظات</TableCell>
-                                    <TableCell align="center">تاريخ الانتهاء</TableCell>
-                                    <TableCell align="center">الإجراءات</TableCell>
+                <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                        <TableHead><TableRow><TableCell>اسم الملف</TableCell><TableCell>النوع</TableCell><TableCell>تاريخ الانتهاء</TableCell><TableCell>اجراءات</TableCell></TableRow></TableHead>
+                        <TableBody>
+                            {documents.slice(docPage * docRowsPerPage, docPage * docRowsPerPage + docRowsPerPage).map((doc) => (
+                                <TableRow key={doc.id}>
+                                    <TableCell>{doc.fileName}</TableCell>
+                                    <TableCell><Chip label={DOC_TYPE_LABELS[doc.type] || doc.type} size="small" /></TableCell>
+                                    <TableCell>{doc.expiryDate || '-'}</TableCell>
+                                    <TableCell>
+                                        <IconButton size="small" onClick={() => handlePreview(doc)}><Visibility fontSize="small" /></IconButton>
+                                        <IconButton size="small" color="error" onClick={() => setDeleteDocDialog({ open: true, docId: doc.id })}><DeleteIcon fontSize="small" /></IconButton>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {documents.length > 0 ? documents
-                                    .slice(docPage * docRowsPerPage, docPage * docRowsPerPage + docRowsPerPage)
-                                    .map((doc) => (
-                                        <TableRow key={doc.id}>
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={DOC_TYPE_LABELS[doc.type] || doc.type}
-                                                    size="small"
-                                                    color="primary"
-                                                    variant="outlined"
-                                                />
-                                            </TableCell>
-                                            <TableCell align="center" dir="ltr">
-                                                <Stack direction="row" alignItems="center" justifyContent="center" gap={1}>
-                                                    <Description fontSize="small" color="action" />
-                                                    <Typography variant="body2">{doc.fileName}</Typography>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell align="center">{doc.documentNumber || '-'}</TableCell>
-                                            <TableCell align="center">
-                                                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', mx: 'auto' }}>
-                                                    {doc.notes || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                {doc.expiryDate ? (
-                                                    <Chip
-                                                        label={doc.expiryDate}
-                                                        color={new Date(doc.expiryDate) < new Date() ? "error" : "success"}
-                                                        size="small"
-                                                    />
-                                                ) : '-'}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Stack direction="row" justifyContent="center" spacing={1}>
-                                                    <Button
-                                                        size="small"
-                                                        startIcon={<Visibility />}
-                                                        onClick={() => handlePreview(doc)}
-                                                    >
-                                                        معاينة
-                                                    </Button>
-                                                    <Button
-                                                        size="small"
-                                                        color="error"
-                                                        startIcon={<DeleteIcon />}
-                                                        onClick={() => setDeleteDocDialog({ open: true, docId: doc.id })}
-                                                    >
-                                                        حذف
-                                                    </Button>
-                                                </Stack>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} align="center">
-                                            <Typography color="text.secondary">لا توجد مستندات مرفوعة حالياً</Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    <TablePagination
-                        rowsPerPageOptions={[3, 6, 9]}
-                        component="div"
-                        count={documents.length}
-                        rowsPerPage={docRowsPerPage}
-                        page={docPage}
-                        onPageChange={(e, newPage) => setDocPage(newPage)}
-                        onRowsPerPageChange={(e) => {
-                            setDocRowsPerPage(parseInt(e.target.value, 10));
-                            setDocPage(0);
-                        }}
-                        labelRowsPerPage="صفوف لكل صفحة"
-                        labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
-                        showFirstButton
-                        showLastButton
-                        sx={{
-                            direction: 'ltr',
-                            borderTop: '1px solid',
-                            borderColor: 'divider',
-                            '& .MuiToolbar-root': { minHeight: 40, height: 40, pl: 2 },
-                            '& .MuiTablePagination-actions': { marginLeft: 1 },
-                            '& .MuiIconButton-root': { padding: '4px' },
-                            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { m: 0 }
-                        }}
-                    />
-                </>
+                            ))}
+                            {documents.length === 0 && <TableRow><TableCell colSpan={4} align="center">لا يوجد مستندات</TableCell></TableRow>}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             )}
+            <TablePagination
+                rowsPerPageOptions={[3]} component="div" count={documents.length} rowsPerPage={docRowsPerPage} page={docPage}
+                onPageChange={(_, p) => setDocPage(p)} onRowsPerPageChange={(e) => setDocRowsPerPage(parseInt(e.target.value))}
+            />
+        </Box>
+    );
 
-            {/* Preview Dialog */}
-            <Dialog
-                open={previewDialog.open}
-                onClose={() => setPreviewDialog({ ...previewDialog, open: false })}
-                maxWidth="lg"
-                fullWidth
-            >
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {previewDialog.title}
-                    <IconButton onClick={() => setPreviewDialog({ ...previewDialog, open: false })}>
-                        <Block />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ p: 0, height: '80vh', overflow: 'hidden', bgcolor: 'grey.100', position: 'relative' }}>
-                    {previewLoading ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 2 }}>
-                            <CircularProgress />
-                            <Typography variant="body2" color="text.secondary">جاري تحميل المستند للمعاينة...</Typography>
-                        </Box>
-                    ) : (
-                        <>
-                            {previewDialog.url && (previewDialog.url.startsWith('http') || previewDialog.url.startsWith('/api/') || previewDialog.url.startsWith('blob:')) ? (
-                                <iframe
-                                    src={previewDialog.url}
-                                    style={{ width: '100%', height: '100%', border: 'none' }}
-                                    title="Document Preview"
-                                />
-                            ) : (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 2, p: 3, textAlign: 'center' }}>
-                                    <Description sx={{ fontSize: 80, color: 'text.disabled' }} />
-                                    <Typography variant="h6" color="text.secondary">
-                                        المعاينة غير متوفرة
-                                    </Typography>
-                                    <Typography color="text.secondary" sx={{ maxWidth: 400 }}>
-                                        لا يمكن معاينة الملف <strong>{previewDialog.title}</strong> لأنه لم يتم رفعه فعلياً إلى الخادم.
-                                    </Typography>
-                                </Box>
-                            )}
-                        </>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => window.open(previewDialog.url, '_blank')} startIcon={<Visibility />}>
-                        فتح في نافذة جديدة
-                    </Button>
-                    <Button onClick={() => setPreviewDialog({ ...previewDialog, open: false })}>إغلاق</Button>
-                </DialogActions>
-            </Dialog>
+    // ─────────────────────────────────────────────────────────────────────────────
+    // MAIN RENDER
+    // ─────────────────────────────────────────────────────────────────────────────
 
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDocDialog.open} onClose={() => setDeleteDocDialog({ open: false, docId: null })}>
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Warning color="error" /> حذف المستند
+    if (loading) return <CircularProgress />;
+
+    return (
+        <>
+            <ModernPageHeader
+                title="تعديل مقدم الخدمة" subtitle={provider?.name} icon={ProviderIcon}
+                breadcrumbs={[{ label: 'مقدمو الخدمات', path: '/providers' }, { label: 'تعديل' }]}
+                actions={
+                    <Stack direction="row" spacing={2}>
+                        <Button startIcon={<ArrowBack />} onClick={() => navigate('/providers')}>عودة</Button>
+                        <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_PROVIDERS]}>
+                            <Button variant="contained" startIcon={<Save />} onClick={handleSubmit} disabled={updating}>حفظ</Button>
+                        </RBACGuard>
+                    </Stack>
+                }
+            />
+
+            <MainCard>
+                <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                    <Tab icon={<Business />} label="أساسي" iconPosition="start" />
+                    <Tab icon={<LocationOn />} label="موقع" iconPosition="start" />
+                    <Tab icon={<VerifiedUser />} label="عقود" iconPosition="start" />
+                    <Tab icon={<Handshake />} label="شركاء" iconPosition="start" />
+                    <Tab icon={<People />} label="مدير الحساب" iconPosition="start" />
+                    <Tab icon={<Description />} label="مستندات" iconPosition="start" />
+                </Tabs>
+                <Box sx={{ minHeight: 400 }}>
+                    {activeTab === 0 && renderBasicInfo()}
+                    {activeTab === 1 && renderLocationContact()}
+                    {activeTab === 2 && renderContractInfo()}
+                    {activeTab === 3 && renderPartners()}
+                    {activeTab === 4 && renderResponsibleUser()}
+                    {activeTab === 5 && renderDocuments()}
+                </Box>
+            </MainCard>
+
+            {/* Dialogs */}
+            {/* Unlink Strict Confirmation Dialog */}
+            <Dialog open={unlinkDialog.open} onClose={() => setUnlinkDialog({ open: false, confirmationText: '' })}>
+                <DialogTitle sx={{ color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Warning /> تأكيد فك ارتباط المسؤول
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText>
-                        هل أنت متأكد من رغبتك في حذف هذا المستند؟ لا يمكن التراجع عن هذا الإجراء.
+                    <DialogContentText sx={{ mb: 2 }}>
+                        هل أنت متأكد من رغبتك في فك ارتباط المستخدم <strong>{activeUser?.fullName}</strong> ({activeUser?.username})؟
+                        <br />
+                        سيؤدي هذا إلى إيقاف وصوله إلى لوحة تحكم هذا المزود فوراً.
                     </DialogContentText>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        للتأكيد، يرجى كتابة اسم المستخدم: <strong>{activeUser?.username}</strong>
+                    </Alert>
+                    <TextField
+                        fullWidth
+                        autoFocus
+                        label="اكتب اسم المستخدم للتأكيد"
+                        value={unlinkDialog.confirmationText}
+                        onChange={(e) => setUnlinkDialog({ ...unlinkDialog, confirmationText: e.target.value })}
+                        placeholder={activeUser?.username}
+                        error={unlinkDialog.confirmationText !== '' && unlinkDialog.confirmationText !== activeUser?.username}
+                    />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteDocDialog({ open: false, docId: null })}>إلغاء</Button>
-                    <Button onClick={handleConfirmDeleteDoc} variant="contained" color="error">حذف</Button>
+                    <Button onClick={() => setUnlinkDialog({ open: false, confirmationText: '' })}>إلغاء</Button>
+                    <Button
+                        onClick={handleConfirmUnlink}
+                        variant="contained"
+                        color="error"
+                        disabled={unlinkDialog.confirmationText !== activeUser?.username}
+                    >
+                        تأكيد فك الارتباط
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Add Document Dialog */}
+            {/* Dialogs */}
+            {/* Unlink Strict Confirmation Dialog */}
+            <Dialog open={unlinkDialog.open} onClose={() => setUnlinkDialog({ open: false, confirmationText: '' })}>
+                <DialogTitle sx={{ color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Warning /> تأكيد فك ارتباط المسؤول
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        هل أنت متأكد من رغبتك في فك ارتباط المستخدم <strong>{activeUser?.fullName}</strong> ({activeUser?.username})؟
+                        <br />
+                        سيؤدي هذا إلى إيقاف وصوله إلى لوحة تحكم هذا المزود فوراً.
+                    </DialogContentText>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        للتأكيد، يرجى كتابة اسم المستخدم: <strong>{activeUser?.username}</strong>
+                    </Alert>
+                    <TextField
+                        fullWidth
+                        autoFocus
+                        label="اكتب اسم المستخدم للتأكيد"
+                        value={unlinkDialog.confirmationText}
+                        onChange={(e) => setUnlinkDialog({ ...unlinkDialog, confirmationText: e.target.value })}
+                        placeholder={activeUser?.username}
+                        error={unlinkDialog.confirmationText !== '' && unlinkDialog.confirmationText !== activeUser?.username}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setUnlinkDialog({ open: false, confirmationText: '' })}>إلغاء</Button>
+                    <Button
+                        onClick={handleConfirmUnlink}
+                        variant="contained"
+                        color="error"
+                        disabled={unlinkDialog.confirmationText !== activeUser?.username}
+                    >
+                        تأكيد فك الارتباط
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+                <DialogTitle>تأكيد</DialogTitle>
+                <DialogContent><DialogContentText>هل أنت متأكد من تغيير الصلاحية؟</DialogContentText></DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>إلغاء</Button>
+                    <Button onClick={handleConfirmToggle} variant="contained">تأكيد</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={deleteDocDialog.open} onClose={() => setDeleteDocDialog({ open: false, docId: null })}>
+                <DialogTitle>حذف المستند</DialogTitle>
+                <DialogContent><DialogContentText>هل أنت متأكد؟</DialogContentText></DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDocDialog({ open: false, docId: null })}>إلغاء</Button>
+                    <Button onClick={handleConfirmDeleteDoc} color="error" variant="contained">حذف</Button>
+                </DialogActions>
+            </Dialog>
+
             <Dialog open={docDialog.open} onClose={() => setDocDialog({ ...docDialog, open: false })}>
-                <DialogTitle>إضافة مستند جديد</DialogTitle>
-                <DialogContent sx={{ pt: 2, minWidth: 400 }}>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            select
-                            label="نوع المستند"
-                            fullWidth
-                            value={docDialog.type}
-                            onChange={(e) => setDocDialog({ ...docDialog, type: e.target.value })}
-                        >
-                            <MenuItem value="LICENSE">رخصة مزاولة مهنة</MenuItem>
-                            <MenuItem value="COMMERCIAL_REGISTER">سجل تجاري</MenuItem>
-                            <MenuItem value="TAX_CERTIFICATE">شهادة ضريبية</MenuItem>
-                            <MenuItem value="CONTRACT_COPY">نسخة العقد</MenuItem>
-                            <MenuItem value="OTHER">أخرى</MenuItem>
+                <DialogTitle>إضافة مستند</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1, minWidth: 400 }}>
+                        <TextField select label="النوع" value={docDialog.type} onChange={(e) => setDocDialog({ ...docDialog, type: e.target.value })}>
+                            {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
                         </TextField>
-
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                            المرفق: مسموح فقط بملفات PDF أو صور (JPG, PNG) بحد أقصى 10 ميجا بايت.
-                        </Typography>
-
-                        <Button
-                            variant="outlined"
-                            component="label"
-                            startIcon={docDialog.fileName ? <CheckCircle /> : <AddIcon />}
-                            color={docDialog.fileName ? 'success' : 'primary'}
-                            fullWidth
-                            sx={{ height: 56, justifyContent: 'flex-start', px: 2, borderStyle: docDialog.fileName ? 'solid' : 'dashed' }}
-                        >
-                            {docDialog.fileName || 'اختر ملف PDF أو صورة...'}
-                            <input
-                                type="file"
-                                hidden
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                        const file = e.target.files[0];
-
-                                        // Validate size (10MB)
-                                        if (file.size > 10 * 1024 * 1024) {
-                                            enqueueSnackbar('حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت', { variant: 'error' });
-                                            e.target.value = null;
-                                            return;
-                                        }
-
-                                        // Validate type
-                                        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-                                        if (!allowedTypes.includes(file.type)) {
-                                            enqueueSnackbar('نوع الملف غير مدعوم. يرجى رفع PDF أو صور فقط', { variant: 'error' });
-                                            e.target.value = null;
-                                            return;
-                                        }
-
-                                        setDocDialog({
-                                            ...docDialog,
-                                            fileName: file.name,
-                                            file: file
-                                        });
-                                    }
-                                }}
-                            />
+                        <Button variant="outlined" component="label">
+                            {docDialog.fileName || 'اختر ملف'}
+                            <input type="file" hidden onChange={(e) => e.target.files[0] && setDocDialog({ ...docDialog, fileName: e.target.files[0].name, file: e.target.files[0] })} />
                         </Button>
-
-                        <TextField
-                            type="date"
-                            label="تاريخ الانتهاء"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            value={docDialog.expiryDate}
-                            onChange={(e) => setDocDialog({ ...docDialog, expiryDate: e.target.value })}
-                        />
-
-                        <TextField
-                            label="ملاحظات"
-                            fullWidth
-                            multiline
-                            rows={2}
-                            value={docDialog.notes}
-                            onChange={(e) => setDocDialog({ ...docDialog, notes: e.target.value })}
-                        />
+                        <TextField type="date" label="تاريخ الانتهاء" InputLabelProps={{ shrink: true }} value={docDialog.expiryDate} onChange={(e) => setDocDialog({ ...docDialog, expiryDate: e.target.value })} />
+                        <TextField label="ملاحظات" value={docDialog.notes} onChange={(e) => setDocDialog({ ...docDialog, notes: e.target.value })} />
                     </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -1157,106 +810,12 @@ const ProviderEdit = () => {
                     <Button onClick={handleAddDocument} variant="contained">حفظ</Button>
                 </DialogActions>
             </Dialog>
-        </Box >
-    );
-
-    if (loading) return <CircularProgress />;
-
-    return (
-        <>
-            <ModernPageHeader
-                title="تعديل بيانات مقدم الخدمة"
-                subtitle={provider?.name || '...'}
-                icon={ProviderIcon}
-                breadcrumbs={[{ label: 'مقدمو الخدمات', path: '/providers' }, { label: 'تعديل' }]}
-                actions={
-                    <Stack direction="row" spacing={2}>
-                        <Button startIcon={<ArrowBack />} onClick={() => navigate('/providers')} disabled={updating}>عودة</Button>
-                        <RBACGuard requiredPermissions={[PERMISSIONS.MANAGE_PROVIDERS]}>
-                            <Button variant="contained" startIcon={<Save />} onClick={handleSubmit} disabled={updating}>
-                                {updating ? 'جاري الحفظ...' : 'حفظ التعديلات'}
-                            </Button>
-                        </RBACGuard>
-                    </Stack>
-                }
-            />
-
-            <MainCard>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                    <Tabs value={activeTab} onChange={handleTabChange}>
-                        <Tab icon={<Business />} label="البيانات الأساسية" iconPosition="start" />
-                        <Tab icon={<LocationOn />} label="الموقع والتواصل" iconPosition="start" />
-                        <Tab icon={<VerifiedUser />} label="العقود" iconPosition="start" />
-                        <Tab icon={<Handshake />} label="الصلاحيات والشركاء" iconPosition="start" />
-                        <Tab icon={<People />} label="حسابات المستخدمين" iconPosition="start" />
-                        <Tab icon={<Description />} label="المستندات" iconPosition="start" />
-                    </Tabs>
-                </Box>
-                <Box sx={{ mb: 4, minHeight: 400 }}>
-                    <Box hidden={activeTab !== 0}>{activeTab === 0 && renderBasicInfo()}</Box>
-                    <Box hidden={activeTab !== 1}>{activeTab === 1 && renderLocationContact()}</Box>
-                    <Box hidden={activeTab !== 2}>{activeTab === 2 && renderContractInfo()}</Box>
-                    <Box hidden={activeTab !== 3}>{activeTab === 3 && renderPartners()}</Box>
-                    <Box hidden={activeTab !== 4}>{activeTab === 4 && renderUsers()}</Box>
-                    <Box hidden={activeTab !== 5}>{activeTab === 5 && renderDocuments()}</Box>
-                </Box>
-            </MainCard>
-
-            <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}>
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Warning color="warning" /> تحديد صلاحية استقبال البطاقات
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        هل تريد {confirmDialog.action === 'enable' ? 'السماح' : 'إيقاف'} لمقدم الخدمة باستقبال بطاقات <strong>{confirmDialog.payerName}</strong>؟
-                        <br />
-                        <small>يتم التحقق من هذه الصلاحية عند كل عملية استقبال مريض.</small>
-                    </DialogContentText>
+            <Dialog open={previewDialog.open} onClose={() => setPreviewDialog({ ...previewDialog, open: false })} maxWidth="lg" fullWidth>
+                <DialogTitle>{previewDialog.title}</DialogTitle>
+                <DialogContent sx={{ height: '80vh' }}>
+                    {previewDialog.url && <iframe src={previewDialog.url} style={{ width: '100%', height: '100%', border: 'none' }} title="preview" />}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>إلغاء</Button>
-                    <Button onClick={handleConfirmToggle} variant="contained" color="primary">تأكيد</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Password Reset Dialog */}
-            <Dialog open={resetPasswordDialog.open} onClose={() => setResetPasswordDialog({ ...resetPasswordDialog, open: false })}>
-                <DialogTitle>تغيير كلمة المرور</DialogTitle>
-                <DialogContent>
-                    <DialogContentText sx={{ mb: 2 }}>
-                        يرجى إدخال كلمة المرور الجديدة للمستخدم <strong>{linkedUser?.username}</strong>.
-                    </DialogContentText>
-                    <Stack spacing={2}>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            label="كلمة المرور الجديدة"
-                            type="password"
-                            fullWidth
-                            value={resetPasswordDialog.newPassword}
-                            onChange={(e) => setResetPasswordDialog({ ...resetPasswordDialog, newPassword: e.target.value })}
-                        />
-                        <TextField
-                            margin="dense"
-                            label="تأكيد كلمة المرور"
-                            type="password"
-                            fullWidth
-                            value={resetPasswordDialog.confirmPassword}
-                            onChange={(e) => setResetPasswordDialog({ ...resetPasswordDialog, confirmPassword: e.target.value })}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setResetPasswordDialog({ ...resetPasswordDialog, open: false })}>إلغاء</Button>
-                    <Button
-                        onClick={handleSubmitResetPassword}
-                        variant="contained"
-                        color="primary"
-                        disabled={!resetPasswordDialog.newPassword || resetPasswordDialog.newPassword !== resetPasswordDialog.confirmPassword}
-                    >
-                        تغيير كلمة المرور
-                    </Button>
-                </DialogActions>
+                <DialogActions><Button onClick={() => setPreviewDialog({ ...previewDialog, open: false })}>إغلاق</Button></DialogActions>
             </Dialog>
         </>
     );

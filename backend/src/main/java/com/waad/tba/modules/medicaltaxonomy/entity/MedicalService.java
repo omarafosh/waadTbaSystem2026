@@ -44,8 +44,10 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class MedicalService {
+@lombok.experimental.SuperBuilder
+@org.hibernate.annotations.SQLDelete(sql = "UPDATE medical_services SET active = false WHERE id = ?")
+@org.hibernate.annotations.Where(clause = "active = true")
+public class MedicalService extends com.waad.tba.common.entity.SoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -118,35 +120,18 @@ public class MedicalService {
     @Column(name = "requires_pa", nullable = false)
     private boolean requiresPA = true;
 
-    /**
-     * Soft delete flag
-     */
-    @Column(nullable = false)
-    private boolean active = true;
+    // active, createdAt, updatedAt are inherited from SoftDeleteEntity
 
-    /**
-     * Audit: creation timestamp
-     */
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    /**
-     * Audit: last update timestamp
-     */
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    void onCreate() {
+    @Override
+    protected void onCreate() {
         validateArchitecturalRules();
-        createdAt = LocalDateTime.now();
-        updatedAt = createdAt;
+        super.onCreate();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    protected void onUpdate() {
         validateArchitecturalRules();
-        updatedAt = LocalDateTime.now();
+        super.onUpdate();
     }
 
     /**

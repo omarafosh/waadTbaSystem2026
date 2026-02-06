@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
@@ -298,16 +298,13 @@ const PreApprovalCreate = () => {
           const data = response.data?.data || response.data;
           const items = Array.isArray(data) ? data : (data?.content || data?.items || []);
 
-          if (items.length === 0) {
-            console.log('✅ No services require pre-approval for this member');
-            setMedicalServices([]);
+          if (items.length === 0) {setMedicalServices([]);
             return;
           }
 
           // Map to standard service format
           const mappedServices = items.map(item => {
-            const serviceId = item.medicalServiceId || item.id;
-            console.log(`📋 PreAuth Service (requires PA): ${item.serviceCode}, medicalServiceId=${item.medicalServiceId}, price=${item.contractPrice}`);
+            const serviceId = item.medicalServiceId || item.id;: ${item.serviceCode}, medicalServiceId=${item.medicalServiceId}, price=${item.contractPrice}`);
             return {
               id: serviceId,  // MUST be MedicalService ID
               pricingItemId: item.id,
@@ -320,10 +317,7 @@ const PreApprovalCreate = () => {
               hasContract: true,
               displayLabel: `${item.serviceCode} - ${item.serviceName}`
             };
-          });
-
-          console.log(`✅ Loaded ${mappedServices.length} services requiring pre-approval`);
-          setMedicalServices(mappedServices);
+          });setMedicalServices(mappedServices);
         } catch (providerErr) {
           console.error('Error fetching services requiring pre-auth:', providerErr);
           showErrorToast('فشل في تحميل خدمات الموافقة المسبقة');
@@ -445,11 +439,7 @@ const PreApprovalCreate = () => {
       showInfoToast('الخدمة مضافة مسبقاً');
       setServiceSearch(null);
       return;
-    }
-
-    console.log('📋 Adding service:', { id: newValue.id, code: newValue.code, name: newValue.name, price: newValue.price });
-
-    // OPTIMIZATION: Use price from pre-loaded service if available
+    }// OPTIMIZATION: Use price from pre-loaded service if available
     let serviceWithPrice = newValue;
     if (!newValue.hasContract || newValue.price === undefined) {
       serviceWithPrice = await fetchServicePrice(newValue);

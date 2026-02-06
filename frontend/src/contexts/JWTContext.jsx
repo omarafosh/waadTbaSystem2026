@@ -1,4 +1,4 @@
-import { createContext, useEffect, useReducer, useCallback, useContext } from 'react';
+﻿import { createContext, useEffect, useReducer, useCallback, useContext } from 'react';
 /**
  * ⚠️ DEPRECATED - DO NOT USE IN NEW CODE
  *
@@ -57,15 +57,11 @@ const setSession = (token) => {
     localStorage.setItem('serviceToken', token);
     if (!axios.defaults.headers) axios.defaults.headers = {};
     if (!axios.defaults.headers.common) axios.defaults.headers.common = {};
-    axios.defaults.headers.common.Authorization = `Bearer ${token}`;
-    console.log('✅ Session token set');
-  } else {
+    axios.defaults.headers.common.Authorization = `Bearer ${token}`;} else {
     localStorage.removeItem('serviceToken');
     if (axios.defaults.headers?.common?.Authorization) {
       delete axios.defaults.headers.common.Authorization;
-    }
-    console.log('🗑️ Session token cleared');
-  }
+    }}
 };
 
 // ==============================|| CONTEXT ||============================== //
@@ -78,36 +74,21 @@ export const JWTProvider = ({ children }) => {
   // ==============================|| INITIALIZATION - FIXED ||============================== //
 
   useEffect(() => {
-    const init = async () => {
-      console.log('🔄 JWTContext: Starting initialization...');
-
-      try {
+    const init = async () => {try {
         const token = localStorage.getItem('serviceToken');
 
-        if (token && verifyToken(token)) {
-          console.log('✅ Valid token found, fetching user data...');
-          setSession(token);
+        if (token && verifyToken(token)) {setSession(token);
 
           const response = await axios.get('/auth/me');
-          const userData = response.data.data;
-
-          console.log('✅ User data fetched:', userData);
-
-          // CRITICAL FIX: Initialize RBAC store with userData
-          useRBACStore.getState().initialize(userData);
-          console.log('✅ RBAC store initialized');
-
-          dispatch({
+          const userData = response.data.data;// CRITICAL FIX: Initialize RBAC store with userData
+          useRBACStore.getState().initialize(userData);dispatch({
             type: LOGIN,
             payload: {
               user: userData,
               roles: userData.roles || [],
               permissions: userData.permissions || []
             }
-          });
-
-          console.log('✅ JWTContext initialization complete');
-        } else {
+          });} else {
           console.warn('⚠️ No valid token found, user not logged in');
 
           // CRITICAL FIX: Still initialize RBAC with empty state
@@ -130,26 +111,16 @@ export const JWTProvider = ({ children }) => {
 
   // ==============================|| LOGIN - FIXED ||============================== //
 
-  const login = async (identifier, password) => {
-    console.log('🔄 Login attempt for:', identifier);
-
-    try {
+  const login = async (identifier, password) => {try {
       const response = await axios.post('/auth/login', {
         identifier,
         password
       });
 
-      const { token, user: userData } = response.data.data;
-
-      console.log('✅ Login successful:', userData);
-
-      setSession(token);
+      const { token, user: userData } = response.data.data;setSession(token);
 
       // CRITICAL FIX: Initialize RBAC store with fresh userData
-      useRBACStore.getState().initialize(userData);
-      console.log('✅ RBAC store initialized after login');
-
-      dispatch({
+      useRBACStore.getState().initialize(userData);dispatch({
         type: LOGIN,
         payload: {
           user: userData,
@@ -159,10 +130,7 @@ export const JWTProvider = ({ children }) => {
       });
 
       // Get redirect path based on role
-      const redirectPath = getRedirectPath(userData.roles);
-      console.log('✅ Login complete, redirecting to:', redirectPath);
-
-      return redirectPath;
+      const redirectPath = getRedirectPath(userData.roles);return redirectPath;
     } catch (err) {
       console.error('❌ Login failed:', err);
       throw err;
@@ -171,20 +139,12 @@ export const JWTProvider = ({ children }) => {
 
   // ==============================|| LOGOUT - FIXED ||============================== //
 
-  const logout = () => {
-    console.log('🔄 Logout initiated...');
-
-    setSession(null);
+  const logout = () => {setSession(null);
 
     // CRITICAL FIX: Clear RBAC store
-    useRBACStore.getState().clear();
-    console.log('✅ RBAC store cleared');
+    useRBACStore.getState().clear();dispatch({ type: LOGOUT });
 
-    dispatch({ type: LOGOUT });
-
-    // Hard redirect to login to ensure clean state
-    console.log('🔄 Redirecting to /login...');
-    window.location.href = '/login';
+    // Hard redirect to login to ensure clean statewindow.location.href = '/login';
   };
 
   // ==============================|| REDIRECT LOGIC - FIXED ||============================== //
@@ -199,26 +159,14 @@ export const JWTProvider = ({ children }) => {
     if (!roles || roles.length === 0) {
       console.warn('⚠️ No roles found, redirecting to profile');
       return '/profile';
+    }// Priority order for roles (Phase 1.5 role names)
+    if (roles.includes('ADMIN')) {return '/dashboard';
     }
-
-    console.log('🔄 Determining redirect path for roles:', roles);
-
-    // Priority order for roles (Phase 1.5 role names)
-    if (roles.includes('ADMIN')) {
-      console.log('✅ ADMIN role detected, redirecting to /dashboard');
-      return '/dashboard';
+    if (roles.includes('INSURANCE_COMPANY')) {return '/dashboard';
     }
-    if (roles.includes('INSURANCE_COMPANY')) {
-      console.log('✅ INSURANCE_COMPANY role detected, redirecting to /dashboard');
-      return '/dashboard';
+    if (roles.includes('EMPLOYER')) {return '/members';
     }
-    if (roles.includes('EMPLOYER')) {
-      console.log('✅ EMPLOYER role detected, redirecting to /members');
-      return '/members';
-    }
-    if (roles.includes('REVIEWER')) {
-      console.log('✅ REVIEWER role detected, redirecting to /claims');
-      return '/claims';
+    if (roles.includes('REVIEWER')) {return '/claims';
     }
 
     // Default fallback

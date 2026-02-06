@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unified Members List Page
  * 
  * Displays all members (Principals and Dependents) with pagination, sorting, and filtering.
@@ -68,7 +68,7 @@ import {
 import { useSnackbar } from 'notistack';
 
 import MainCard from 'components/MainCard';
-import { GenericDataTable, ModernPageHeader, MemberAvatar } from 'components/tba';
+import { GenericDataTable, ModernPageHeader, MemberAvatar, RBACGuard } from 'components/tba';
 import DataImportWizard from 'components/ExcelImport/DataImportWizard';
 import DataExportWizard from 'components/tba/DataExportWizard';
 import { useTableState } from 'hooks/useTableState';
@@ -90,7 +90,8 @@ import {
   MEMBER_STATUSES
 } from 'services/api/unified-members.service';
 import axiosClient from 'utils/axios';
-import RBACGuard from 'components/tba/RBACGuard';
+import { useAuth } from 'contexts/AuthContext';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 import { PERMISSIONS } from 'constants/permissions.constants';
 
 const DEFAULT_SORT = { field: 'createdAt', direction: 'desc' };
@@ -101,6 +102,8 @@ const DEFAULT_SORT = { field: 'createdAt', direction: 'desc' };
 const UnifiedMembersList = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const { user } = useAuth();
+  const { refreshKey } = useTableRefresh();
 
   // Table State Management
   const tableState = useTableState({
@@ -415,20 +418,21 @@ const UnifiedMembersList = () => {
                 </IconButton>
               </Tooltip>
             </>
-          )}
+          )
+          }
         </Stack>
       )
     }
   ], [navigate, showDeleted]);
 
-  // Fetch data on mount and filter change
+  // Fetch data on mount, filter change, OR refresh event
   useEffect(() => {
     fetchMembers();
-  }, [page, pageSize, filters, showDeleted, sorting]);
+  }, [page, pageSize, filters, showDeleted, sorting, refreshKey, user]);
 
   useEffect(() => {
     fetchEmployers();
-  }, []);
+  }, [user]);
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {
@@ -513,11 +517,7 @@ const UnifiedMembersList = () => {
           sort: sortField,
           direction: sortDirection
         });
-      }
-
-      console.log('Members response:', response);
-
-      // Unified handling for both Page object and ApiResponse wrapper
+      }// Unified handling for both Page object and ApiResponse wrapper
       const pageData = response?.data || response;
       const data = pageData?.content || [];
       const total = pageData?.totalElements || 0;

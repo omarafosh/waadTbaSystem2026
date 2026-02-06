@@ -7,6 +7,7 @@ const ProviderEligibilityCheck = Loadable(lazy(() => import('pages/provider/Prov
 const ProviderVisitLog = Loadable(lazy(() => import('pages/provider/ProviderVisitLog')));
 const ProviderClaimsSubmission = Loadable(lazy(() => import('pages/provider/ProviderClaimsSubmission')));
 const ProviderPreApprovalSubmission = Loadable(lazy(() => import('pages/provider/ProviderPreApprovalSubmission')));
+const ProviderDocuments = Loadable(lazy(() => import('pages/provider/ProviderDocuments')));
 
 const PORTAL_ROLES = ['PROVIDER', 'SUPER_ADMIN', 'INSURANCE_ADMIN'];
 
@@ -31,6 +32,11 @@ const ProviderPortalRoutes = {
         createRoute({
             path: 'pre-approvals/submit',
             element: ProviderPreApprovalSubmission,
+            roles: PORTAL_ROLES
+        }),
+        createRoute({
+            path: 'documents',
+            element: ProviderDocuments,
             roles: PORTAL_ROLES
         })
     ]

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GenericDataTable - Reusable Table Component with TanStack React Table
  * 
  * A fully-featured, customizable data table component built with @tanstack/react-table
@@ -18,7 +18,7 @@
  *   totalCount={100}
  *   isLoading={false}
  *   tableState={tableState}
- *   onRowClick={(row) => console.log(row)}
+ *   onRowClick={(row) =>}
  * />
  */
 

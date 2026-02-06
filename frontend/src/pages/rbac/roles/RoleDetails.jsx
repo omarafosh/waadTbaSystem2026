@@ -373,7 +373,7 @@ const RoleDetails = () => {
         }
         content={false}
       >
-        <TableContainer>
+        <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
           <Table sx={{ minWidth: 800 }}>
             <TableHead sx={{ bgcolor: 'grey.50' }}>
               <TableRow>

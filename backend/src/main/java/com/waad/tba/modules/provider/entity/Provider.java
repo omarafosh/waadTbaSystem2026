@@ -71,10 +71,12 @@ public class Provider {
     private BigDecimal defaultDiscountRate;
 
     /**
-     * Allow all employers (global network access)
-     * If true, provider can serve all employers without specific contract per employer
-     * السماح لجميع الجهات (شبكة عامة)
+     * TPA Model: Specific employers allowed for this provider
+     * (Without a formal contract for each)
      */
+    @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProviderAllowedEmployer> allowedEmployers = new ArrayList<>();
     @Column(name = "allow_all_employers", nullable = false)
     @Builder.Default
     private Boolean allowAllEmployers = false;
@@ -94,12 +96,7 @@ public class Provider {
     @Builder.Default
     private List<ProviderContract> contracts = new ArrayList<>();
 
-    /**
-     * TPA Model: Specific list of employers this provider is allowed to serve.
-     */
-    @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<ProviderAllowedEmployer> allowedEmployers = new ArrayList<>();
+
 
 
 

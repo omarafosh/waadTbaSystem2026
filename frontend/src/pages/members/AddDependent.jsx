@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Add Dependent Page
  * 
  * Adds a new Dependent to an existing Principal member.
@@ -157,11 +157,7 @@ const AddDependent = () => {
         birthDate: form.birthDate ? dayjs(form.birthDate).format('YYYY-MM-DD') : null,
         gender: form.gender,
         relationship: form.relationship
-      };
-
-      console.log('Adding dependent with payload:', payload);
-
-      const response = await addDependent(principalId, payload);
+      };const response = await addDependent(principalId, payload);
       const createdMember = response?.data || response;
 
       // Upload photo if selected

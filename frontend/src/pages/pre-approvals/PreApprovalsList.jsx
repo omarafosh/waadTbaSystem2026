@@ -89,6 +89,12 @@ const PreApprovalsList = () => {
   // Load Providers for Filter
   useEffect(() => {
     const loadProviders = async () => {
+      // Security Check: Providers cannot access getSelector endpoint
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user?.roles?.includes('PROVIDER')) {
+        return; // Skip fetching for providers
+      }
+
       try {
         const data = await providersService.getSelector(); // Uses /api/providers/selector
         // Map to format strings or objects as needed by TbaDataTable/MRT
@@ -172,136 +178,162 @@ const PreApprovalsList = () => {
   // COLUMN DEFINITIONS
   // ========================================
 
+  // ========================================
+  // COLUMN DEFINITIONS
+  // ========================================
+
   const columns = useMemo(
-    () => [
-      // Reference Number Column
-      {
-        accessorKey: 'referenceNumber',
-        header: '#',
-        size: 100,
-        muiTableHeadCellProps: { align: 'center' },
-        muiTableBodyCellProps: { align: 'center' },
-        Cell: ({ row }) => <Typography variant="subtitle2">{row.original?.referenceNumber ?? `PA-${row.original?.id}` ?? '-'}</Typography>
-      },
+    () => {
+      // Check if user is PROVIDER to conditionally hide Provider Name filter
+      // (Providers only see their own data, so filter is redundant/security risk if endpoint blocked)
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const isProvider = user?.roles?.includes('PROVIDER');
 
-      // Member Column
-      {
-        accessorKey: 'memberName',
-        header: 'المؤمَّن عليه',
-        size: 180,
-        Cell: ({ row }) => {
-          const preApproval = row.original;
-          return <Typography variant="body2">{preApproval?.memberName ?? preApproval?.memberFullName ?? '-'}</Typography>;
+      return [
+        // Reference Number Column
+        {
+          accessorKey: 'referenceNumber',
+          header: '#',
+          size: 100,
+          muiTableHeadCellProps: { align: 'center' },
+          muiTableBodyCellProps: { align: 'center' },
+          Cell: ({ row }) => <Typography variant="subtitle2">{row.original?.referenceNumber ?? `PA-${row.original?.id}` ?? '-'}</Typography>
+        },
+
+        // Member Column
+        {
+          accessorKey: 'memberName',
+          header: 'المؤمَّن عليه',
+          size: 180,
+          Cell: ({ row }) => {
+            const preApproval = row.original;
+            return <Typography variant="body2">{preApproval?.memberName ?? preApproval?.memberFullName ?? '-'}</Typography>;
+          }
+        },
+
+        // Provider Column (Hide filter for providers, but show column)
+        {
+          accessorKey: 'providerName',
+          header: 'مقدم الخدمة',
+          size: 150,
+          enableColumnFilter: !isProvider, // Disable filter for providers
+          filterVariant: !isProvider ? 'select' : undefined,
+          filterSelectOptions: !isProvider ? providerOptions : undefined,
+          Cell: ({ row }) => <Typography variant="body2">{row.original?.providerName ?? '-'}</Typography>
+        },
+
+        // Service Column
+        {
+          accessorKey: 'serviceName',
+          header: 'الخدمة',
+          size: 150,
+          Cell: ({ row }) => <Typography variant="body2">{row.original?.serviceName ?? row.original?.serviceCode ?? '-'}</Typography>
+        },
+
+        // Priority Column
+        {
+          accessorKey: 'priority',
+          header: 'الأولوية',
+          size: 100,
+          muiTableHeadCellProps: { align: 'center' },
+          muiTableBodyCellProps: { align: 'center' },
+          enableSorting: false,
+          Cell: ({ row }) => <PriorityBadge priority={row.original?.priority ?? 'ROUTINE'} size="small" variant="chip" language="ar" />
+        },
+
+        // Contract Price Column
+        {
+          accessorKey: 'contractPrice',
+          header: 'سعر العقد',
+          size: 130,
+          muiTableHeadCellProps: { align: 'right' },
+          muiTableBodyCellProps: { align: 'right' },
+          Cell: ({ row }) => (
+            <Typography variant="body2" fontWeight={500}>
+              {formatCurrency(row.original?.contractPrice ?? row.original?.requestedAmount)}
+            </Typography>
+          )
+        },
+
+        // Approved Amount Column
+        {
+          accessorKey: 'approvedAmount',
+          header: 'المبلغ الموافق عليه',
+          size: 140,
+          muiTableHeadCellProps: { align: 'right' },
+          muiTableBodyCellProps: { align: 'right' },
+          Cell: ({ row }) => (
+            <Typography variant="body2" fontWeight={500} color="success.main">
+              {formatCurrency(row.original?.approvedAmount)}
+            </Typography>
+          )
+        },
+
+        // Status Column
+        {
+          accessorKey: 'status',
+          header: 'الحالة',
+          size: 120,
+          muiTableHeadCellProps: { align: 'center' },
+          muiTableBodyCellProps: { align: 'center' },
+          Cell: ({ row }) => {
+            const status = row.original?.status;
+            const mappedStatus = PREAPPROVAL_STATUS_MAP[status] || status || 'PENDING';
+            return <CardStatusBadge status={mappedStatus} size="small" language="ar" />;
+          }
+        },
+
+        // Actions Column
+        {
+          id: 'actions',
+          header: 'الإجراءات',
+          size: 130,
+          enableSorting: false,
+          enableHiding: false,
+          enableColumnFilter: false,
+          muiTableHeadCellProps: { align: 'center' },
+          muiTableBodyCellProps: { align: 'center' },
+          Cell: ({ row }) => (
+            <Stack direction="row" spacing={0.5} justifyContent="center">
+              <Tooltip title="عرض">
+                <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Providers/Admins - conditionally show edit */}
+              {/* Note: Edit logic handled inside the page usually, valid here */}
+              <Tooltip title="تعديل">
+                <span>
+                  <IconButton
+                    size="small"
+                    color="info"
+                    onClick={() => handleNavigateEdit(row.original?.id)}
+                    disabled={row.original?.status !== 'PENDING' && row.original?.status !== 'REQUESTED'}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="حذف">
+                <span>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(row.original?.id)}
+                    disabled={row.original?.status !== 'PENDING' && row.original?.status !== 'REQUESTED'}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
+          )
         }
-      },
-
-      // NOTE: Insurance Company column REMOVED - No InsuranceCompany concept in backend
-
-      // Provider Column
-      {
-        accessorKey: 'providerName',
-        header: 'مقدم الخدمة',
-        size: 150,
-        filterVariant: 'select',
-        filterSelectOptions: providerOptions,
-        Cell: ({ row }) => <Typography variant="body2">{row.original?.providerName ?? '-'}</Typography>
-      },
-
-      // Service Column
-      {
-        accessorKey: 'serviceName',
-        header: 'الخدمة',
-        size: 150,
-        Cell: ({ row }) => <Typography variant="body2">{row.original?.serviceName ?? row.original?.serviceCode ?? '-'}</Typography>
-      },
-
-      // Priority Column
-      {
-        accessorKey: 'priority',
-        header: 'الأولوية',
-        size: 100,
-        muiTableHeadCellProps: { align: 'center' },
-        muiTableBodyCellProps: { align: 'center' },
-        enableSorting: false,
-        Cell: ({ row }) => <PriorityBadge priority={row.original?.priority ?? 'ROUTINE'} size="small" variant="chip" language="ar" />
-      },
-
-      // Contract Price Column
-      {
-        accessorKey: 'contractPrice',
-        header: 'سعر العقد',
-        size: 130,
-        muiTableHeadCellProps: { align: 'right' },
-        muiTableBodyCellProps: { align: 'right' },
-        Cell: ({ row }) => (
-          <Typography variant="body2" fontWeight={500}>
-            {formatCurrency(row.original?.contractPrice ?? row.original?.requestedAmount)}
-          </Typography>
-        )
-      },
-
-      // Approved Amount Column
-      {
-        accessorKey: 'approvedAmount',
-        header: 'المبلغ الموافق عليه',
-        size: 140,
-        muiTableHeadCellProps: { align: 'right' },
-        muiTableBodyCellProps: { align: 'right' },
-        Cell: ({ row }) => (
-          <Typography variant="body2" fontWeight={500} color="success.main">
-            {formatCurrency(row.original?.approvedAmount)}
-          </Typography>
-        )
-      },
-
-      // Status Column
-      {
-        accessorKey: 'status',
-        header: 'الحالة',
-        size: 120,
-        muiTableHeadCellProps: { align: 'center' },
-        muiTableBodyCellProps: { align: 'center' },
-        Cell: ({ row }) => {
-          const status = row.original?.status;
-          const mappedStatus = PREAPPROVAL_STATUS_MAP[status] || status || 'PENDING';
-          return <CardStatusBadge status={mappedStatus} size="small" language="ar" />;
-        }
-      },
-
-      // Actions Column
-      {
-        id: 'actions',
-        header: 'الإجراءات',
-        size: 130,
-        enableSorting: false,
-        enableHiding: false,
-        enableColumnFilter: false,
-        muiTableHeadCellProps: { align: 'center' },
-        muiTableBodyCellProps: { align: 'center' },
-        Cell: ({ row }) => (
-          <Stack direction="row" spacing={0.5} justifyContent="center">
-            <Tooltip title="عرض">
-              <IconButton size="small" color="primary" onClick={() => handleNavigateView(row.original?.id)}>
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="تعديل">
-              <IconButton size="small" color="info" onClick={() => handleNavigateEdit(row.original?.id)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="حذف">
-              <IconButton size="small" color="error" onClick={() => handleDelete(row.original?.id)}>
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        )
-      }
-    ],
-    [handleNavigateView, handleNavigateEdit, handleDelete]
+      ];
+    },
+    [handleNavigateView, handleNavigateEdit, handleDelete, providerOptions]
   );
 
   // ========================================

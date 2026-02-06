@@ -29,6 +29,8 @@ public class Role {
     @Column(unique = true, nullable = false)
     private String name;
 
+    public String getName() { return name; }
+
     @Column(name = "name_ar")
     private String nameAr;
 

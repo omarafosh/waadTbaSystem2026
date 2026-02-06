@@ -83,10 +83,12 @@ public class Claim {
     // ==================== CLAIM DETAILS ====================
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private List<ClaimLine> lines = new ArrayList<>();
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private List<ClaimAttachment> attachments = new ArrayList<>();
 

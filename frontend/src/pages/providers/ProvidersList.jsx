@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Providers List Page - ENHANCED IMPLEMENTATION
  * Healthcare Providers (Hospitals, Clinics, Labs, Pharmacies)
  */
@@ -43,6 +43,7 @@ import { NetworkBadge, CardStatusBadge } from 'components/insurance';
 
 // Services
 import { providersService } from 'services/api';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 // Snackbar
 import { openSnackbar } from 'api/snackbar';
@@ -173,6 +174,7 @@ export default function ProvidersList() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { refreshKey } = useTableRefresh();
 
   // ========================================
   // TABLE & POPUP STATE
@@ -212,9 +214,7 @@ export default function ProvidersList() {
 
   useEffect(() => {
     // Invalidate cache when navigating back to this page
-    // This ensures newly created providers appear immediately
-    console.log('[ProvidersList] Page mounted/navigated - refreshing data');
-    queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    // This ensures newly created providers appear immediatelyqueryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
   }, [location.key, queryClient]);
 
   // ========================================
@@ -341,13 +341,15 @@ export default function ProvidersList() {
     {
       id: 'employers',
       header: 'جهات العمل المسموحة',
-      size: 180,
+      size: 250,
       align: 'center',
       cell: ({ row }) => {
-        const count = row.original.contractCount || 0;
         const names = row.original.contractedEmployerNames || [];
-        const isGlobal = names.some(n => n && n.includes('الشبكة العامة'));
+        if (names.length === 0) {
+          return <Typography variant="caption" color="text.secondary">-</Typography>;
+        }
 
+        const isGlobal = names.some(n => n && n.includes('الشبكة العامة'));
         if (isGlobal) {
           return (
             <Chip
@@ -355,31 +357,53 @@ export default function ProvidersList() {
               color="success"
               size="small"
               variant="outlined"
-              icon={<CheckCircleIcon />}
+              icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
             />
           );
         }
 
-        if (count === 0) {
-          return <Typography variant="caption" color="text.secondary">-</Typography>;
-        }
+        const displayNames = names.slice(0, 2);
+        const remainingCount = names.length - 2;
 
         return (
-          <Tooltip title="اضغط لعرض القائمة الكاملة">
-            <Button
-              size="small"
-              variant="text"
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEmployersDialog({ open: true, names, providerName: row.original.name });
-              }}
-              startIcon={<HandshakeIcon sx={{ fontSize: '1rem !important' }} />}
-              sx={{ fontWeight: 'bold' }}
-            >
-              {count} {count > 10 ? 'جهة' : 'جهات'}
-            </Button>
-          </Tooltip>
+          <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ maxWidth: 240, mx: 'auto' }}>
+            {displayNames.map((name, idx) => (
+              <Chip
+                key={idx}
+                label={name}
+                size="small"
+                variant="outlined"
+                sx={{ maxWidth: 100, fontSize: '0.75rem' }}
+              />
+            ))}
+            {remainingCount > 0 && (
+              <Tooltip title={names.slice(2).join('، ')}>
+                <Chip
+                  label={`+${remainingCount}`}
+                  size="small"
+                  color="primary"
+                  variant="filled"
+                  sx={{ height: 20, fontSize: '0.75rem', cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEmployersDialog({ open: true, names, providerName: row.original.name });
+                  }}
+                />
+              </Tooltip>
+            )}
+            {names.length > 0 && names.length <= 2 && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEmployersDialog({ open: true, names, providerName: row.original.name });
+                }}
+                sx={{ ml: 0.5 }}
+              >
+                <HandshakeIcon sx={{ fontSize: '14px' }} />
+              </IconButton>
+            )}
+          </Stack>
         );
       }
     },
@@ -451,10 +475,8 @@ export default function ProvidersList() {
   // ========================================
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: [QUERY_KEY, page, rowsPerPage, sortColumn, sortDirection],
+    queryKey: [QUERY_KEY, page, rowsPerPage, sortColumn, sortDirection, refreshKey],
     queryFn: async () => {
-      console.log('[ProvidersList] Fetching providers - page:', page + 1, 'size:', rowsPerPage);
-
       const params = {
         page: page + 1, // Backend uses 1-based pages
         size: rowsPerPage,

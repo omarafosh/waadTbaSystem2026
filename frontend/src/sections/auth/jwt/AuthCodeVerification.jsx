@@ -1,4 +1,4 @@
-// material-ui
+﻿// material-ui
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import FormHelperText from '@mui/material/FormHelperText';
@@ -24,10 +24,7 @@ export default function AuthCodeVerification() {
         otp: Yup.string().length(4, 'OTP must be exactly 4 digits').required('OTP is required')
       })}
       onSubmit={(values, { resetForm }) => {
-        resetForm();
-        console.log(values);
-
-        // reset focus after submission
+        resetForm();// reset focus after submission
         const activeElement = document.activeElement;
         if (activeElement) activeElement.blur();
       }}

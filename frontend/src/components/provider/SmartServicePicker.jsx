@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SmartServicePicker - مكون ذكي لاختيار الخدمات الطبية في بوابة مقدم الخدمة
  * 
  * 🚀 المميزات:
@@ -141,13 +141,7 @@ const SmartServicePicker = ({
   // ════════════════════════════════════════════════════════════════════════════
   const handleSelect = useCallback((event, newValue) => {
     if (newValue && onSelect) {
-      // Ensure we pass the service with medicalServiceId
-      console.log('📤 SmartServicePicker selected:', {
-        id: newValue.id,
-        code: newValue.code,
-        name: newValue.nameAr
-      });
-      onSelect(event, newValue);
+      // Ensure we pass the service with medicalServiceIdonSelect(event, newValue);
       if (!multiSelect) {
         setSearchValue(null);
       }

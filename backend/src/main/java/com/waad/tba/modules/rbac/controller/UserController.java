@@ -124,6 +124,22 @@ public class UserController {
                 return ResponseEntity.ok(ApiResponse.success(users));
         }
 
+        @GetMapping("/provider/{providerId}")
+        @Operation(summary = "Get users by provider ID", description = "Returns all users associated with a specific provider.")
+        public ResponseEntity<ApiResponse<List<UserResponseDto>>> getUsersByProvider(
+                        @Parameter(name = "providerId", description = "Provider ID", required = true) 
+                        @PathVariable("providerId") Long providerId) {
+                List<UserResponseDto> users = userService.findByProviderId(providerId);
+                return ResponseEntity.ok(ApiResponse.success(users));
+        }
+
+        @GetMapping("/unassigned-providers")
+        @Operation(summary = "Get unassigned provider users", description = "Returns users with PROVIDER role who are not linked to any provider.")
+        public ResponseEntity<ApiResponse<List<UserResponseDto>>> getUnassignedProviderUsers() {
+                List<UserResponseDto> users = userService.findUnassignedProviders();
+                return ResponseEntity.ok(ApiResponse.success(users));
+        }
+
         @GetMapping("/paginate")
         @Operation(summary = "Paginate users", description = "Returns a page of users.")
         @ApiResponses({

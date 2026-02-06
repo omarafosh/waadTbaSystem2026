@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+﻿import { useSearchParams } from 'react-router-dom';
 
 // material-ui
 import Grid from '@mui/material/Grid';
@@ -32,7 +32,6 @@ export default function Login() {
 
   const [searchParams] = useSearchParams();
   const auth = searchParams.get('auth');
-  console.log(auth);
 
   return (
     <AuthWrapper>

@@ -1,6 +1,9 @@
 package com.waad.tba.security;
 
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Optional;
+import java.util.Collections;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +16,8 @@ import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.member.repository.MemberRepository;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.modules.rbac.repository.UserRepository;
+import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
+import com.waad.tba.modules.preauthorization.repository.PreAuthorizationRepository;
 import com.waad.tba.modules.visit.entity.Visit;
 import com.waad.tba.modules.visit.repository.VisitRepository;
 
@@ -83,13 +88,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthorizationService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthorizationService.class);
 
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final ClaimRepository claimRepository;
     private final VisitRepository visitRepository;
+    private final PreAuthorizationRepository preAuthorizationRepository;
     private final CompanySettingsService companySettingsService;
 
     // =============================================================================================
@@ -298,9 +305,18 @@ public class AuthorizationService {
 
         Claim claim = claimOpt.get();
 
-        // PROVIDER: Can access claims (TODO: implement createdBy check)
+        // PROVIDER: Can access claims ONLY if they belong to their provider
         if (isProvider(user)) {
-            log.debug("✅ canAccessClaim: ALLOWED - user={} is PROVIDER (TODO: add createdBy check)", user.getUsername());
+            if (user.getProviderId() == null) {
+                log.warn("❌ canAccessClaim: DENIED - PROVIDER user {} has no providerId", user.getUsername());
+                return false;
+            }
+            if (!user.getProviderId().equals(claim.getProviderId())) {
+                log.warn("❌ canAccessClaim: DENIED - user {} (provider={}) attempted to access claim {} from provider {}", 
+                        user.getUsername(), user.getProviderId(), claimId, claim.getProviderId());
+                return false;
+            }
+            log.debug("✅ canAccessClaim: ALLOWED - user={} provider matches", user.getUsername());
             return true;
         }
 
@@ -380,8 +396,108 @@ public class AuthorizationService {
             return true;
         }
 
+        // PROVIDER: Check if visit belongs to their provider
+        if (isProvider(user)) {
+            if (user.getProviderId() == null) {
+                log.warn("❌ canAccessVisit: DENIED - PROVIDER user {} has no providerId", user.getUsername());
+                return false;
+            }
+            if (!user.getProviderId().equals(visit.getProviderId())) {
+                log.warn("❌ canAccessVisit: DENIED - user {} (provider={}) attempted to access visit {} from provider {}", 
+                        user.getUsername(), user.getProviderId(), visitId, visit.getProviderId());
+                return false;
+            }
+            log.debug("✅ canAccessVisit: ALLOWED - user={} provider matches", user.getUsername());
+            return true;
+        }
+
         log.warn("❌ canAccessVisit: DENIED - user {} has no valid role for visit access", user.getUsername());
         return false;
+    }
+
+    /**
+     * Check if user can access a specific pre-authorization.
+     * 
+     * AUTHORIZATION RULES:
+     * - SUPER_ADMIN: ✅ Full access
+     * - INSURANCE_ADMIN: ✅ Full access
+     * - PROVIDER: ✅ Only if preAuth.providerId == user.providerId
+     * - EMPLOYER_ADMIN: ✅ Only if preAuth.member.employerId == user.employerId
+     * - Others: ❌ No access
+     * 
+     * @param user Current user
+     * @param preAuthId ID of the pre-authorization to access
+     * @return true if user can access the pre-authorization
+     */
+    public boolean canAccessPreAuthorization(User user, Long preAuthId) {
+        if (user == null || preAuthId == null) {
+            log.warn("❌ canAccessPreAuthorization: DENIED - null user or preAuthId");
+            return false;
+        }
+
+        // SUPER_ADMIN bypasses all checks
+        if (isSuperAdmin(user)) {
+            log.debug("✅ canAccessPreAuthorization: ALLOWED - user={} is SUPER_ADMIN", user.getUsername());
+            return true;
+        }
+
+        // INSURANCE_ADMIN has full access
+        if (isInsuranceAdmin(user)) {
+            log.debug("✅ canAccessPreAuthorization: ALLOWED - user={} is INSURANCE_ADMIN", user.getUsername());
+            return true;
+        }
+
+        Optional<PreAuthorization> preAuthOpt = preAuthorizationRepository.findById(preAuthId);
+        if (preAuthOpt.isEmpty()) {
+            log.warn("❌ canAccessPreAuthorization: DENIED - preAuth {} not found", preAuthId);
+            return false;
+        }
+
+        PreAuthorization preAuth = preAuthOpt.get();
+
+        // PROVIDER: Check if preAuth belongs to their provider
+        if (isProvider(user)) {
+            if (user.getProviderId() == null) {
+                log.warn("❌ canAccessPreAuthorization: DENIED - PROVIDER user {} has no providerId", user.getUsername());
+                return false;
+            }
+            if (!user.getProviderId().equals(preAuth.getProviderId())) {
+                log.warn("❌ canAccessPreAuthorization: DENIED - user {} (provider={}) attempted to access preAuth {} from provider {}", 
+                        user.getUsername(), user.getProviderId(), preAuthId, preAuth.getProviderId());
+                return false;
+            }
+            log.debug("✅ canAccessPreAuthorization: ALLOWED - user={} provider matches", user.getUsername());
+            return true;
+        }
+
+        // EMPLOYER_ADMIN: Check if preAuth's member belongs to their employer
+        if (isEmployerAdmin(user)) {
+            if (user.getEmployerId() == null) {
+                log.warn("❌ canAccessPreAuthorization: DENIED - EMPLOYER_ADMIN user {} has no employerId", user.getUsername());
+                return false;
+            }
+            
+            // Check member via repository since preAuth only has memberId (not full member object with employer joined usually)
+            Optional<Member> memberOpt = memberRepository.findById(preAuth.getMemberId());
+            if (memberOpt.isEmpty() || memberOpt.get().getEmployerOrganization() == null ||
+                !user.getEmployerId().equals(memberOpt.get().getEmployerOrganization().getId())) {
+                log.warn("❌ canAccessPreAuthorization: DENIED - user {} attempted to access preAuth {} from different employer", 
+                        user.getUsername(), preAuthId);
+                return false;
+            }
+            log.debug("✅ canAccessPreAuthorization: ALLOWED - user={} employer matches", user.getUsername());
+            return true;
+        }
+
+        log.warn("❌ canAccessPreAuthorization: DENIED - user {} has no valid role for preAuth access", user.getUsername());
+        return false;
+    }
+
+    /**
+     * Check if CURRENT user can access a specific pre-authorization.
+     */
+    public boolean canAccessPreAuthorization(Long id) {
+        return canAccessPreAuthorization(getCurrentUser(), id);
     }
 
     /**
@@ -603,6 +719,50 @@ public class AuthorizationService {
 
         log.warn("❌ canModifyClaim: DENIED - user {} cannot modify claim {}", user.getUsername(), claimId);
         return false;
+    }
+
+    /**
+     * Get the set of employer IDs that a user is permitted to see.
+     * Handles ADMIN (null), EMPLOYER_ADMIN (single), and PROVIDER (set).
+     * 
+     * @param user Current user
+     * @return Set of permitted employer IDs, or NULL if user can see everything (Admin/Full Access)
+     */
+    public Set<Long> getPermittedEmployerIdsForUser(User user) {
+        if (user == null) {
+            return java.util.Collections.emptySet();
+        }
+
+        // Admin roles bypass all data filters
+        if (isSuperAdmin(user) || isInsuranceAdmin(user)) {
+            return null;
+        }
+
+        // EMPLOYER_ADMIN: Restricted to their specific employer
+        if (isEmployerAdmin(user)) {
+            return user.getEmployerId() != null 
+                ? java.util.Collections.singleton(user.getEmployerId()) 
+                : java.util.Collections.emptySet();
+        }
+
+        // PROVIDER: Restricted based on allow_all_companies and permitted_organizations
+        if (isProvider(user)) {
+            if (Boolean.TRUE.equals(user.getAllowAllCompanies())) {
+                log.debug("🔓 User {} is PROVIDER with Full Access - NO FILTER", user.getUsername());
+                return null;
+            }
+            
+            Set<Long> ids = user.getPermittedOrganizations().stream()
+                .map(com.waad.tba.common.entity.Organization::getId)
+                .collect(Collectors.toSet());
+                
+            log.debug("🔒 User {} is PROVIDER with Restricted Access ({} organizations)", 
+                user.getUsername(), ids.size());
+            return ids;
+        }
+
+        // Other roles: No default access to members/employers
+        return java.util.Collections.emptySet();
     }
 
     // =============================================================================================

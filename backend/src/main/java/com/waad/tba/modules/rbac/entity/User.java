@@ -24,6 +24,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "users")
@@ -40,6 +42,8 @@ public class User {
 
     @Column(unique = true, nullable = false)
     private String username;
+
+    public String getUsername() { return username; }
 
     @Column(nullable = false)
     private String password;
@@ -84,6 +88,10 @@ public class User {
     @Column(name = "employer_id")
     private Long employerId;
 
+    public Long getEmployerId() {
+        return employerId;
+    }
+
     /**
      * Provider ID - for PROVIDER users
      * Links the user to a specific healthcare provider (hospital, clinic, etc.).
@@ -92,6 +100,8 @@ public class User {
      */
     @Column(name = "provider_id")
     private Long providerId;
+
+    public Long getProviderId() { return providerId; }
 
     /**
      * Company ID - for INSURANCE / TPA users
@@ -123,6 +133,10 @@ public class User {
     @Builder.Default
     private Boolean allowAllCompanies = true;
 
+    public Boolean getAllowAllCompanies() {
+        return allowAllCompanies;
+    }
+
     /**
      * Specific list of companies/employers this user is permitted to see.
      * Only used if allowAllCompanies is false.
@@ -136,6 +150,10 @@ public class User {
     @Builder.Default
     private Set<Organization> permittedOrganizations = new HashSet<>();
 
+    public Set<Organization> getPermittedOrganizations() {
+        return permittedOrganizations;
+    }
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
@@ -144,6 +162,10 @@ public class User {
     )
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
+
+    public Set<Role> getRoles() {
+        return roles;
+    }
 
     /**
      * Number of consecutive failed login attempts

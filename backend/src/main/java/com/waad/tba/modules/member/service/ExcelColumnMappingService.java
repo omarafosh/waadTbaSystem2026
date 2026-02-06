@@ -47,6 +47,8 @@ public class ExcelColumnMappingService {
             Arrays.asList("nationality", "nation", "country", "جنسية", "الجنسية", "البلد")));
         put("employeeNumber", new FieldDefinition("employeeNumber", "الرقم الوظيفي", "Employee Number",
             Arrays.asList("employee number", "emp number", "badge id", "رقم وظيفي", "الرقم الوظيفي", "employee_number")));
+        put("cardNumber", new FieldDefinition("cardNumber", "رقم البطاقة", "Card Number",
+            Arrays.asList("card number", "card_number", "cardnumber", "رقم البطاقة", "رقم العضوية", "membership number")));
     }};
 
     /**

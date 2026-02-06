@@ -2,6 +2,8 @@ package com.waad.tba.modules.rbac.mapper;
 
 import com.waad.tba.modules.rbac.dto.*;
 import com.waad.tba.modules.rbac.entity.User;
+import com.waad.tba.modules.provider.repository.ProviderRepository;
+import com.waad.tba.common.repository.OrganizationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -10,9 +12,13 @@ import java.util.stream.Collectors;
 public class UserMapper {
 
     private final RoleMapper roleMapper;
+    private final ProviderRepository providerRepository;
+    private final OrganizationRepository organizationRepository;
 
-    public UserMapper(RoleMapper roleMapper) {
+    public UserMapper(RoleMapper roleMapper, ProviderRepository providerRepository, OrganizationRepository organizationRepository) {
         this.roleMapper = roleMapper;
+        this.providerRepository = providerRepository;
+        this.organizationRepository = organizationRepository;
     }
 
     public UserResponseDto toResponseDto(User user) {
@@ -31,7 +37,13 @@ public class UserMapper {
                            .collect(Collectors.toList()) : null)
                 // Employer/Provider associations
                 .employerId(user.getEmployerId())
+                .employerName(user.getEmployerId() != null ? 
+                    organizationRepository.findById(user.getEmployerId())
+                        .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null)
                 .providerId(user.getProviderId())
+                .providerName(user.getProviderId() != null ? 
+                    providerRepository.findById(user.getProviderId())
+                        .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null)
 
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
@@ -82,12 +94,10 @@ public class UserMapper {
             user.setActive(dto.getActive());
         }
         // Employer/Provider associations (2026-01-16)
-        if (dto.getEmployerId() != null) {
-            user.setEmployerId(dto.getEmployerId());
-        }
-        if (dto.getProviderId() != null) {
-            user.setProviderId(dto.getProviderId());
-        }
+        // Fix: Allow setting to null (for unlinking)
+        user.setEmployerId(dto.getEmployerId());
+        user.setProviderId(dto.getProviderId());
+        
         if (dto.getAllowAllCompanies() != null) {
             user.setAllowAllCompanies(dto.getAllowAllCompanies());
         }

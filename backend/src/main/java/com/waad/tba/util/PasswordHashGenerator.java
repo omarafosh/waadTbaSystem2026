@@ -13,12 +13,9 @@ public class PasswordHashGenerator {
         String password = "Admin@123";
         String hash = encoder.encode(password);
         
-        System.out.println("=".repeat(80));
-        System.out.println("Password: " + password);
-        System.out.println("BCrypt Hash: " + hash);
-        System.out.println("=".repeat(80));
-        System.out.println("\nSQL to update SUPER_ADMIN password:");
-        System.out.println("UPDATE users SET password = '" + hash + "' WHERE email = 'superadmin@tba.sa';");
-        System.out.println("=".repeat(80));
+        // Use logger or write to file in production
+        // For development, uncomment below:
+        // System.out.println("Password: " + password);
+        // System.out.println("BCrypt Hash: " + hash);
     }
 }

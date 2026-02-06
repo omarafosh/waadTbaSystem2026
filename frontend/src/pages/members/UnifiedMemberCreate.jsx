@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unified Member Create Page
  * 
  * Creates a Principal member with optional inline Dependents.
@@ -78,6 +78,13 @@ const UnifiedMemberCreate = () => {
     }
   };
 
+  const MARITAL_STATUSES = {
+    SINGLE: 'SINGLE',
+    MARRIED: 'MARRIED',
+    DIVORCED: 'DIVORCED',
+    WIDOWED: 'WIDOWED'
+  };
+
   // Loading & Error States
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -101,6 +108,7 @@ const UnifiedMemberCreate = () => {
     startDate: dayjs(),
     endDate: null,
     notes: '',
+    maritalStatus: '',
     isFastTrack: false,
     isVip: false,
     isUrgent: false,
@@ -330,7 +338,7 @@ const UnifiedMemberCreate = () => {
         birthDate: principalForm.birthDate
           ? dayjs(principalForm.birthDate).format('YYYY-MM-DD')
           : (principalForm.isFastTrack ? '1900-01-01' : null),
-        gender: principalForm.gender || (principalForm.isFastTrack ? 'UNDEFINED' : ''),
+        gender: principalForm.gender || (principalForm.isFastTrack ? 'UNDEFINED' : null),
         maritalStatus: principalForm.maritalStatus || (principalForm.isFastTrack ? 'SINGLE' : null),
         nationality: principalForm.nationality || 'ليبي',
         phone: principalForm.phone?.trim() || null,
@@ -351,14 +359,8 @@ const UnifiedMemberCreate = () => {
         emergencyNotes: principalForm.emergencyNotes || null
       };
 
-      console.log('Creating principal member with payload:', JSON.stringify(payload, null, 2));
-
       // Call API
-      const response = await createPrincipalMember(payload);
-
-      console.log('Member created successfully:', response);
-
-      // ✅ FIXED: Response is already unwrapped by service (response.data in service)
+      const response = await createPrincipalMember(payload);// ✅ FIXED: Response is already unwrapped by service (response.data in service)
       // Check if response has the member data
       const createdMember = response?.data || response;
 
@@ -610,6 +612,25 @@ const UnifiedMemberCreate = () => {
                               <MenuItem value={GENDERS.FEMALE}>أنثى</MenuItem>
                             </Select>
                             {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+                          </FormControl>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel id="marital-status-label">الحالة الاجتماعية</InputLabel>
+                            <Select
+                              labelId="marital-status-label"
+                              value={principalForm.maritalStatus}
+                              onChange={handlePrincipalChange('maritalStatus')}
+                              label="الحالة الاجتماعية"
+                              MenuProps={menuProps}
+                            >
+                              <MenuItem value=""><em>اختر...</em></MenuItem>
+                              <MenuItem value={MARITAL_STATUSES.SINGLE}>أعزب / عزباء</MenuItem>
+                              <MenuItem value={MARITAL_STATUSES.MARRIED}>متزوج / متزوجة</MenuItem>
+                              <MenuItem value={MARITAL_STATUSES.DIVORCED}>مطلق / مطلقة</MenuItem>
+                              <MenuItem value={MARITAL_STATUSES.WIDOWED}>أرمل / أرملة</MenuItem>
+                            </Select>
                           </FormControl>
                         </Grid>
 

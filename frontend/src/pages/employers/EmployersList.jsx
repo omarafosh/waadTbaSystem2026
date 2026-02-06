@@ -70,6 +70,8 @@ import { PERMISSIONS } from 'constants/permissions.constants';
 
 // Services
 import { getEmployers, createEmployer, updateEmployer, archiveEmployer, restoreEmployer } from 'services/api/employers.service';
+import { useAuth } from 'contexts/AuthContext';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 // ============================================================================
 // CONSTANTS
@@ -91,6 +93,8 @@ const EmployersList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
+  const { user } = useAuth();
+  const { refreshKey } = useTableRefresh();
 
   // Local State
   const [formMode, setFormMode] = useState('create');
@@ -248,6 +252,9 @@ const EmployersList = () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       resetForm();
       setDrawerOpen(false); // Close drawer on success
+
+      // Global Refresh for other components
+      triggerRefresh();
     } catch (err) {
       console.error('Employer save error:', err);
       // Use the exact message from backend (duplicates, etc.)
@@ -287,6 +294,7 @@ const EmployersList = () => {
             enqueueSnackbar('تم نقل جهة العمل إلى سلة المحذوفات بنجاح.', { variant: 'success' });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
             closeDialog();
+            triggerRefresh(); // Sync other tabs
           } catch (err) {
             enqueueSnackbar(err.response?.data?.message || 'فشل حذف جهة العمل', { variant: 'error' });
           }
@@ -310,6 +318,7 @@ const EmployersList = () => {
             enqueueSnackbar('تم استعادة جهة العمل بنجاح.', { variant: 'success' });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
             closeDialog();
+            triggerRefresh(); // Sync other tabs
           } catch (err) {
             enqueueSnackbar(err.response?.data?.message || 'فشل استعادة جهة العمل', { variant: 'error' });
           }
@@ -347,6 +356,7 @@ const EmployersList = () => {
     enqueueSnackbar('تم تحديث الوثيقة النشطة بنجاح', { variant: 'success' });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
     queryClient.invalidateQueries({ queryKey: ['benefit-policies'] });
+    triggerRefresh(); // Sync other tabs
   };
 
   // ========================================
@@ -354,7 +364,8 @@ const EmployersList = () => {
   // ========================================
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showArchived, searchTerm, statusFilter],
+    // Add user and refreshKey to dependency key to trigger re-fetch on sync events
+    queryKey: [QUERY_KEY, tableState.page, tableState.pageSize, tableState.sorting, tableState.columnFilters, showArchived, searchTerm, statusFilter, user, refreshKey],
     queryFn: async () => {
       const params = {
         page: tableState.page,

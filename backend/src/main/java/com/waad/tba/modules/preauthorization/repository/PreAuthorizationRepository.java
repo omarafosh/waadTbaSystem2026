@@ -46,6 +46,19 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     Page<PreAuthorization> findByMemberIdAndActiveTrue(Long memberId, Pageable pageable);
 
     /**
+     * Find all pre-authorizations for a specific employer (via member)
+     */
+    @Query("SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN pa.visit v " +
+           "LEFT JOIN v.member m " +
+           "WHERE pa.active = true " +
+           "AND m.employerOrganization.id = :employerId")
+    Page<PreAuthorization> findByMemberEmployerOrganizationIdAndActiveTrue(
+            @Param("employerId") Long employerId,
+            Pageable pageable
+    );
+
+    /**
      * Find pre-authorizations by member and status
      */
     Page<PreAuthorization> findByMemberIdAndStatusAndActiveTrue(
@@ -113,6 +126,22 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
            "AND pa.status IN :statuses",
            countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.active = true AND pa.status IN :statuses")
     Page<PreAuthorization> findByStatusIn(@Param("statuses") List<PreAuthStatus> statuses, Pageable pageable);
+
+    /**
+     * Find pre-authorizations by status list and provider with pagination.
+     */
+    @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.visit v " +
+           "LEFT JOIN FETCH pa.medicalService ms " +
+           "WHERE pa.active = true " +
+           "AND pa.status IN :statuses " +
+           "AND pa.providerId = :providerId",
+           countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.active = true AND pa.status IN :statuses AND pa.providerId = :providerId")
+    Page<PreAuthorization> findByStatusInAndProviderIdAndActiveTrue(
+            @Param("statuses") List<PreAuthStatus> statuses, 
+            @Param("providerId") Long providerId, 
+            Pageable pageable
+    );
 
     /**
      * Count pre-authorizations by status list.

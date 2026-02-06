@@ -464,7 +464,7 @@ public class ClaimService {
             throw new AccessDeniedException("Access denied to this claim");
         }
         
-        Claim claim = claimRepository.findById(id)
+        Claim claim = claimRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found with id: " + id));
         
         ClaimViewDto dto = claimMapper.toViewDto(claim);
@@ -513,6 +513,9 @@ public class ClaimService {
             claimsPage = claimRepository.searchPaged(keyword, pageable);
         } else if (authorizationService.isProvider(currentUser)) {
             Long providerId = currentUser.getProviderId();
+            // SECURITY: Strong enforcement of provider context
+            providerContextGuard.validateProviderBinding(currentUser);
+            
             if (providerId == null) {
                 log.warn("❌ PROVIDER user {} has no providerId", currentUser.getUsername());
                 return Page.empty();
@@ -554,6 +557,13 @@ public class ClaimService {
      */
     @Transactional(readOnly = true)
     public List<ClaimViewDto> getClaimsByPreAuthorization(Long preAuthorizationId) {
+        User currentUser = authorizationService.getCurrentUser();
+        if (currentUser != null && !authorizationService.canAccessPreAuthorization(currentUser, preAuthorizationId)) {
+            log.warn("❌ Access denied: user {} attempted to access claims for preAuth {}",
+                    currentUser.getUsername(), preAuthorizationId);
+            return Collections.emptyList();
+        }
+
         List<Claim> claims = claimRepository.findByPreAuthorizationId(preAuthorizationId);
         return claims.stream()
                 .map(claimMapper::toViewDto)
@@ -1248,6 +1258,18 @@ public class ClaimService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
         
         List<ClaimStatus> pendingStatuses = List.of(ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
+        
+        User currentUser = authorizationService.getCurrentUser();
+        // PROVIDER: Filter by providerId
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            log.info("🔒 Filtering pending claims (Inbox) for provider: {}", providerId);
+            
+            return claimRepository.findByProviderIdAndStatusIn(providerId, pendingStatuses, pageable)
+                    .map(claimMapper::toViewDto);
+        }
+
         Page<Claim> claims = claimRepository.findByStatusIn(pendingStatuses, pageable);
         
         return claims.map(claimMapper::toViewDto);
@@ -1260,6 +1282,17 @@ public class ClaimService {
     public Page<ClaimViewDto> getApprovedClaims(int page, int size, String sortBy, String sortDir) {
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        
+        User currentUser = authorizationService.getCurrentUser();
+        // PROVIDER: Filter by providerId
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            log.info("🔒 Filtering approved claims for provider: {}", providerId);
+            
+            return claimRepository.findByProviderIdAndStatus(providerId, ClaimStatus.APPROVED, pageable)
+                    .map(claimMapper::toViewDto);
+        }
         
         Page<Claim> claims = claimRepository.findByStatus(ClaimStatus.APPROVED, pageable);
         
@@ -1333,6 +1366,12 @@ public class ClaimService {
         
         if (authorizationService.isSuperAdmin(currentUser)) {
             return claimRepository.countActive();
+        }
+        
+        // PROVIDER: Filter by providerId
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            return claimRepository.countByProviderId(currentUser.getProviderId());
         }
         
         return 0;
@@ -1541,6 +1580,15 @@ public class ClaimService {
                 ? Sort.by(sortBy).descending() 
                 : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
+        
+        User currentUser = authorizationService.getCurrentUser();
+        // PROVIDER: Filter by providerId
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            return claimRepository.findByProviderIdAndStatus(providerId, status, pageable)
+                    .map(claimMapper::toViewDto);
+        }
         
         Page<Claim> claims = claimRepository.findByStatus(status, pageable);
         return claims.map(claimMapper::toViewDto);

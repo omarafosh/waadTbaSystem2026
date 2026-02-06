@@ -80,8 +80,8 @@ import com.waad.tba.modules.member.service.UnifiedMemberService;
  * - name / full_name → fullName (MANDATORY)
  * - company / employer → employerOrganization (MANDATORY LOOKUP)
  * - national_id / civil_id → civilId (optional, no uniqueness constraint)
- * - barcode / badge_id → IGNORED
- * - card_number → IGNORED
+ * - barcode / badge_id → derived from card_number
+ * - card_number → MANUAL (If in Excel) or AUTO-GENERATED
  */
 @Slf4j
 @Service
@@ -648,24 +648,13 @@ public class MemberExcelImportService {
             Map<String, Member> employeeNumberMap = new HashMap<>();
             Map<String, Member> normalizedNameMap = new HashMap<>();
 
-            if (employerId != null) {
-                 List<Member> existingMembers = memberRepository.findByEmployerOrganizationIdAndActiveTrue(employerId);
-                 log.info("🚀 Loaded {} members into memory for mapping (Employer ID: {})", existingMembers.size(), employerId);
-                 for (Member m : existingMembers) {
-                     if (m.getNationalNumber() != null) nationalNumberMap.put(m.getNationalNumber(), m);
-                     if (m.getEmployeeNumber() != null) employeeNumberMap.put(m.getEmployeeNumber(), m);
-                     if (m.getFullName() != null) normalizedNameMap.put(normalizeArabicText(m.getFullName()), m);
-                 }
-            } else {
-                // FIX: Multi-tenant mode - Pre-load ALL members for all employers for O(1) lookup
-                // This is critical for performance when importing thousands of rows
-                List<Member> allActiveMembers = memberRepository.findByActiveTrue();
-                log.info("🚀 Multi-tenant mode: Loaded {} members into memory for fast duplicate check", allActiveMembers.size());
-                for (Member m : allActiveMembers) {
-                    if (m.getNationalNumber() != null) nationalNumberMap.put(m.getNationalNumber(), m);
-                    if (m.getEmployeeNumber() != null) employeeNumberMap.put(m.getEmployeeNumber(), m);
-                    if (m.getFullName() != null) normalizedNameMap.put(normalizeArabicText(m.getFullName()), m);
-                }
+            // GLOBAL DUPLICATE DETECTION: Always load ALL active members to prevent duplicates across any employer
+            List<Member> allActiveMembers = memberRepository.findByActiveTrue();
+            log.info("🚀 Global Protection: Loaded {} members into memory for global duplicate check", allActiveMembers.size());
+            for (Member m : allActiveMembers) {
+                if (m.getNationalNumber() != null) nationalNumberMap.put(m.getNationalNumber(), m);
+                if (m.getEmployeeNumber() != null) employeeNumberMap.put(m.getEmployeeNumber(), m);
+                if (m.getFullName() != null) normalizedNameMap.put(normalizeArabicText(m.getFullName()), m);
             }
 
             // Process rows
@@ -1057,10 +1046,18 @@ public class MemberExcelImportService {
                 }
             }
 
-        // Card Number check (Info only, or duplicate check within file?)
+        // Card Number check (Support manual entry from Excel)
         if (cardNumber != null && !cardNumber.isBlank()) {
             if (seenCardNumbers.contains(cardNumber)) {
-                rowWarnings.add("رقم بطاقة مكرر في الملف: " + cardNumber + " (سيتم تجاهله وإنشاء رقم جديد)");
+                rowWarnings.add("رقم بطاقة مكرر في الملف: " + cardNumber + " (سيتم تجاهله واستخدام الرقم الأول أو توليد جديد)");
+                 validationErrors.add(ImportValidationErrorDto.builder()
+                        .rowNumber(rowNum)
+                        .field("card_number")
+                        .value(cardNumber)
+                        .message("رقم بطاقة مكرر - Duplicate card number in file: " + cardNumber)
+                        .severity("WARNING")
+                        .build());
+                hasWarning = true;
             } else {
                 seenCardNumbers.add(cardNumber);
             }
@@ -1226,15 +1223,23 @@ public class MemberExcelImportService {
 
         Member member;
         boolean isUpdate = false;
+        String manualCardNumber = getFieldValue(row, fieldToColumnIndex, "cardNumber");
 
         if (existingMember != null) {
-            // DUPLICATE DETECTED
+            // DUPLICATE DETECTED (Global Scope)
             if ("SKIP".equalsIgnoreCase(importPolicy)) {
                 return ImportRowResult.skipped();
             }
-            // UPDATE
+            // UPDATE: Keep the member and update their employer to the new one if changed
             member = existingMember;
             member.setFullName(fullName);
+            
+            // Re-assign employer if different
+            if (employerOrg != null && (member.getEmployerOrganization() == null || !member.getEmployerOrganization().getId().equals(employerOrg.getId()))) {
+                log.info("🔄 Re-assigning member {} from current employer to {}", member.getId(), employerOrg.getName());
+                member.setEmployerOrganization(employerOrg);
+            }
+            
             isUpdate = true;
         } else {
             // CREATE new member
@@ -1250,6 +1255,11 @@ public class MemberExcelImportService {
                     .phone(getFieldValue(row, fieldToColumnIndex, "phone"))
                     .email(getFieldValue(row, fieldToColumnIndex, "email"))
                     .build();
+
+            // Manual Card Number Support: If provided in Excel, set it in DTO
+            if (manualCardNumber != null && !manualCardNumber.isBlank()) {
+                createDto.setCardNumber(manualCardNumber);
+            }
 
             MemberViewDto created = unifiedMemberService.createPrincipalMember(createDto);
             member = memberRepository.findById(created.getId())

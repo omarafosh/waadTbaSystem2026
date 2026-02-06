@@ -66,7 +66,7 @@ export default function AuthLogin({ isDemo = false }) {
           submit: null
         }}
         validationSchema={Yup.object().shape({
-          email: Yup.string().max(255).required('اسم المستخدم أو البريد الإلكتروني مطلوب'),
+          email: Yup.string().max(255).required('اسم المستخدم مطلوب'),
           password: Yup.string()
             .required('كلمة المرور مطلوبة')
             .test('no-leading-trailing-whitespace', 'كلمة المرور لا يمكن أن تبدأ أو تنتهي بمسافات', (value) => value === value?.trim())
@@ -87,8 +87,20 @@ export default function AuthLogin({ isDemo = false }) {
             navigate('/');
           } catch (err) {
             console.error('Login error:', err);
+
+            let errorMsg = 'بيانات الدخول غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور.';
+
+            // Network Error Handling
+            if (!err.response && err.message === 'Network Error') {
+              errorMsg = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.';
+            } else if (err.response?.status === 401 || err.response?.status === 403) {
+              errorMsg = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+            } else if (err.response?.status >= 500) {
+              errorMsg = 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+            }
+
             setStatus({ success: false });
-            setErrors({ submit: err.message || 'بيانات الدخول غير صحيحة. يرجى المحاولة مرة أخرى.' });
+            setErrors({ submit: errorMsg });
             setSubmitting(false);
           }
         }}
@@ -100,7 +112,7 @@ export default function AuthLogin({ isDemo = false }) {
               <Grid size={12}>
                 <Stack sx={{ gap: 0.5 }}>
                   <InputLabel htmlFor="email-login" sx={{ fontWeight: 600, fontSize: `${settings?.fontSize || 12}px` }}>
-                    اسم المستخدم أو البريد الإلكتروني
+                    اسم المستخدم
                   </InputLabel>
                   <OutlinedInput
                     id="email-login"
@@ -109,7 +121,7 @@ export default function AuthLogin({ isDemo = false }) {
                     name="email"
                     onBlur={handleBlur}
                     onChange={handleChange}
-                    placeholder="أدخل اسم المستخدم أو البريد الإلكتروني"
+                    placeholder="أدخل اسم المستخدم"
                     fullWidth
                     error={Boolean(touched.email && errors.email)}
                     startAdornment={

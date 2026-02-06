@@ -10,7 +10,7 @@ import menuItem, { filterMenuByRoles } from 'menu-items/components';
  * and components that expect the sidebar structure (Navigation, Breadcrumbs).
  */
 const useRBACSidebar = () => {
-  const { roles, isInitialized } = useRBAC();
+  const { roles, user, isInitialized } = useRBAC();
 
   const sidebarGroups = useMemo(() => {
     // If RBAC is not yet initialized, return empty
@@ -18,37 +18,38 @@ const useRBACSidebar = () => {
 
     // Use shared filtering logic from components.jsx
     // This returns an array of groups (filtered)
-    return filterMenuByRoles(menuItem, roles);
-  }, [roles, isInitialized]);
+    // FIX (2026-02-06): Pass user object to ensure permissions (like VIEW_PROVIDER_PORTAL) are checked
+    return filterMenuByRoles(menuItem, roles, user);
+  }, [roles, user, isInitialized]);
 
   // Legacy flat items generation for Breadcrumbs or other consumers
   // that might iterate a flat list.
   const sidebarItems = useMemo(() => {
     const items = [];
-    
+
     // Helper to flatten the structure
     const flatten = (nodes) => {
-        nodes.forEach(node => {
-            if (node.type === 'item') {
-                items.push({
-                    id: node.id,
-                    title: node.title,
-                    url: node.url,
-                    icon: node.icon,
-                    breadcrumbs: node.breadcrumbs
-                });
-            }
-            if (node.children) {
-                flatten(node.children);
-            }
-        });
+      nodes.forEach(node => {
+        if (node.type === 'item') {
+          items.push({
+            id: node.id,
+            title: node.title,
+            url: node.url,
+            icon: node.icon,
+            breadcrumbs: node.breadcrumbs
+          });
+        }
+        if (node.children) {
+          flatten(node.children);
+        }
+      });
     };
 
     if (sidebarGroups) {
-        flatten(sidebarGroups);
+      flatten(sidebarGroups);
     }
-    
-    return items; 
+
+    return items;
   }, [sidebarGroups]);
 
   return {

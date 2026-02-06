@@ -190,6 +190,10 @@ export default function ProviderEligibilityCheck() {
   useEffect(() => {
     // Fetch allowed employers
     const fetchEmployers = async () => {
+      // Only fetch if user is a provider
+      const isProvider = user?.role === 'PROVIDER' || user?.roles?.some(r => r.name === 'PROVIDER');
+      if (!isProvider) return;
+
       try {
         const res = await providerApi.getAllowedEmployers();
         if (res.success) setAllowedEmployers(res.data);
@@ -212,7 +216,9 @@ export default function ProviderEligibilityCheck() {
       flexDirection: 'column',
       overflow: 'hidden',
       mx: 'auto',
-      p: 3 // Add padding around the whole page content
+      mx: 'auto',
+      p: 3, // Keep padding
+      pt: 1 // Reduce top padding explicitly to move content up
     }}>
 
       {/* Main Layout Body - Flex Row to ensure full width usage */}

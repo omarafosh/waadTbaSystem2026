@@ -2,6 +2,7 @@ package com.waad.tba.modules.member.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -14,6 +15,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.IOException;
@@ -155,8 +159,13 @@ public class UnifiedMemberService {
         principal.setRelationship(null);
 
         // Requirement 1: Generate Smart Card Number [R]-[PRO]-[COMP]-[ID]
-        String smartCardNumber = cardNumberGenerator.generateSmartCardNumber(principal);
-        principal.setCardNumber(smartCardNumber);
+        // NEW: Support manual card number if provided in DTO
+        if (dto.getCardNumber() != null && !dto.getCardNumber().isBlank()) {
+            principal.setCardNumber(dto.getCardNumber());
+        } else {
+            String smartCardNumber = cardNumberGenerator.generateSmartCardNumber(principal);
+            principal.setCardNumber(smartCardNumber);
+        }
 
         // Requirement: Barcode = [PREFIX]-[CARD_NUMBER]
         String barcode = barcodeGenerator.generateFromCardNumber(principal);
@@ -406,6 +415,12 @@ public class UnifiedMemberService {
             members = memberRepository.findByCardNumber(cleanQuery);
             if (!members.isEmpty()) {
                 targetMember = members.get(0);
+            } else {
+                // 3. Try Employee Number Match
+                members = memberRepository.findByEmployeeNumber(cleanQuery);
+                if (!members.isEmpty()) {
+                    targetMember = members.get(0);
+                }
             }
         }
 
@@ -470,6 +485,9 @@ public class UnifiedMemberService {
             // Filter based on deleted flag
             predicates.add(cb.equal(root.get("active"), !deleted));
 
+            // Apply Data-Level Security Filtering
+            applySecurityFilter(root, cb, predicates);
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -500,6 +518,9 @@ public class UnifiedMemberService {
 
             // Fix: Filter only active members (Soft Delete)
             predicates.add(cb.equal(root.get("active"), true));
+
+            // Apply Data-Level Security Filtering
+            applySecurityFilter(root, cb, predicates);
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -566,6 +587,9 @@ public class UnifiedMemberService {
             // Filter based on deleted flag
             predicates.add(cb.equal(root.get("active"), !deleted));
 
+            // Apply Data-Level Security Filtering
+            applySecurityFilter(root, cb, predicates);
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -611,11 +635,28 @@ public class UnifiedMemberService {
             throw new BusinessRuleException("Member ID " + principalId + " is a Dependent, not a Principal");
         }
 
-        List<Member> dependents = memberRepository.findByParentId(principalId);
-
-        return dependents.stream()
+        return memberRepository.findByParentId(principalId).stream()
                 .map(mapper::toViewDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Apply strict data-level security filtering based on current user context.
+     * Logic is centralized in AuthorizationService.
+     */
+    private void applySecurityFilter(Root<Member> root, CriteriaBuilder cb, List<Predicate> predicates) {
+        User currentUser = authorizationService.getCurrentUser();
+        Set<Long> permittedIds = authorizationService.getPermittedEmployerIdsForUser(currentUser);
+        
+        if (permittedIds != null) {
+            if (permittedIds.isEmpty()) {
+                log.warn("🚨 Security Enforcement: User {} has no permitted organizations. Access blocked.", 
+                    currentUser != null ? currentUser.getUsername() : "UNKNOWN");
+                predicates.add(cb.disjunction()); 
+            } else {
+                predicates.add(root.get("employerOrganization").get("id").in(permittedIds));
+            }
+        }
     }
 
     /**

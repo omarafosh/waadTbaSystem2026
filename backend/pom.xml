@@ -22,7 +22,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <lombok.version>1.18.42</lombok.version>
+        <lombok.version>1.18.34</lombok.version>
         <flyway.version>10.10.0</flyway.version>
     </properties>
 
@@ -129,7 +129,6 @@
         </dependency>
     
       
-
       <!-- Apache POI for Excel Import/Export -->
       <dependency>
         <groupId>org.apache.poi</groupId>
@@ -174,10 +173,7 @@
         <version>3.5.3</version>
       </dependency>
       
-      <!-- iText (Alternative - Commercial license required for production) -->
-      <!-- Keeping OpenPDF instead as it's fully open source -->
-      
-      <!-- Apache PDFBox (Alternative option) -->
+      <!-- Apache PDFBox -->
       <dependency>
         <groupId>org.apache.pdfbox</groupId>
         <artifactId>pdfbox</artifactId>
@@ -203,10 +199,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
+                <version>3.13.0</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <forceLegacyJavacApi>true</forceLegacyJavacApi>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -216,10 +211,7 @@
                     </annotationProcessorPaths>
                     <compilerArgs>
                         <arg>-parameters</arg>
-                        <arg>-Xlint:all</arg>
                     </compilerArgs>
-                    <showWarnings>true</showWarnings>
-                    <showDeprecation>true</showDeprecation>
                     <release>${java.version}</release>
                 </configuration>
             </plugin>

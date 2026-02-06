@@ -454,6 +454,15 @@ public class PreAuthorizationService {
      */
     @Transactional(readOnly = true)
     public PreAuthorizationResponseDto getPreAuthorizationById(Long id) {
+        log.info("[PRE-AUTH] Fetching pre-authorization by ID: {}", id);
+        
+        User currentUser = authorizationService.getCurrentUser();
+        if (!authorizationService.canAccessPreAuthorization(currentUser, id)) {
+            log.warn("❌ Access denied: user {} attempted to access preAuth {}", 
+                currentUser != null ? currentUser.getUsername() : "null", id);
+            throw new AccessDeniedException("Access denied to this pre-authorization");
+        }
+
         PreAuthorization preAuth = preAuthorizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PreAuthorization not found with ID: " + id));
 
@@ -484,8 +493,26 @@ public class PreAuthorizationService {
      */
     @Transactional(readOnly = true)
     public Page<PreAuthorizationResponseDto> getAllPreAuthorizations(Pageable pageable) {
-        Page<PreAuthorization> preAuths = preAuthorizationRepository.findByActiveTrue(pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        User currentUser = authorizationService.getCurrentUser();
+        
+        // Apply RBAC filtering
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            log.info("🔒 Filtering pre-authorizations for provider: {}", providerId);
+            return preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable)
+                    .map(this::mapToResponseDtoLight);
+        }
+        
+        if (authorizationService.isEmployerAdmin(currentUser)) {
+            Long employerId = authorizationService.getEmployerFilterForUser(currentUser);
+            log.info("🔒 Filtering pre-authorizations for employer: {}", employerId);
+            return preAuthorizationRepository.findByMemberEmployerOrganizationIdAndActiveTrue(employerId, pageable)
+                    .map(this::mapToResponseDtoLight);
+        }
+
+        log.info("[PRE-AUTH] Fetching all active pre-authorizations for admin");
+        return preAuthorizationRepository.findByActiveTrue(pageable).map(this::mapToResponseDtoLight);
     }
 
     /**
@@ -493,6 +520,13 @@ public class PreAuthorizationService {
      */
     @Transactional(readOnly = true)
     public Page<PreAuthorizationResponseDto> getPreAuthorizationsByMember(Long memberId, Pageable pageable) {
+        User currentUser = authorizationService.getCurrentUser();
+        
+        // Validate access to member first
+        if (!authorizationService.canAccessMember(currentUser, memberId)) {
+            throw new AccessDeniedException("Access denied to member: " + memberId);
+        }
+        
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByMemberIdAndActiveTrue(memberId, pageable);
         return preAuths.map(this::mapToResponseDtoLight);
     }
@@ -502,6 +536,13 @@ public class PreAuthorizationService {
      */
     @Transactional(readOnly = true)
     public Page<PreAuthorizationResponseDto> getPreAuthorizationsByProvider(Long providerId, Pageable pageable) {
+        User currentUser = authorizationService.getCurrentUser();
+        
+        // Validate access to provider
+        if (!authorizationService.canAccessProvider(currentUser, providerId)) {
+            throw new AccessDeniedException("Access denied to provider: " + providerId);
+        }
+        
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable);
         return preAuths.map(this::mapToResponseDtoLight);
     }
@@ -511,8 +552,18 @@ public class PreAuthorizationService {
      */
     @Transactional(readOnly = true)
     public Page<PreAuthorizationResponseDto> getPreAuthorizationsByStatus(PreAuthStatus status, Pageable pageable) {
-        Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        User currentUser = authorizationService.getCurrentUser();
+        
+        // Apply RBAC filtering
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            return preAuthorizationRepository.findByProviderIdAndStatusAndActiveTrue(providerId, status, pageable)
+                    .map(this::mapToResponseDtoLight);
+        }
+        
+        return preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable)
+                .map(this::mapToResponseDtoLight);
     }
 
     /**
@@ -534,9 +585,22 @@ public class PreAuthorizationService {
     public Page<PreAuthorizationResponseDto> getPendingInbox(Pageable pageable) {
         log.info("[SERVICE] Fetching pending pre-authorizations for inbox (PENDING + UNDER_REVIEW)");
         
-        // CANONICAL: Include both PENDING and UNDER_REVIEW statuses (like Claims)
+        User currentUser = authorizationService.getCurrentUser();
         List<PreAuthStatus> inboxStatuses = List.of(PreAuthStatus.PENDING, PreAuthStatus.UNDER_REVIEW);
         
+        // PROVIDER sees only THEIR pending requests
+        if (authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            log.info("🔒 Filtering inbox for provider: {}", providerId);
+            
+            // This requires a repository method: findByStatusInAndProviderIdAndActiveTrue
+            // For now, we'll implement a custom query in repository if needed, or filter here.
+            // Let's assume we need to add findByStatusInAndProviderIdAndActiveTrue to repository.
+            return preAuthorizationRepository.findByStatusInAndProviderIdAndActiveTrue(inboxStatuses, providerId, pageable)
+                    .map(this::mapToResponseDtoLight);
+        }
+
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusIn(
                 inboxStatuses, 
                 pageable

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+﻿import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
@@ -452,9 +452,7 @@ const ClaimView = () => {
         console.warn('Missing claim ID or document ID for preview');
         return null;
       }
-      try {
-        console.log(`Building preview URL for claim ${claim.id}, attachment ${document.id}`);
-        const blob = await downloadClaimAttachment(claim.id, document.id);
+      try {const blob = await downloadClaimAttachment(claim.id, document.id);
         return URL.createObjectURL(blob);
       } catch (err) {
         console.error('Error building preview URL:', err);

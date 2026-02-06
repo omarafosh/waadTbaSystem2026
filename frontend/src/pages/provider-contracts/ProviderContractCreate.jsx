@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
@@ -109,9 +109,7 @@ const ProviderContractCreate = () => {
   } = useQuery({
     queryKey: ['providers', 'selector'],
     queryFn: async () => {
-      const response = await getProviderSelector();
-      console.log('Providers Selector API Response:', response);
-      return response;
+      const response = await getProviderSelector();return response;
     },
     retry: 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -137,23 +135,11 @@ const ProviderContractCreate = () => {
   });
 
   // Extract providers from response
-  // Selector endpoint returns array directly
-  console.log('=== PROVIDERS DEBUG ===');
-  console.log('1. Raw providersResponse:', providersResponse);
-  console.log('2. Is Array?', Array.isArray(providersResponse));
+  // Selector endpoint returns array directly);
 
   const providers = Array.isArray(providersResponse)
     ? providersResponse
-    : providersResponse?.data || [];
-
-  console.log('3. Final extracted providers:', providers);
-  console.log('4. Providers count:', providers.length);
-  if (providers.length > 0) {
-    console.log('5. Sample provider:', providers[0]);
-  }
-  console.log('=== END DEBUG ===');
-
-  // ──────────────────────────────────────────────────────────────────────
+    : providersResponse?.data || [];if (providers.length > 0) {}// ──────────────────────────────────────────────────────────────────────
   // EFFECTS
   // ──────────────────────────────────────────────────────────────────────
 

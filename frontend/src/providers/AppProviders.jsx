@@ -20,31 +20,38 @@ import { AuthProvider } from 'contexts/AuthContext';
 import { EmployerFilterProvider } from 'contexts/EmployerFilterContext';
 import { CompanySettingsProvider } from 'contexts/CompanySettingsContext';
 import { GlobalImportProgressProvider } from 'contexts/GlobalImportProgressContext';
+import { TableRefreshProvider } from 'contexts/TableRefreshContext';
 
+/**
+ * AppProviders - Centralized Context Providers
+ * Phase D2 - Context Standardization
+ */
 const AppProviders = ({ children }) => {
     return (
         <SystemErrorBoundary>
-            <CompanySettingsProvider>
-                <ThemeCustomization>
-                    <RTLLayout>
-                        <Locales>
-                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                <ScrollTop>
-                                    <AuthProvider>
-                                        <EmployerFilterProvider>
-                                            <GlobalImportProgressProvider>
-                                                <Notistack>
-                                                    {children}
-                                                </Notistack>
-                                            </GlobalImportProgressProvider>
-                                        </EmployerFilterProvider>
-                                    </AuthProvider>
-                                </ScrollTop>
-                            </LocalizationProvider>
-                        </Locales>
-                    </RTLLayout>
-                </ThemeCustomization>
-            </CompanySettingsProvider>
+            <TableRefreshProvider>
+                <CompanySettingsProvider>
+                    <ThemeCustomization>
+                        <RTLLayout>
+                            <Locales>
+                                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <ScrollTop>
+                                        <AuthProvider>
+                                            <EmployerFilterProvider>
+                                                <GlobalImportProgressProvider>
+                                                    <Notistack>
+                                                        {children}
+                                                    </Notistack>
+                                                </GlobalImportProgressProvider>
+                                            </EmployerFilterProvider>
+                                        </AuthProvider>
+                                    </ScrollTop>
+                                </LocalizationProvider>
+                            </Locales>
+                        </RTLLayout>
+                    </ThemeCustomization>
+                </CompanySettingsProvider>
+            </TableRefreshProvider>
         </SystemErrorBoundary>
     );
 };

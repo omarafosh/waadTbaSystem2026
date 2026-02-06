@@ -49,4 +49,27 @@ public class CompanySettingsDto {
      * UI visibility configuration (Phase B4)
      */
     private UiVisibilityDto uiVisibility;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
+    public Long getEmployerId() { return employerId; }
+    public void setEmployerId(Long employerId) { this.employerId = employerId; }
+    public Boolean getCanViewClaims() { return canViewClaims; }
+    public void setCanViewClaims(Boolean canViewClaims) { this.canViewClaims = canViewClaims; }
+    public Boolean getCanViewVisits() { return canViewVisits; }
+    public void setCanViewVisits(Boolean canViewVisits) { this.canViewVisits = canViewVisits; }
+    public Boolean getCanEditMembers() { return canEditMembers; }
+    public void setCanEditMembers(Boolean canEditMembers) { this.canEditMembers = canEditMembers; }
+    public Boolean getCanDownloadAttachments() { return canDownloadAttachments; }
+    public void setCanDownloadAttachments(Boolean canDownloadAttachments) { this.canDownloadAttachments = canDownloadAttachments; }
+    public String getEmployerName() { return employerName; }
+    public void setEmployerName(String employerName) { this.employerName = employerName; }
+    public String getEmployerCode() { return employerCode; }
+    public void setEmployerCode(String employerCode) { this.employerCode = employerCode; }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+    public UiVisibilityDto getUiVisibility() { return uiVisibility; }
+    public void setUiVisibility(UiVisibilityDto uiVisibility) { this.uiVisibility = uiVisibility; }
 }

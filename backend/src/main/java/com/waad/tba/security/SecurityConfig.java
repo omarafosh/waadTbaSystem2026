@@ -42,7 +42,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final SessionAuthenticationFilter sessionAuthenticationFilter; // Phase B: Session support
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder; // Injected from PasswordEncoderConfig
     
@@ -80,24 +79,14 @@ public class SecurityConfig {
 
                 // Session management configuration
                 .sessionManagement(session -> session
-                        // Phase C.1: Session Policy Review
-                        // IF_REQUIRED allows Spring to create sessions when needed (session auth)
-                        // while still supporting stateless requests (JWT auth)
-                        // This enables dual authentication support (Session OR JWT)
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                        // Phase 2: Security Hardening (Stateless JWT)
+                        // Enforce stateless sessions - no HttpSession created
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authenticationProvider(authenticationProvider())
 
-                // Phase C.1: Filter Chain Order (CRITICAL for security)
-                // Order matters: SessionAuthenticationFilter → JwtAuthenticationFilter →
-                // UsernamePasswordAuthenticationFilter
-                // 1. SessionAuthenticationFilter checks for valid HTTP session first
-                // (preferred)
-                // 2. If no session, JwtAuthenticationFilter checks for Bearer token (legacy
-                // fallback)
-                // 3. UsernamePasswordAuthenticationFilter handles form-based login (not used in
-                // our API)
-                .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // Phase 2: Filter Chain Order
+                // Only JwtAuthenticationFilter is needed
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

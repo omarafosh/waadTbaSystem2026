@@ -27,6 +27,7 @@ export default function DashboardLayout() {
   const { pathname } = useLocation();
   const { menuMasterLoading } = useGetMenuMaster();
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
+  const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
   const { state } = useConfig();
   const isContainer = state.container;
@@ -49,16 +50,13 @@ export default function DashboardLayout() {
   if (menuMasterLoading) return <Loader />;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%', height: '100vh', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', width: '100%', minHeight: '100vh', flexDirection: 'column' }}>
       <Header />
 
-      {/* ✅ Provider Context Bar (Below Navbar) */}
+      {/* ✅ Provider Context Bar (Below Navbar) - Drawer hidden as requested */}
       {isProvider && <ProviderContextBar />}
 
-      {/* ✅ Drawer/Sidebar removed - using horizontal navigation */}
-      {/* <Drawer /> */}
-
-      <Box component="main" sx={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Box component="main" sx={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         {/* ✅ Spacer matching adjusted header height */}
         <Toolbar sx={{ minHeight: { xs: 60, sm: 68 }, height: { xs: 60, sm: 68 }, flexShrink: 0 }} />
 
@@ -71,8 +69,6 @@ export default function DashboardLayout() {
             ...(isContainer && { px: { xs: 0, sm: 2 } }),
             position: 'relative',
             flexGrow: 1,
-            height: '100%',
-            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column'
           }}

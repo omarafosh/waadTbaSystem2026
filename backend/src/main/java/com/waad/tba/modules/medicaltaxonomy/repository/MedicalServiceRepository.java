@@ -29,6 +29,7 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BASIC QUERIES
+    // Note: @Where(clause = "active = true") is automatically applied to all JPA queries
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
@@ -47,7 +48,7 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     boolean existsByCode(String code);
 
     /**
-     * Find all active services
+     * Find all active services (redundant naming but kept for backward compat)
      */
     List<MedicalService> findByActiveTrue();
 
@@ -63,7 +64,9 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
 
     /**
      * Find all inactive services - paginated
+     * Must use NATIVE query to bypass @Where(clause = "active = true")
      */
+    @Query(value = "SELECT * FROM medical_services WHERE active = false", nativeQuery = true)
     Page<MedicalService> findByActiveFalse(Pageable pageable);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -78,13 +81,13 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     /**
      * Find all active services in a category
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.categoryId = :categoryId AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.categoryId = :categoryId")
     List<MedicalService> findActiveByCategoryId(@Param("categoryId") Long categoryId);
 
     /**
      * Find all active services in a category - paginated
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.categoryId = :categoryId AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.categoryId = :categoryId")
     Page<MedicalService> findActiveByCategoryId(@Param("categoryId") Long categoryId, Pageable pageable);
 
     /**
@@ -100,7 +103,7 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     /**
      * Count active services in a category
      */
-    @Query("SELECT COUNT(ms) FROM MedicalService ms WHERE ms.categoryId = :categoryId AND ms.active = true")
+    @Query("SELECT COUNT(ms) FROM MedicalService ms WHERE ms.categoryId = :categoryId")
     long countActiveByCategoryId(@Param("categoryId") Long categoryId);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -110,13 +113,13 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     /**
      * Find all services requiring pre-authorization
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.requiresPA = true AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.requiresPA = true")
     List<MedicalService> findServicesRequiringPA();
 
     /**
      * Find all services requiring pre-authorization - paginated
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.requiresPA = true AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.requiresPA = true")
     Page<MedicalService> findServicesRequiringPA(Pageable pageable);
 
     /**
@@ -126,7 +129,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
         SELECT ms FROM MedicalService ms
         WHERE ms.categoryId = :categoryId
           AND ms.requiresPA = true
-          AND ms.active = true
     """)
     List<MedicalService> findServicesRequiringPAByCategory(@Param("categoryId") Long categoryId);
 
@@ -140,7 +142,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     @Query("""
         SELECT ms FROM MedicalService ms
         WHERE LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-          AND ms.active = true
     """)
     List<MedicalService> searchByName(@Param("searchTerm") String searchTerm);
 
@@ -150,7 +151,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     @Query("""
         SELECT ms FROM MedicalService ms
         WHERE LOWER(ms.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-          AND ms.active = true
     """)
     Page<MedicalService> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);
 
@@ -165,7 +165,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
           AND (:requiresPA IS NULL OR ms.requiresPA = :requiresPA)
           AND (:minPrice IS NULL OR ms.basePrice >= :minPrice)
           AND (:maxPrice IS NULL OR ms.basePrice <= :maxPrice)
-          AND ms.active = true
     """)
     Page<MedicalService> advancedSearch(
         @Param("searchTerm") String searchTerm,
@@ -186,7 +185,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     @Query("""
         SELECT ms FROM MedicalService ms
         WHERE ms.basePrice BETWEEN :minPrice AND :maxPrice
-          AND ms.active = true
     """)
     List<MedicalService> findByPriceRange(
         @Param("minPrice") BigDecimal minPrice,
@@ -196,13 +194,13 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     /**
      * Find services by minimum price
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.basePrice >= :minPrice AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.basePrice >= :minPrice")
     List<MedicalService> findByBasePriceGreaterThanEqual(@Param("minPrice") BigDecimal minPrice);
 
     /**
      * Find services by maximum price
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.basePrice <= :maxPrice AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.basePrice <= :maxPrice")
     List<MedicalService> findByBasePriceLessThanEqual(@Param("maxPrice") BigDecimal maxPrice);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -212,13 +210,13 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     /**
      * Find by ID and ensure it's active
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.id = :id AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.id = :id")
     Optional<MedicalService> findActiveById(@Param("id") Long id);
 
     /**
      * Find by code and ensure it's active
      */
-    @Query("SELECT ms FROM MedicalService ms WHERE ms.code = :code AND ms.active = true")
+    @Query("SELECT ms FROM MedicalService ms WHERE ms.code = :code")
     Optional<MedicalService> findActiveByCode(@Param("code") String code);
 
     /**
@@ -234,24 +232,27 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
 
     /**
      * Soft delete all medical services (set active = false)
+     * Using native query to be precise
      * @return number of updated records
      */
     @Modifying
-    @Query("UPDATE MedicalService ms SET ms.active = false WHERE ms.active = true")
+    @Query(value = "UPDATE medical_services SET active = false WHERE active = true", nativeQuery = true)
     int softDeleteAll();
 
     /**
      * Activate all medical services (set active = true)
+     * Using native query to bypass @Where
      * @return number of updated records
      */
     @Modifying
-    @Query("UPDATE MedicalService ms SET ms.active = true WHERE ms.active = false")
+    @Query(value = "UPDATE medical_services SET active = true WHERE active = false", nativeQuery = true)
     int activateAll();
 
     /**
      * Find all services (including inactive) - for admin operations
+     * Native query to bypass @Where
      */
-    @Query("SELECT ms FROM MedicalService ms")
+    @Query(value = "SELECT * FROM medical_services", nativeQuery = true)
     Page<MedicalService> findAllIncludingInactive(Pageable pageable);
 
     /**
@@ -260,8 +261,10 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     long countByActiveTrue();
 
     /**
-     * Count inactive services  
+     * Count inactive services
+     * Native query to bypass @Where
      */
+    @Query(value = "SELECT COUNT(*) FROM medical_services WHERE active = false", nativeQuery = true)
     long countByActiveFalse();
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -270,22 +273,7 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
 
     /**
      * Unified lookup query for medical service selection
-     * 
-     * Returns services with full category context for display.
-     * Searches across: code, nameAr, nameEn, categoryNameAr, categoryNameEn
-     * 
-     * SQL:
-     * SELECT ms.*, mc.name_ar as category_name_ar, mc.name_en as category_name_en
-     * FROM medical_services ms
-     * LEFT JOIN medical_categories mc ON ms.category_id = mc.id
-     * WHERE ms.active = true
-     *   AND (:query IS NULL OR LOWER(ms.code) LIKE LOWER('%q%')
-     *        OR LOWER(ms.name_ar) LIKE LOWER('%q%')
-     *        OR LOWER(ms.name_en) LIKE LOWER('%q%')
-     *        OR LOWER(mc.name_ar) LIKE LOWER('%q%')
-     *        OR LOWER(mc.name_en) LIKE LOWER('%q%'))
-     *   AND (:categoryId IS NULL OR ms.category_id = :categoryId)
-     * ORDER BY mc.name, ms.name
+     * Note: Native Query ALREADY bypasses @Where, keeping explicit check for safety
      */
     @Query(value = """
         SELECT 
@@ -309,9 +297,6 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
         @Param("categoryId") Long categoryId
     );
 
-    /**
-     * Projection interface for lookup results
-     */
     interface MedicalServiceLookupProjection {
         Long getId();
         String getCode();

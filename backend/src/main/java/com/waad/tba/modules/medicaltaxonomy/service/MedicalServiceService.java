@@ -11,6 +11,8 @@ import com.waad.tba.modules.medicaltaxonomy.repository.MedicalCategoryRepository
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ public class MedicalServiceService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public MedicalServiceResponseDto create(MedicalServiceCreateDto dto) {
         log.info("Creating medical service: {}", dto.getCode());
 
@@ -154,6 +157,7 @@ public class MedicalServiceService {
      * @return List of all active services
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "medicalServices")
     public List<MedicalServiceResponseDto> findAllActive() {
         log.debug("Finding all active medical services for dropdown");
         return serviceRepository.findByActiveTrueOrderByCode()
@@ -182,6 +186,7 @@ public class MedicalServiceService {
      * @return List of services with full category context
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "medicalServiceLookups", key = "{#query, #categoryId}", unless = "#result.isEmpty()")
     public List<MedicalServiceLookupDto> lookup(String query, Long categoryId) {
         log.debug("Lookup medical services: query={}, categoryId={}", query, categoryId);
         
@@ -232,6 +237,7 @@ public class MedicalServiceService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public MedicalServiceResponseDto update(Long id, MedicalServiceUpdateDto dto) {
         log.info("Updating medical service: {}", id);
 
@@ -275,15 +281,15 @@ public class MedicalServiceService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public void delete(Long id) {
         log.info("Deleting (soft) medical service: {}", id);
 
         MedicalService service = serviceRepository.findById(id)
                 .orElseThrow(() -> new BusinessRuleException("Medical service not found: " + id));
 
-        // Soft delete
-        service.setActive(false);
-        serviceRepository.save(service);
+        // Soft delete (Handled by @SQLDelete on Entity)
+        serviceRepository.delete(service);
 
         log.info("✅ Deleted (soft) medical service: {}", id);
     }
@@ -296,6 +302,7 @@ public class MedicalServiceService {
      * @return Updated service DTO
      */
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public MedicalServiceResponseDto updateCategory(Long id, Long categoryId) {
         log.info("Quick update category for service {} to category {}", id, categoryId);
 
@@ -324,6 +331,7 @@ public class MedicalServiceService {
      * @return Map with updated and failed counts
      */
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public java.util.Map<String, Object> bulkUpdateCategory(List<Long> serviceIds, Long categoryId) {
         log.info("Bulk update category for {} services to category {}", serviceIds.size(), categoryId);
 
@@ -372,6 +380,7 @@ public class MedicalServiceService {
      * @return number of services deactivated
      */
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public int deactivateAll() {
         log.warn("🔴 BULK DEACTIVATE: Deactivating ALL medical services");
         
@@ -388,6 +397,7 @@ public class MedicalServiceService {
      * @return number of services activated
      */
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public int activateAll() {
         log.warn("🟢 BULK ACTIVATE: Activating ALL medical services");
         
@@ -404,6 +414,7 @@ public class MedicalServiceService {
      * @return number of services permanently deleted
      */
     @Transactional
+    @CacheEvict(value = {"medicalServices", "medicalServiceLookups"}, allEntries = true)
     public int permanentDeleteAll() {
         log.warn("🗑️ PERMANENT DELETE: Deleting ALL medical services permanently!");
         

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     Box,
     Button,
@@ -63,6 +63,7 @@ const DataImportWizard = ({
             setSelectedEmployer(null);
             setSelectedPolicy(null);
             setError(null);
+            setLoading(false);
             fetchEmployers();
         }
     }, [open]);
@@ -116,7 +117,6 @@ const DataImportWizard = ({
             // NEW: Extract data from ApiResponse wrapper correctly
             const data = response.data?.data || response.data?.result || response.data;
             setPreviewData(data);
-            console.log(`📊 Import ${entityName} Preview Data (Unwrapped):`, data);
             setActiveStep(1);
         } catch (err) {
             console.error(err);
@@ -172,6 +172,12 @@ const DataImportWizard = ({
                 // For simple imports (like employers), just show success and close
                 enqueueSnackbar(result.message || 'تم الاستيراد بنجاح', { variant: 'success' });
             }
+
+            // Refresh screen to see updates
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+
             onClose(); // Close Wizard
         } catch (err) {
             console.error(err);
@@ -294,20 +300,7 @@ const DataImportWizard = ({
                                                     helperText="اختر جهة فقط إذا كان الملف لا يحتوي على عمود 'جهة العمل'"
                                                 />
                                             )}
-                                            sx={{ mb: 2 }}
                                         />
-                                        {selectedEmployer && (
-                                            <Autocomplete
-                                                options={(previewData?.availableBenefitPolicies || []).filter(p => p.employerId === selectedEmployer.id)}
-                                                getOptionLabel={(option) => option.nameAr || option.policyNumber || ""}
-                                                value={selectedPolicy}
-                                                onChange={(_, newValue) => setSelectedPolicy(newValue)}
-                                                renderInput={(params) => (
-                                                    <TextField {...params} label="وثيقة التأمين (اختياري)" size="small" fullWidth />
-                                                )}
-                                                disabled={!selectedEmployer}
-                                            />
-                                        )}
                                     </Paper>
                                 </Grid>
                             )}

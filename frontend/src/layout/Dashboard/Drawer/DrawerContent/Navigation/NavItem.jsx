@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import { Link, useLocation, matchPath } from 'react-router-dom';
 
 // material-ui
-import { useColorScheme } from '@mui/material/styles';
+import { useColorScheme, alpha } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
@@ -58,11 +58,8 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
   const { pathname } = useLocation();
   const isSelected = !!matchPath({ path: item?.link ? item.link : item.url, end: false }, pathname);
 
-  // Professional Dark Sidebar Colors
-  const textColor = 'rgba(255, 255, 255, 0.7)';
-  const iconSelectedColor = '#ffffff';
-  const selectedBgColor = '#0066e6'; // Primary Blue
-  const hoverBgColor = 'rgba(255, 255, 255, 0.05)';
+  const textColor = colorScheme === ThemeMode.DARK ? 'grey.400' : 'text.primary';
+  const iconSelectedColor = colorScheme === ThemeMode.DARK && drawerOpen ? 'text.primary' : 'primary.main';
 
   return (
     <>
@@ -78,20 +75,12 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
               zIndex: 1201,
               pl: drawerOpen ? `${level * 28}px` : 1.5,
               py: 1,
-              mb: 0.5, // Spacing between items
-              mx: 1,   // Side margins for button look
-              borderRadius: '8px', // Rounded corners
-              color: textColor,
-              transition: 'all 0.2s ease-in-out',
-
               ...(drawerOpen && {
-                '&:hover': { bgcolor: hoverBgColor, color: '#fff' },
+                '&:hover': { bgcolor: 'primary.lighter', ...theme.applyStyles('dark', { bgcolor: 'divider' }) },
                 '&.Mui-selected': {
-                  bgcolor: selectedBgColor,
-                  color: '#fff',
-                  '&:hover': { bgcolor: '#0052b8' }, // Darker shade
-                  '& .MuiTypography-root': { fontWeight: 600, color: '#fff' },
-                  '& .MuiListItemIcon-root': { color: '#fff' }
+                  bgcolor: 'transparent',
+                  color: iconSelectedColor,
+                  '&:hover': { color: iconSelectedColor, bgcolor: 'transparent', ...theme.applyStyles('dark', { bgcolor: 'divider' }) }
                 }
               }),
               ...(!drawerOpen && {
@@ -105,7 +94,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
               <ListItemIcon
                 sx={(theme) => ({
                   minWidth: 28,
-                  color: isSelected ? iconSelectedColor : textColor,
+                  color: isSelected ? 'primary.main' : textColor,
                   ...(!drawerOpen && {
                     borderRadius: 1.5,
                     width: 36,
@@ -128,19 +117,10 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
             {(drawerOpen || (!drawerOpen && level !== 1)) && (
               <ListItemText
                 primary={
-                  <Typography variant="h6" sx={{ color: isSelected ? iconSelectedColor : textColor }}>
+                  <Typography variant="h6" sx={{ color: isSelected ? 'primary.main' : textColor }}>
                     {item.title}
                   </Typography>
                 }
-              />
-            )}
-            {(drawerOpen || (!drawerOpen && level !== 1)) && item.chip && (
-              <Chip
-                color={item.chip.color}
-                variant={item.chip.variant}
-                size={item.chip.size}
-                label={item.chip.label}
-                avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
               />
             )}
           </ListItemButton>

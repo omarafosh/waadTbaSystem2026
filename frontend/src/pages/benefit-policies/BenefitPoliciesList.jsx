@@ -379,7 +379,7 @@ const BenefitPoliciesList = () => {
               maxHeight="calc(100vh - 300px)"
               onRowClick={(row) => handleNavigateView(row.id)}
               emptyMessage="لا توجد سياسات"
-              rowsPerPageOptions={[8, 16, 24, 32, 40]}
+              rowsPerPageOptions={[8, 16, 24, 32, 40, 50, 100]}
             />
           </TableErrorBoundary>
         </MainCard>

@@ -153,8 +153,8 @@ public class ProviderPortalService {
             log.warn("🛡️ Security Restriction: User {} attempted to access member {} from unauthorized company {}", 
                      username, member.getId(), member.getEmployerOrganization().getName());
             throw new IllegalArgumentException(
-                "عذراً، ليس لديك صلاحية للوصول لبيانات أعضاء شركة: " + member.getEmployerOrganization().getName() +
-                " / Access denied for members of company: " + member.getEmployerOrganization().getName()
+                "عذراً، هذا المستفيد ليس من الجهات المسموحة (جهة العمل غير متعاقدة مع مقدم الخدمة) / " +
+                "The beneficiary is not from the authorized entities (uncontracted employer)"
             );
         }
     }
@@ -173,6 +173,12 @@ public class ProviderPortalService {
             // Try card number (with eager loading)
             List<Member> cardMembers = memberRepository.findByCardNumberWithDetails(lookupKey);
             member = cardMembers.isEmpty() ? null : cardMembers.get(0);
+        }
+        
+        if (member == null) {
+            // Try employee number (with eager loading)
+            List<Member> employeeMembers = memberRepository.findByEmployeeNumberWithDetails(lookupKey);
+            member = employeeMembers.isEmpty() ? null : employeeMembers.get(0);
         }
         
         if (member != null) {

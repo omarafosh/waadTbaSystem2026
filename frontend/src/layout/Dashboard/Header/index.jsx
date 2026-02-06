@@ -21,7 +21,6 @@ import MenuUnfoldOutlined from '@ant-design/icons/MenuUnfoldOutlined';
 // ==============================|| MAIN LAYOUT - HEADER ||============================== //
 
 export default function Header() {
-  console.log('[Header] Rendering Header Component'); // Force HMR Update
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
   const { state } = useConfig();
 
@@ -36,7 +35,19 @@ export default function Header() {
   // common header - ✅ Adjusted height for better spacing
   const mainHeader = (
     <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: { xs: 60, sm: 68 }, height: { xs: 60, sm: 68 } }}>
-      {/* ✅ Sidebar toggle button removed - using horizontal navigation */}
+      {/* ✅ Sidebar toggle button for mobile/responsive view */}
+      {downLG && (
+        <IconButton
+          aria-label="open drawer"
+          onClick={() => handlerDrawerOpen(!drawerOpen)}
+          edge="start"
+          color="secondary"
+          variant="light"
+          sx={{ color: 'text.primary', bgcolor: 'grey.100', ml: { xs: 0, lg: -2 }, mr: 2 }}
+        >
+          {drawerOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+        </IconButton>
+      )}
       {headerContent}
     </Toolbar>
   );

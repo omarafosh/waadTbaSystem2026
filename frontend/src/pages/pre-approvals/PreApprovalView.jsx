@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Button, Card, CardContent, CircularProgress, Divider, Grid, Paper, Stack, Typography, Alert } from '@mui/material';
 import {
@@ -148,9 +148,7 @@ const PreApprovalView = () => {
 
   // Placeholder for Convert to Claim (UI only - no logic)
   const handleConvertToClaim = () => {
-    // TODO: Implement in future phase
-    console.log('Convert to Claim - Not implemented yet');
-  };
+    // TODO: Implement in future phase};
 
   if (loading) {
     return (

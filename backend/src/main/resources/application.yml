@@ -41,7 +41,7 @@ spring:
     host: ${EMAIL_HOST:smtp.hostinger.com}
     port: ${EMAIL_PORT:587}
     username: ${EMAIL_USERNAME:support@alwahacare.com}
-    password: ${EMAIL_PASSWORD:6L8~nz@Go} # Default for DEV only. Override in PROD.
+    password: ${EMAIL_PASSWORD:changeme} # ⚠️ Set via environment variable in production
     protocol: smtp
     properties:
       mail:
@@ -64,7 +64,7 @@ spring:
     # Docker PostgreSQL uses port 5433, native uses 5432
     url: ${DB_URL:jdbc:postgresql://localhost:5432/tba_waad_system}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:12345} # Default for DEV only. Override in PROD.
+    password: ${DB_PASSWORD:postgres} # ⚠️ Set via environment variable in production
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: TBA-WAAD-HikariPool
@@ -132,7 +132,7 @@ server:
 # 🔐 JWT (محفوظ للموبايل)
 # ==============================
 jwt:
-  secret: ${JWT_SECRET:VGhpcy1pcy1hLUJhc2U2NC1leGFtcGxlLXNlY3JldC0uLi4=} # Default for DEV only.
+  secret: ${JWT_SECRET:VGhpcy1pcy1hLUJhc2U2NC1leGFtcGxlLXNlY3JldC0uLi4=} # ⚠️ Set via environment variable in production
   expiration: 86400000
 
 # ==============================

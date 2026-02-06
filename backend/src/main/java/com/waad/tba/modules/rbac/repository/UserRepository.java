@@ -22,4 +22,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> searchUsers(String query);
     
     Optional<User> findByUsernameOrEmail(String username, String email);
+    List<User> findByProviderId(Long providerId);
+
+    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
+    List<User> findUnassignedProviders();
 }

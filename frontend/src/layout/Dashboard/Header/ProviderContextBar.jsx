@@ -24,9 +24,11 @@ import { ROLES } from 'constants/permissions.constants';
 const ProviderContextBar = () => {
     const theme = useTheme();
     const { user } = useAuth();
-    const isProvider = user?.roles?.some(role => role === ROLES.PROVIDER);
+    // Allow SUPER_ADMIN to see the bar for debugging/monitoring if they are on provider pages
+    const isProvider = user?.roles?.some(role => role === ROLES.PROVIDER) || user?.roles?.includes('SUPER_ADMIN');
 
     // 1. Determine ID (Robust check)
+    // If Admin, they won't have providerId, so we might show placeholders or handle gracefully
     const providerId = user?.providerId || user?.entityId || user?.pId;
 
     // 2. Fetch Provider Details
@@ -156,10 +158,10 @@ const ProviderContextBar = () => {
 
             {/* Provider Name */}
             <Typography variant="h6" color="text.primary" sx={{ fontWeight: 600 }}>
-                {isLoading || (!providerDetails && !user?.providerName) ? (
+                {isLoading ? (
                     <Skeleton width={150} />
                 ) : (
-                    user?.providerName || providerDetails?.name || 'مقدم خدمة'
+                    user?.providerName || providerDetails?.name || (user?.roles?.includes('SUPER_ADMIN') ? 'عرض المسؤول (Admin)' : 'مقدم خدمة')
                 )}
             </Typography>
 

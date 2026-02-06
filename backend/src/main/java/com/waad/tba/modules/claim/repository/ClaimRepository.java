@@ -54,6 +54,23 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     java.util.Optional<Claim> findByIdForFinancialUpdate(@Param("id") Long id);
 
     /**
+     * Find claim by ID with full fetch joins for viewing details.
+     * Prevents N+1 queries in ClaimMapper.toViewDto()
+     */
+    @Query("SELECT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.lines cl " +
+           "LEFT JOIN FETCH cl.medicalService ms " +
+           "LEFT JOIN FETCH c.attachments " +
+           "WHERE c.id = :id")
+    java.util.Optional<Claim> findByIdWithDetails(@Param("id") Long id);
+
+    /**
      * PHASE 5.B: Enhanced with full fetch joins for member.benefitPolicy and insuranceOrganization
      * to avoid N+1 queries in ClaimMapper.toViewDto()
      */
@@ -344,6 +361,22 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     Page<Claim> findByProviderIdAndStatus(@Param("providerId") Long providerId, 
                                           @Param("status") com.waad.tba.modules.claim.entity.ClaimStatus status,
                                           Pageable pageable);
+
+    /**
+     * Find claims by provider ID and status LIST with pagination.
+     * Used by PROVIDER role to filter their inbox (e.g. SUBMITTED + UNDER_REVIEW).
+     */
+    @Query("SELECT c FROM Claim c " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status IN :statuses")
+    Page<Claim> findByProviderIdAndStatusIn(@Param("providerId") Long providerId, 
+                                            @Param("statuses") List<com.waad.tba.modules.claim.entity.ClaimStatus> statuses,
+                                            Pageable pageable);
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // DASHBOARD STATISTICS QUERIES (Phase A)

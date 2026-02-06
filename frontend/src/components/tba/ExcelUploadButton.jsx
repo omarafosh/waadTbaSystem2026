@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ExcelUploadButton - Reusable Excel File Upload Component
  * Phase: Frontend UI/UX Improvements
  *
@@ -14,7 +14,7 @@
  *
  * Usage:
  * <ExcelUploadButton
- *   onUpload={(file) => console.log('Upload file:', file)}
+ *   onUpload={(file) =>}
  *   disabled={false}
  *   buttonText="رفع ملف Excel"
  * />

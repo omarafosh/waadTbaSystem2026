@@ -1,65 +1,64 @@
 /**
- * Session-Based Authentication Service
- * Phase C - Migration from JWT to Session Auth
+ * JWT Authentication Service
+ * Reverted to JWT due to Backend Stateless Enforcement (Phase 2)
  *
- * This service handles authentication using HttpOnly cookies (JSESSIONID)
- * instead of storing JWT tokens in localStorage.
- *
- * Key differences from JWT approach:
- * - NO token storage in localStorage/sessionStorage
- * - Relies on browser's automatic cookie handling
- * - Session managed by backend (Spring HTTP Session)
- * - More secure against XSS attacks
+ * This service handles authentication using Bearer Tokens
+ * stored in localStorage.
  */
 
 import axiosClient from 'utils/axios';
 
 /**
  * Login with username/password
- * Creates HTTP session, returns user info
- * NO token in response - browser automatically stores JSESSIONID cookie
+ * Returns JWT token and user info
  */
 export const login = async (credentials) => {
-  const response = await axiosClient.post('/auth/session/login', credentials);
-  // Backend returns ApiResponse<UserInfo> wrapped in axios response
-  // response.data = { status: 'success', data: UserInfo, message: '...' }
+  // Use JWT endpoint instead of session
+  const response = await axiosClient.post('/auth/login', credentials);
+  // Backend returns ApiResponse<LoginResponse> wrapped in axios response
+  // response.data = { status: 'success', data: { token, user }, message: '...' }
   return response.data;
 };
 
 /**
- * Get current authenticated user from session
- * Returns user info if valid session exists
- * Returns { status: 'unauthenticated' } if no session (does NOT throw on 401)
+ * Get current authenticated user
+ * Uses Bearer token from localStorage (injected by axios interceptor)
  */
 export const me = async () => {
   try {
-    const response = await axiosClient.get('/auth/session/me');
+    // Use JWT endpoint
+    const response = await axiosClient.get('/auth/me');
     // Backend returns ApiResponse<UserInfo> wrapped in axios response
     // response.data = { status: 'success', data: UserInfo, message: '...' }
     return response.data;
   } catch (error) {
-    // Expected 401 when no session - return safe response instead of throwing
-    if (error.response?.status === 401) {
+    // Expected 401 when no token or expired
+    if (error.response?.status === 401 || error.response?.status === 403) {
       return { status: 'unauthenticated', data: null };
     }
-    // Re-throw other errors (network, 500, etc.)
+    // Re-throw other errors
     throw error;
   }
 };
 
 /**
- * Logout - invalidates HTTP session
- * Clears backend session and JSESSIONID cookie
+ * Logout
+ * Client-side only (JWT is stateless), but we call backend to allow any cleanup if needed
  */
 export const logout = async () => {
-  const response = await axiosClient.post('/auth/session/logout');
-  // Backend returns ApiResponse<Void> wrapped in axios response
-  return response.data;
+  // Optional: Call backend logout if implemented, otherwise just clear local state
+  try {
+    // Session logout endpoint might not work with JWT, but safe to ignore error
+    await axiosClient.post('/auth/session/logout');
+  } catch (e) {
+    // Ignore
+  }
+  return { status: 'success' };
 };
 
 /**
  * Check if user is authenticated
- * Tries to fetch current user - if succeeds, session is valid
+ * Tries to fetch current user
  */
 export const isAuthenticated = async () => {
   try {

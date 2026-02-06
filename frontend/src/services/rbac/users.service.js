@@ -131,6 +131,24 @@ export const usersService = {
       page: (pageData?.number || 0) + 1,
       size: pageData?.size || size
     };
+  },
+
+  /**
+   * Get all users linked to a specific provider
+   * GET /api/admin/users/provider/{providerId}
+   */
+  getUsersByProvider: async (providerId) => {
+    const response = await axiosServices.get(`${BASE_URL}/provider/${providerId}`);
+    return response?.data?.data || response?.data || [];
+  },
+
+  /**
+   * Get all users with PROVIDER role not linked to any provider
+   * GET /api/admin/users/unassigned-providers
+   */
+  getUnassignedProviders: async () => {
+    const response = await axiosServices.get(`${BASE_URL}/unassigned-providers`);
+    return response?.data?.data || response?.data || [];
   }
 };
 

@@ -15,11 +15,6 @@ const RbacRoleDetails = Loadable(lazy(() => import('pages/rbac/roles/RoleDetails
 const PermissionMatrix = Loadable(lazy(() => import('pages/rbac/PermissionMatrix.jsx')));
 const PermissionsList = Loadable(lazy(() => import('pages/rbac/PermissionsList.jsx')));
 
-// Wrapper for TableRefreshProvider
-const WithTableRefresh = ({ children }) => (
-    <TableRefreshProvider>{children}</TableRefreshProvider>
-);
-
 const RbacRoutes = {
     path: 'rbac',
     children: [
@@ -34,7 +29,7 @@ const RbacRoutes = {
             children: [
                 createRoute({
                     index: true,
-                    element: function RbacUsersWithRefresh() { return <WithTableRefresh><RbacUsersList /></WithTableRefresh> },
+                    element: RbacUsersList,
                     roles: ROLES.ALL_ADMINS
                 }),
                 createRoute({
@@ -60,7 +55,7 @@ const RbacRoutes = {
             children: [
                 createRoute({
                     index: true,
-                    element: function RbacRolesWithRefresh() { return <WithTableRefresh><RbacRolesList /></WithTableRefresh> },
+                    element: RbacRolesList,
                     roles: ROLES.ALL_ADMINS
                 }),
                 createRoute({

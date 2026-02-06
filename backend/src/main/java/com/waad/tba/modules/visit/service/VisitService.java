@@ -246,9 +246,40 @@ public class VisitService {
     @Transactional(readOnly = true)
     public List<VisitResponseDto> search(String query) {
         log.debug("Searching visits with query: {}", query);
-        return repository.search(query).stream()
-                .map(mapper::toResponseDto)
-                .collect(Collectors.toList());
+        
+        User currentUser = authorizationService.getCurrentUser();
+        if (currentUser == null) {
+            return Collections.emptyList();
+        }
+
+        if (authorizationService.isProvider(currentUser)) {
+            // PROVIDER: Filter by strict provider context
+            providerContextGuard.validateProviderBinding(currentUser);
+            Long providerId = currentUser.getProviderId();
+            log.info("🔒 PROVIDER user {} searching visits - enforced providerId={}", currentUser.getUsername(), providerId);
+            return repository.searchByProviderId(query, providerId).stream()
+                    .map(mapper::toResponseDto)
+                    .collect(Collectors.toList());
+
+        } else if (authorizationService.isEmployerAdmin(currentUser)) {
+            // EMPLOYER_ADMIN: Filter by employer
+            if (!authorizationService.canEmployerViewVisits(currentUser)) {
+                return Collections.emptyList();
+            }
+            Long employerId = authorizationService.getEmployerFilterForUser(currentUser);
+            log.info("🔒 EMPLOYER_ADMIN user {} searching visits - enforced employerId={}", currentUser.getUsername(), employerId);
+            return repository.searchByMemberEmployerId(query, employerId).stream()
+                    .map(mapper::toResponseDto)
+                    .collect(Collectors.toList());
+
+        } else if (authorizationService.isSuperAdmin(currentUser) || authorizationService.isInsuranceAdmin(currentUser)) {
+            // ADMIN: Full search
+            return repository.search(query).stream()
+                    .map(mapper::toResponseDto)
+                    .collect(Collectors.toList());
+        }
+
+        return Collections.emptyList();
     }
 
     @Transactional(readOnly = true)
@@ -295,6 +326,13 @@ public class VisitService {
 
     @Transactional(readOnly = true)
     public long count(Long employerId) {
+        User currentUser = authorizationService.getCurrentUser();
+        
+        if (currentUser != null && authorizationService.isProvider(currentUser)) {
+            providerContextGuard.validateProviderBinding(currentUser);
+            return repository.countByProviderId(currentUser.getProviderId());
+        }
+        
         if (employerId != null) {
             return repository.countByMemberEmployerId(employerId);
         }

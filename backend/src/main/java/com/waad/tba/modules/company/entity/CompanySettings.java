@@ -56,6 +56,10 @@ public class CompanySettings {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    public Long getId() {
+        return id;
+    }
+
     /**
      * Reference to the company (TPA)
      */
@@ -96,6 +100,27 @@ public class CompanySettings {
      */
     @Column(name = "ui_visibility", columnDefinition = "jsonb", nullable = true)
     private String uiVisibility;
+
+    public String getUiVisibility() { return uiVisibility; }
+    public void setUiVisibility(String uiVisibility) { this.uiVisibility = uiVisibility; }
+
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
+
+    public Long getEmployerId() { return employerId; }
+    public void setEmployerId(Long employerId) { this.employerId = employerId; }
+
+    public Boolean getCanViewClaims() { return canViewClaims; }
+    public void setCanViewClaims(Boolean canViewClaims) { this.canViewClaims = canViewClaims; }
+
+    public Boolean getCanViewVisits() { return canViewVisits; }
+    public void setCanViewVisits(Boolean canViewVisits) { this.canViewVisits = canViewVisits; }
+
+    public Boolean getCanEditMembers() { return canEditMembers; }
+    public void setCanEditMembers(Boolean canEditMembers) { this.canEditMembers = canEditMembers; }
+
+    public Boolean getCanDownloadAttachments() { return canDownloadAttachments; }
+    public void setCanDownloadAttachments(Boolean canDownloadAttachments) { this.canDownloadAttachments = canDownloadAttachments; }
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

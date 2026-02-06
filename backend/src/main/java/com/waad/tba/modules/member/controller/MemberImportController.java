@@ -299,7 +299,8 @@ public class MemberImportController {
                 java.util.Map.of("name", "national_id", "aliases", "identification_id, civil_id, الرقم الوطني"),
                 java.util.Map.of("name", "full_name", "aliases", "name, الاسم الكامل"),
                 java.util.Map.of("name", "employer", "aliases", "company, company_id, جهة العمل"),
-                java.util.Map.of("name", "policy", "aliases", "policy_number, policy_id, الوثيقة")
+                java.util.Map.of("name", "policy", "aliases", "policy_number, policy_id, الوثيقة"),
+                java.util.Map.of("name", "card_number", "aliases", "cardnumber, رقم البطاقة", "description", "رقم بطاقة المستفيد (اختياري - يولد تلقائياً إذا فقد)")
             ),
             "optional_columns", java.util.List.of(
                 "birth_date", "gender", "phone", "email", 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Eligibility Check Page
  * 
  * Checks family eligibility using Principal's Barcode.
@@ -95,10 +95,7 @@ const EligibilityCheck = () => {
     setError('');
 
     try {
-      const response = await checkEligibility(barcode.trim());
-      console.log('Eligibility response:', response);
-
-      if (response.data) {
+      const response = await checkEligibility(barcode.trim());if (response.data) {
         setFamilyData(response.data);
         openSnackbar({
           open: true,

@@ -61,7 +61,12 @@ axiosServices.interceptors.request.use(
 
     // Session-based auth: JSESSIONID cookie sent automatically via withCredentials: true
     // CSRF disabled in backend for REST API (CORS provides protection)
-    // No need to handle CSRF tokens manually
+
+    // 🔒 FIX (2026-02-06): Backend enforces STATELESS JWT. We must send Bearer token.
+    const token = localStorage.getItem('serviceToken'); // From rbac.js STORAGE_KEYS.TOKEN
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
     return config;
   },

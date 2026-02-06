@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Divider from '@mui/material/Divider';
@@ -42,8 +42,7 @@ export default function HeaderContent() {
   const { state } = useConfig();
   const { user } = useAuth();
   const { companyName, companyNameEn, primaryColor, getLogoSrc, hasLogo, getInitials, settings } = useCompanySettings();
-  const { pathname } = useLocation();
-  console.log('[HeaderContent] Rendering provider header badges check'); // Force HMR Update
+  const { pathname } = useLocation();// Force HMR Update
 
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
@@ -56,19 +55,19 @@ export default function HeaderContent() {
   const { data: providerDetails } = useQuery({
     queryKey: ['header-provider-details', user?.id],
     queryFn: async () => {
-      if (!user?.providerId && !user?.id) return null;
-      // If user.providerId is missing, we might need to rely on the fact that for a provider user, 
-      // we might be able to get their provider info via a different endpoint or if providerId is attached to user.
-      // Assuming user.providerId exists as per auth service logic, or we use getById(user.providerId)
-      // If providerId is not directly on user, we might need to skip or use a different strategy.
-      // For now, let's assume user.providerId or user.entityId is available. 
-      // As fallback, we return null.
-      const idToFetch = user?.providerId || user?.entityId;
-      if (!idToFetch) return null;
-      return providersService.getById(idToFetch);
+      // Phase 15 FIX: Robust ID resolution
+      // 1. Try direct providerId from user object (most reliable)
+      if (user?.providerId) return providersService.getById(user.providerId);
+
+      // 2. Fallback: If user is PROVIDER but has no ID, log warning and return null
+      // We rely on the backend to populate providerId in the user object during auth
+      if (isProvider) {
+        console.warn('[HeaderContent] Provider user missing providerId:', user);
+      }
+      return null;
     },
-    enabled: isProvider && (!!user?.providerId || !!user?.entityId),
-    staleTime: 0 // Force fresh fetch to ensure badges are up to date
+    enabled: isProvider && (!!user?.providerId),
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes since provider details change rarely
   });
 
   const employerBadges = useMemo(() => {
@@ -204,17 +203,7 @@ export default function HeaderContent() {
                 {displayName}
               </Typography>
 
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'text.secondary',
-                  fontSize: '1rem',
-                  lineHeight: 1,
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {settings?.businessType || 'إدارة التأمين الصحي'}
-              </Typography>
+
             </Box>
 
 

@@ -34,10 +34,11 @@ import lombok.extern.slf4j.Slf4j;
  * - CompanySettingsRepository (JPA)
  * - ObjectMapper (for JSON serialization)
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CompanySettingsService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CompanySettingsService.class);
 
     private final CompanySettingsRepository repository;
     private final ObjectMapper objectMapper;

@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   // ============================================================================
   // SESSION LOGIC (Inactivity Timer & 401 Handling)
   // ============================================================================
-  
+
   const [lastActivity, setLastActivity] = useState(Date.now());
   const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -63,21 +63,21 @@ export const AuthProvider = ({ children }) => {
     if (authStatus !== AUTH_STATUS.AUTHENTICATED) return;
 
     let lastUpdate = Date.now();
-    
+
     const handleActivity = () => {
-        const now = Date.now();
-        // Update max once every 5 seconds to reduce state updates
-        if (now - lastUpdate > 5000) {
-            setLastActivity(now);
-            lastUpdate = now;
-        }
+      const now = Date.now();
+      // Update max once every 5 seconds to reduce state updates
+      if (now - lastUpdate > 5000) {
+        setLastActivity(now);
+        lastUpdate = now;
+      }
     };
-    
+
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     events.forEach(event => window.addEventListener(event, handleActivity));
-    
+
     return () => {
-        events.forEach(event => window.removeEventListener(event, handleActivity));
+      events.forEach(event => window.removeEventListener(event, handleActivity));
     };
   }, [authStatus]);
 
@@ -89,8 +89,8 @@ export const AuthProvider = ({ children }) => {
       if (Date.now() - lastActivity > TIMEOUT_MS) {
         console.warn('⚠️ Session timeout due to inactivity');
         openSnackbar({
-            message: 'انتهت الجلسة بسبب عدم النشاط',
-            alert: { color: 'warning' }
+          message: 'انتهت الجلسة بسبب عدم النشاط',
+          alert: { color: 'warning' }
         });
         logout(); // Logout user
       }
@@ -102,21 +102,21 @@ export const AuthProvider = ({ children }) => {
   // 3. Handle 401 Unauthorized from Axios
   useEffect(() => {
     const handleUnauthorized = () => {
-       // Only if we think we are logged in
-       if (authStatus === AUTH_STATUS.AUTHENTICATED) {
-           console.warn('⚠️ Session expired (401) - Force Logout');
-           openSnackbar({
-               message: 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى',
-               alert: { color: 'error' }
-           });
-           
-           // Force clean local state without calling backend (backend already said 401)
-           setUser(null);
-           setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
-           useRBACStore.getState().clear();
-       }
+      // Only if we think we are logged in
+      if (authStatus === AUTH_STATUS.AUTHENTICATED) {
+        console.warn('⚠️ Session expired (401) - Force Logout');
+        openSnackbar({
+          message: 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى',
+          alert: { color: 'error' }
+        });
+
+        // Force clean local state without calling backend (backend already said 401)
+        setUser(null);
+        setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
+        useRBACStore.getState().clear();
+      }
     };
-    
+
     window.addEventListener('auth:session-expired', handleUnauthorized);
     return () => window.removeEventListener('auth:session-expired', handleUnauthorized);
   }, [authStatus]);
@@ -134,6 +134,17 @@ export const AuthProvider = ({ children }) => {
         setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
         useRBACStore.getState().clear();
         window.location.href = '/login';
+      } else if (event.data?.type === 'REFRESH_USER') {
+        // If the updated user is the current user, refresh data
+        // We use a functional update or ref to access current 'user' if needed, 
+        // but since this effect runs once, we rely on the closure or check inside refreshUser logic? 
+        // Actually, 'user' in this closure is stale (from mount). 
+        // Safe bet: always refresh, or store userId in localStorage to compare.
+        const currentUserId = JSON.parse(localStorage.getItem('userData') || '{}')?.id;
+        if (event.data?.userId && currentUserId && Number(currentUserId) === Number(event.data.userId)) {
+          console.info('🔄 User update detected in another tab');
+          refreshUser();
+        }
       }
     };
 
@@ -144,12 +155,17 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Initialize auth state on app startup
-   * SIMPLIFIED: Call /session/me once, set user, done
+   * Check if token exists and validate with me()
    */
   useEffect(() => {
     const init = async () => {
-      // PRODUCTION STABILIZATION: Silent init - no console noise
       try {
+        const token = localStorage.getItem('serviceToken');
+        if (!token) {
+          setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
+          return;
+        }
+
         const response = await authService.me();
 
         if (response.status === 'success' && response.data) {
@@ -158,12 +174,13 @@ export const AuthProvider = ({ children }) => {
           useRBACStore.getState().initialize(response.data);
           console.info('✅ Session restored:', response.data.username);
         } else {
-          // Expected: no session means user needs to login
+          // Token invalid or expired
           setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
+          localStorage.removeItem('serviceToken');
         }
       } catch (error) {
-        // Expected: 401 or network issue means user needs to login
         setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
+        localStorage.removeItem('serviceToken');
       }
     };
 
@@ -171,16 +188,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * Login
+   * Login - JWT Based
    */
   const login = async (credentials) => {
     const response = await authService.login(credentials);
 
+    // Response structure: { status: 'success', data: { token, user } }
     if (response.status === 'success' && response.data) {
-      setUser(response.data);
+      const { token, user } = response.data;
+
+      if (token) {
+        localStorage.setItem('serviceToken', token);
+      }
+
+      setUser(user);
       setAuthStatus(AUTH_STATUS.AUTHENTICATED);
-      useRBACStore.getState().initialize(response.data);
-      return response.data;
+
+      // Initialize RBAC with user data (and permissions if present)
+      useRBACStore.getState().initialize(user);
+      return user;
     } else {
       throw new Error('Login failed');
     }
@@ -195,9 +221,13 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.warn('Logout API failed (likely already expired)', error);
     }
-    
+
+    // Clear local state
     setUser(null);
     setAuthStatus(AUTH_STATUS.UNAUTHENTICATED);
+
+    // Clear storage
+    localStorage.removeItem('serviceToken');
     useRBACStore.getState().clear();
 
     // Notify other tabs

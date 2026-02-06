@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Close, Minimize, ExpandLess, CheckCircle, Error as ErrorIcon, ListAlt } from '@mui/icons-material';
 import { Box, Typography, Paper, LinearProgress, IconButton, Collapse, Alert, Button, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody, Chip } from '@mui/material';
 import axios from 'utils/axios';
@@ -36,12 +36,6 @@ export const GlobalImportProgressProvider = ({ children }) => {
             // Using relative path since baseURL handles /api
             const response = await axios.get(`unified-members/import/status/${activeImport.batchId}`);
             const log = response.data?.data; // ApiResponse.data contains the MemberImportLog
-
-            console.log("🕵️‍♂️ IMPORT STATUS UPDATE:", {
-                batchId: activeImport.batchId,
-                internalStatus: log?.status,
-                fullData: log
-            });
 
             if (log) {
                 const total = log.totalRows || 0;

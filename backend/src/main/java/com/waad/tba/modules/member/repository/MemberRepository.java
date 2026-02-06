@@ -29,6 +29,10 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCardNumber(@Param("cardNumber") String cardNumber);
     
+    @Query("SELECT m FROM Member m WHERE m.employeeNumber = :employeeNumber AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByEmployeeNumber(@Param("employeeNumber") String employeeNumber);
+
+    
     /**
      * Find member by barcode (used for QR scanning and eligibility check).
      * Uses EntityGraph to eagerly fetch employer organization and benefit policy
@@ -45,6 +49,15 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"employerOrganization", "benefitPolicy"})
     @Query("SELECT m FROM Member m WHERE m.cardNumber = :cardNumber AND m.active = true ORDER BY m.id DESC")
     List<Member> findByCardNumberWithDetails(@Param("cardNumber") String cardNumber);
+
+    /**
+     * Find member by employee number with eager loading of employer and policy.
+     * Used for eligibility checks when searching by employee number (e.g. EMP-...).
+     */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"employerOrganization", "benefitPolicy"})
+    @Query("SELECT m FROM Member m WHERE m.employeeNumber = :employeeNumber AND m.active = true ORDER BY m.id DESC")
+    List<Member> findByEmployeeNumberWithDetails(@Param("employeeNumber") String employeeNumber);
+
 
     /**
      * Finds a member by ID and acquires a pessimistic lock.

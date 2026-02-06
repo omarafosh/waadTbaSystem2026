@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TbaDataTable - Unified Data Table Component
  * Phase D2.2 - Material React Table Integration
  *
@@ -297,11 +297,7 @@ const TbaDataTable = ({
         if (apiParams[key] === undefined) {
           delete apiParams[key];
         }
-      });
-
-      console.log(`[TbaDataTable:${queryKey}] Fetching with params:`, apiParams);
-
-      const response = await fetcherRef.current(apiParams);
+      });const response = await fetcherRef.current(apiParams);
 
       // Handle response - defensive
       const items = Array.isArray(response?.items) ? response.items : Array.isArray(response) ? response : [];
@@ -319,10 +315,7 @@ const TbaDataTable = ({
       setTotalRows((prev) => {
         if (prev === total) return prev;
         return total;
-      });
-
-      console.log(`[TbaDataTable:${queryKey}] Loaded ${items.length} items, total: ${total}`);
-    } catch (err) {
+      });} catch (err) {
       console.error(`[TbaDataTable:${queryKey}] Fetch error:`, err);
       setError(err);
       setData([]);

@@ -43,14 +43,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 
-                // Phase C.1: JWT Usage Monitoring
-                // Log when JWT is used (legacy authentication path)
-                // This helps track clients still using JWT instead of session-based auth
-                log.warn("⚠️ JWT authentication used (legacy path) - User: {}, Path: {}, IP: {}", 
-                    username, 
-                    request.getRequestURI(), 
-                    request.getRemoteAddr()
-                );
+                // Phase 2: Stateless JWT is now the primary authentication mechanism
+                log.debug("✅ JWT authentication successful - User: {}", username);
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);

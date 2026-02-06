@@ -43,14 +43,18 @@ import {
   Refresh as RefreshIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
-  AdminPanelSettings as AdminPanelSettingsIcon,
-  PeopleAlt as PeopleAltIcon
+  PeopleAlt as PeopleAltIcon,
+  Business as BusinessIcon,
+  LocalHospital as HospitalIcon,
+  Home as HomeIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon
 } from '@mui/icons-material';
 
 import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import { usersService } from 'services/rbac';
 import { openSnackbar } from 'api/snackbar';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 /**
  * Get initials from name
@@ -86,6 +90,7 @@ const getRoleColor = (roleName) => {
  */
 const UsersList = ({ isEmbedded = false }) => {
   const navigate = useNavigate();
+  const { refreshKey, triggerRefresh } = useTableRefresh();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -106,7 +111,7 @@ const UsersList = ({ isEmbedded = false }) => {
   // Fetch users
   useEffect(() => {
     fetchUsers();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, refreshKey]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -194,6 +199,9 @@ const UsersList = ({ isEmbedded = false }) => {
 
       handleToggleClose();
       fetchUsers();
+
+      // Global Refresh for other elements (like permissions check)
+      triggerRefresh();
     } catch (error) {
       console.error('Error toggling user status:', error);
       openSnackbar({
@@ -303,7 +311,8 @@ const UsersList = ({ isEmbedded = false }) => {
                     <TableCell width="5%">#</TableCell>
                     <TableCell width="25%">المستخدم</TableCell>
                     <TableCell width="20%">البريد الإلكتروني</TableCell>
-                    <TableCell width="25%">الأدوار</TableCell>
+                    <TableCell width="20%">الأدوار</TableCell>
+                    <TableCell width="15%">الارتباط / التبعية</TableCell>
                     <TableCell width="10%">الحالة</TableCell>
                     <TableCell align="center" width="15%">إجراءات</TableCell>
                   </TableRow>
@@ -379,6 +388,40 @@ const UsersList = ({ isEmbedded = false }) => {
                             <Typography variant="caption" color="text.disabled">
                               لا توجد أدوار
                             </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {user?.roles?.some((r) => r.name === 'PROVIDER') && user?.allowAllCompanies ? (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <HomeIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                              <Typography variant="body2" color="success.main" fontWeight="bold">
+                                شركة وعد (دخول شامل)
+                              </Typography>
+                            </Stack>
+                          ) : user?.providerName ? (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <HospitalIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                              <Typography variant="body2">{user.providerName}</Typography>
+                            </Stack>
+                          ) : user?.roles?.some((r) => r.name === 'PROVIDER') && !user?.allowAllCompanies ? (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <HospitalIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                              <Typography variant="body2" color="error.main">
+                                بدون مقدم خدمة
+                              </Typography>
+                            </Stack>
+                          ) : user?.employerName ? (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <BusinessIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                              <Typography variant="body2">{user.employerName}</Typography>
+                            </Stack>
+                          ) : (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <HomeIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                              <Typography variant="body2" color="success.main" fontWeight="bold">
+                                شركة وعد
+                              </Typography>
+                            </Stack>
                           )}
                         </TableCell>
                         <TableCell>{getStatusChip(user)}</TableCell>

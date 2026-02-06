@@ -25,7 +25,9 @@ public class UserResponseDto {
 
     // Employer/Provider associations
     private Long employerId;
+    private String employerName;
     private Long providerId;
+    private String providerName;
 
 
 

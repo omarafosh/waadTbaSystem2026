@@ -5,12 +5,15 @@ import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.member.exception.InvalidEligibilityInputException;
 import com.waad.tba.modules.member.exception.MemberNotFoundException;
 import com.waad.tba.modules.member.repository.MemberRepository;
+import com.waad.tba.modules.rbac.entity.User;
+import com.waad.tba.security.AuthorizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -36,6 +39,7 @@ import java.util.regex.Pattern;
 public class UnifiedEligibilityService {
 
     private final MemberRepository memberRepository;
+    private final AuthorizationService authorizationService;
 
     // Barcode pattern: WAD-YYYY-NNNNNNNN
     private static final Pattern BARCODE_PATTERN = Pattern.compile("^WAD-\\d{4}-\\d{8}$");
@@ -102,6 +106,7 @@ public class UnifiedEligibilityService {
         }
 
         Member member = members.get(0);
+        validateAccess(member);
         log.info("✅ [FOUND] Member ID: {}, Name: {}", member.getId(), member.getFullName());
 
         return buildEligibilityResult(member);
@@ -128,6 +133,7 @@ public class UnifiedEligibilityService {
         }
 
         Member member = members.get(0);
+        validateAccess(member);
         log.info("✅ [FOUND] Member ID: {}, Name: {}", member.getId(), member.getFullName());
 
         return buildEligibilityResult(member);
@@ -159,5 +165,23 @@ public class UnifiedEligibilityService {
             .cardStatus(member.getCardStatus() != null ? member.getCardStatus().name() : "UNKNOWN")
             .eligibilityDecision(decision)
             .build();
+    }
+
+    /**
+     * Verify if the current user has permission to view this specific member's eligibility.
+     */
+    private void validateAccess(Member member) {
+        User currentUser = authorizationService.getCurrentUser();
+        Set<Long> permittedIds = authorizationService.getPermittedEmployerIdsForUser(currentUser);
+        
+        if (permittedIds != null) {
+            Long memberEmployerId = member.getEmployerOrganization() != null ? member.getEmployerOrganization().getId() : null;
+            if (memberEmployerId == null || !permittedIds.contains(memberEmployerId)) {
+                log.warn("🚨 Security Violations: User {} attempted restricted eligibility check for member ID {}", 
+                    currentUser != null ? currentUser.getUsername() : "UNKNOWN", member.getId());
+                // Throwing MemberNotFoundException for security by obscurity
+                throw new MemberNotFoundException("Member not found (Restricted)");
+            }
+        }
     }
 }

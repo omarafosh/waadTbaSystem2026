@@ -45,6 +45,7 @@ import MainCard from 'components/MainCard';
 import ModernPageHeader from 'components/tba/ModernPageHeader';
 import { rolesService } from 'services/rbac';
 import { openSnackbar } from 'api/snackbar';
+import { useTableRefresh } from 'contexts/TableRefreshContext';
 
 // ============================================================================
 // CONSTANTS
@@ -78,6 +79,7 @@ const getRoleColor = (roleName) => {
 
 const RolesList = ({ isEmbedded = false }) => {
   const navigate = useNavigate();
+  const { refreshKey } = useTableRefresh();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ const RolesList = ({ isEmbedded = false }) => {
   // Fetch roles
   useEffect(() => {
     fetchRoles();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, refreshKey]);
 
   const fetchRoles = async () => {
     setLoading(true);

@@ -2,7 +2,9 @@ package com.waad.tba.modules.rbac.service;
 
 import com.waad.tba.common.exception.ResourceNotFoundException;
 import com.waad.tba.modules.rbac.dto.*;
+import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.repository.OrganizationRepository;
+import com.waad.tba.modules.provider.service.ProviderService;
 import com.waad.tba.modules.rbac.entity.Role;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.modules.rbac.entity.UserAuditLog;
@@ -48,6 +50,7 @@ public class UserService {
     private final UserSecurityService securityService;
     private final RbacGuardService rbacGuard;
     private final OrganizationRepository organizationRepository;
+    private final ProviderService providerService;
 
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
@@ -92,21 +95,24 @@ public class UserService {
         User user = userMapper.toEntity(dto);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         
-        // Handle permitted companies for Providers
+        // Map organizations if company IDs are provided
         if (dto.getPermittedCompanyIds() != null && !dto.getPermittedCompanyIds().isEmpty()) {
             user.setPermittedOrganizations(new HashSet<>(organizationRepository.findAllById(dto.getPermittedCompanyIds())));
         }
 
         User savedUser = userRepository.save(user);
-        
-        // Send email verification
+
+        // SYNC: If user is linked to a provider, sync settings from provider
+        if (savedUser.getProviderId() != null) {
+            providerService.syncUserWithProvider(savedUser);
+        }
+
+        log.info("User created successfully: {}", savedUser.getUsername());
         securityService.sendEmailVerification(savedUser);
         
         // Audit log
         securityService.auditLog(savedUser.getId(), UserAuditLog.ACTION_USER_CREATED,
                 "User created: " + dto.getUsername(), null, null, null);
-        
-        log.info("User created successfully with id: {}", savedUser.getId());
         
         return userMapper.toResponseDto(savedUser);
     }
@@ -127,8 +133,15 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists");
         }
 
+
         String oldEmail = user.getEmail();
+        Long oldProviderId = user.getProviderId(); // Store old providerId for sync check
+        Boolean oldAllowAllCompanies = user.getAllowAllCompanies(); // Track visibility changes
+        Set<Organization> oldPermittedOrgs = new HashSet<>(user.getPermittedOrganizations()); // Track org changes
+        
+        log.info("RBAC: Updating user {}. Received DTO ProviderId: {}", id, dto.getProviderId());
         userMapper.updateEntityFromDto(user, dto);
+        log.info("RBAC: Entity ProviderId after mapping: {}", user.getProviderId());
         
         // Handle permitted companies for Providers
         if (dto.getPermittedCompanyIds() != null) {
@@ -140,6 +153,36 @@ public class UserService {
         }
 
         User updatedUser = userRepository.save(user);
+        userRepository.flush(); // Force flush to catch constraint errors
+        log.info("RBAC: User {} saved successfully. Final ProviderId: {}", id, updatedUser.getProviderId());
+        
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // BIDIRECTIONAL SYNC LOGIC
+        // ═══════════════════════════════════════════════════════════════════════════════
+        
+        // Case 1: ProviderId changed (new provider linked)
+        if (updatedUser.getProviderId() != null && !updatedUser.getProviderId().equals(oldProviderId)) {
+            log.info("🔗 Provider link changed: {} → {}", oldProviderId, updatedUser.getProviderId());
+            providerService.syncUserWithProvider(updatedUser);
+        } 
+        // Case 2: ProviderId removed (unlinked from provider)
+        else if (updatedUser.getProviderId() == null && oldProviderId != null) {
+            log.info("🔓 Provider unlinked from user {}", updatedUser.getUsername());
+            providerService.clearProviderSettingsForUser(updatedUser);
+        }
+        // Case 3: ProviderId unchanged BUT visibility settings changed manually
+        else if (updatedUser.getProviderId() != null) {
+            boolean visibilityChanged = 
+                !java.util.Objects.equals(oldAllowAllCompanies, updatedUser.getAllowAllCompanies()) ||
+                !oldPermittedOrgs.equals(updatedUser.getPermittedOrganizations());
+            
+            if (visibilityChanged) {
+                log.info("🔄 Visibility settings changed manually for user {}, syncing to provider {}", 
+                    updatedUser.getUsername(), updatedUser.getProviderId());
+                providerService.syncProviderFromUser(updatedUser);
+            }
+        }
+
         
         // Audit log
         securityService.auditLog(id, UserAuditLog.ACTION_USER_UPDATED,
@@ -186,6 +229,22 @@ public class UserService {
     public List<UserResponseDto> search(String query) {
         log.debug("Searching users with query: {}", query);
         return userRepository.searchUsers(query).stream()
+                .map(userMapper::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponseDto> findByProviderId(Long providerId) {
+        log.debug("Finding users by providerId: {}", providerId);
+        return userRepository.findByProviderId(providerId).stream()
+                .map(userMapper::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponseDto> findUnassignedProviders() {
+        log.debug("Finding unassigned provider users");
+        return userRepository.findUnassignedProviders().stream()
                 .map(userMapper::toResponseDto)
                 .collect(Collectors.toList());
     }
@@ -242,6 +301,11 @@ public class UserService {
 
         user.setRoles(roles);
         User updatedUser = userRepository.save(user);
+
+        // SYNC: If user is linked to a provider, sync settings from provider
+        if (updatedUser.getProviderId() != null) {
+            providerService.syncUserWithProvider(updatedUser);
+        }
         
         // Audit log role changes
         Set<String> addedRoles = roles.stream()

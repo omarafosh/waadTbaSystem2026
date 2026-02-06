@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TableRefreshContext - Global Table Refresh Mechanism
  * Phase D2.3 - Post-Create/Edit Refresh Contract
  *
@@ -26,7 +26,7 @@
  * ```
  */
 
-import { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
@@ -46,13 +46,36 @@ const TableRefreshContext = createContext(null);
 export const TableRefreshProvider = ({ children }) => {
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Cross-tab synchronization
+  useEffect(() => {
+    const channel = new BroadcastChannel('tba-refresh-channel');
+    channel.onmessage = (event) => {
+      console.debug('[TableRefresh] 📥 Received broadcast:', event.data);
+      if (event.data?.type === 'REFRESH_TABLE') {
+        setRefreshKey((prev) => prev + 1);
+      }
+    };
+    return () => channel.close();
+  }, []);
+
   /**
    * Trigger a table refresh by incrementing the key
-   * This will cause TbaDataTable to re-fetch exactly once
+   * Broadcasts to other tabs to ensure synchronization
    */
   const triggerRefresh = useCallback(() => {
+    console.debug('[TableRefresh] 🔄 Local Refresh Triggered');
     setRefreshKey((prev) => prev + 1);
-    console.log('[TableRefresh] Triggered refresh');
+
+    // Broadcast to other tabs
+    try {
+      const channel = new BroadcastChannel('tba-refresh-channel');
+      channel.postMessage({ type: 'REFRESH_TABLE', timestamp: Date.now() });
+      // Small delay to ensure message is dispatched before closing
+      setTimeout(() => channel.close(), 100);
+      console.debug('[TableRefresh] 📡 Broadcast sent: REFRESH_TABLE');
+    } catch (e) {
+      console.warn('[TableRefresh] Failed to broadcast refresh', e);
+    }
   }, []);
 
   // Memoize context value to prevent unnecessary re-renders
@@ -77,29 +100,18 @@ TableRefreshProvider.propTypes = {
 
 /**
  * TableRefreshLayout - Route layout that provides refresh context with Outlet
- * Use this as element in react-router routes to wrap child routes
+ * ⚠️ FIXED: Now uses the global context if available instead of shadowing it.
  */
 export const TableRefreshLayout = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
+  const context = useContext(TableRefreshContext);
 
-  const triggerRefresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1);
-    console.log('[TableRefresh] Triggered refresh');
-  }, []);
+  // If we're already inside a provider (e.g., AppProviders), just render children
+  if (context) {
+    return <Outlet />;
+  }
 
-  const value = useMemo(
-    () => ({
-      refreshKey,
-      triggerRefresh
-    }),
-    [refreshKey, triggerRefresh]
-  );
-
-  return (
-    <TableRefreshContext.Provider value={value}>
-      <Outlet />
-    </TableRefreshContext.Provider>
-  );
+  // Fallback: Provide a local context if used outside global providers
+  return <TableRefreshProvider><Outlet /></TableRefreshProvider>;
 };
 
 // ============================================================================

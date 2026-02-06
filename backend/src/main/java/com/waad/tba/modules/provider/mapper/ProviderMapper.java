@@ -132,17 +132,15 @@ public class ProviderMapper {
             }
         }
 
-        // TPA Model: Add allowed employers (if not already in list)
+
+        
+        // Add TPA Model Employers to the names list
         if (provider.getAllowedEmployers() != null) {
             provider.getAllowedEmployers().stream()
-                    .filter(pe -> Boolean.TRUE.equals(pe.getActive()) && pe.getEmployer() != null)
-                    .map(pe -> pe.getEmployer().getName())
-                    .filter(name -> !employerNames.contains(name)) 
-                    .forEach(name -> {
-                        employerNames.add(name);
-                         // Note: We might want to increment count, or keep contract count separate
-                         // For UI "X Employers", we usually want the total unique count.
-                    });
+                .filter(pae -> Boolean.TRUE.equals(pae.getActive()) && pae.getEmployer() != null)
+                .map(pae -> pae.getEmployer().getName())
+                .filter(name -> !employerNames.contains(name))
+                .forEach(employerNames::add);
         }
         
         // Update count to reflect total unique employers if we found extra from TPA model

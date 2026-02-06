@@ -136,7 +136,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
     <TbaFormSection title="معلومات المستخدم الأساسية" icon={PersonIcon}>
       <Grid container spacing={2.5}>
         {/* Username (readonly) */}
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             fullWidth
             label="اسم المستخدم"
@@ -154,7 +154,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
         </Grid>
 
         {/* Full Name */}
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             fullWidth
             label="الاسم الكامل"
@@ -167,7 +167,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
         </Grid>
 
         {/* Email */}
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             fullWidth
             label="البريد الإلكتروني"
@@ -188,7 +188,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
         </Grid>
 
         {/* Phone */}
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             fullWidth
             label="رقم الهاتف"
@@ -205,7 +205,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
         </Grid>
 
         {/* Active Status */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <FormControlLabel
             control={<Switch checked={form.active} onChange={handleChange('active')} color="primary" />}
             label="المستخدم نشط"
@@ -213,7 +213,7 @@ const Step1UserInfoEdit = ({ form, setForm, errors, setErrors }) => {
         </Grid>
 
         {/* Password Change Notice */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Alert severity="info" icon={<KeyIcon />}>
             <Typography variant="body2" fontWeight="medium">
               تغيير كلمة المرور غير متاح حالياً
@@ -271,7 +271,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
           const isProtected = roleName === 'SUPER_ADMIN';
 
           return (
-            <Grid item xs={12} sm={6} md={4} key={role?.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={role?.id}>
               <Paper
                 onClick={() => !isProtected && handleToggleRole(role?.id)}
                 elevation={isSelected ? 3 : 0}
@@ -355,7 +355,7 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
                   <Autocomplete
                     multiple
                     options={form.allEmployers || []}
-                    getOptionLabel={(option) => option.name || '-'}
+                    getOptionLabel={(option) => option.label || option.name || '-'}
                     value={form.permittedCompanies || []}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     onChange={(event, newValue) => {
@@ -371,16 +371,19 @@ const Step2Roles = ({ selectedRoles, setSelectedRoles, allRoles, loading, form, 
                       />
                     )}
                     renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          key={option.id}
-                          variant="outlined"
-                          label={option.name}
-                          size="small"
-                          color="primary"
-                          {...getTagProps({ index })}
-                        />
-                      ))
+                      value.map((option, index) => {
+                        const { key, ...tagProps } = getTagProps({ index });
+                        return (
+                          <Chip
+                            key={key}
+                            variant="outlined"
+                            label={option.label || option.name || '-'}
+                            size="small"
+                            color="primary"
+                            {...tagProps}
+                          />
+                        );
+                      })
                     }
                   />
                   {(!form.permittedCompanies || form.permittedCompanies.length === 0) && (
@@ -491,12 +494,11 @@ const UserEdit = () => {
 
         // Fetch employers if user is a provider
         try {
-          const empRes = await getEmployerSelectors();
-          const employers = empRes?.data?.data || empRes?.data || [];
+          const employers = await getEmployerSelectors();
           setForm(prev => ({
             ...prev,
-            allEmployers: employers,
-            allowAllCompanies: user.allowAllCompanies !== false,
+            allEmployers: Array.isArray(employers) ? employers : [],
+            allowAllCompanies: user.allowAllCompanies === true, // Defaults to false if undefined or not exactly true
             permittedCompanies: user.permittedCompanies || []
           }));
         } catch (empErr) {
@@ -548,7 +550,9 @@ const UserEdit = () => {
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         phone: form.phone?.trim() || null,
-        active: form.active
+        active: form.active,
+        employerId: form.employerId,
+        providerId: form.providerId
       };
 
 
@@ -585,6 +589,15 @@ const UserEdit = () => {
         variant: 'alert',
         alert: { color: 'success' }
       });
+
+      // Notify other tabs to refresh if they are this user
+      try {
+        const channel = new BroadcastChannel('tba-auth-channel');
+        channel.postMessage({ type: 'REFRESH_USER', userId: Number(id) });
+        channel.close();
+      } catch (e) {
+        console.warn('Failed to broadcast user update', e);
+      }
 
       // Refresh list and navigate
       triggerRefresh();

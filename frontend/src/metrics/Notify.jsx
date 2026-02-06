@@ -1,4 +1,4 @@
-import PropTypes from 'prop-types';
+﻿import PropTypes from 'prop-types';
 function loadNotifyScript(notifyId) {
   if (!notifyId) {
     console.warn('Notify ID is missing.');
@@ -13,9 +13,7 @@ function loadNotifyScript(notifyId) {
   script.src = `https://fomo.codedthemes.com/pixel/${notifyId}`;
   script.defer = true;
 
-  script.onload = () => {
-    console.log('Notify script loaded successfully.');
-  };
+  script.onload = () => {};
 
   script.onerror = () => {
     console.error('Error loading Notify script.');
