@@ -770,14 +770,16 @@ const ProviderVisitLog = () => {
                                   : 'عرض تفاصيل الأهلية'
                           }
                         >
-                          <IconButton
-                            size="small"
-                            color={visit.latestClaimId ? 'success' : visit.latestPreAuthId ? 'info' : 'default'}
-                            onClick={() => handleViewDetails(visit)}
-                            disabled={viewDetailsLoading === visit.visitId}
-                          >
-                            {viewDetailsLoading === visit.visitId ? <CircularProgress size={18} /> : <VisibilityIcon fontSize="small" />}
-                          </IconButton>
+                          <span>
+                            <IconButton
+                              size="small"
+                              color={visit.latestClaimId ? 'success' : visit.latestPreAuthId ? 'info' : 'default'}
+                              onClick={() => handleViewDetails(visit)}
+                              disabled={viewDetailsLoading === visit.visitId}
+                            >
+                              {viewDetailsLoading === visit.visitId ? <CircularProgress size={18} /> : <VisibilityIcon fontSize="small" />}
+                            </IconButton>
+                          </span>
                         </Tooltip>
                       </Stack>
 

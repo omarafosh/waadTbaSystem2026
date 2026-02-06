@@ -54,11 +54,12 @@ public class MedicalServiceController {
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN')")
     @Operation(summary = "Create medical service", description = "Create a new medical service")
-    public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> create(@Valid @RequestBody MedicalServiceCreateDto dto) {
+    public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> create(
+            @Valid @RequestBody MedicalServiceCreateDto dto) {
         log.info("[MEDICAL-SERVICES] POST /api/medical-services - code={}", dto.getCode());
-        
+
         MedicalServiceResponseDto result = serviceService.create(dto);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Medical service created successfully", result));
     }
@@ -68,26 +69,12 @@ public class MedicalServiceController {
     @Operation(summary = "Safe Import Services", description = "Import services from Excel. Name-only items will be saved as DRAFT.")
     public ResponseEntity<ApiResponse<ExcelImportResultDto>> importServices(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
-        
-        log.info("[MEDICAL-SERVICES] POST /api/medical-services/import - Safe Mode");
-        
-        var result = importService.importExcel(file);
-        
-        ExcelImportResultDto response = ExcelImportResultDto.builder()
-                .success(result.getFailed() == 0)
-                .message(result.getFailed() == 0 ? "Import successful" : "Import completed with errors")
-                .summary(ExcelImportResultDto.ImportSummary.builder()
-                        .total(result.getTotal())
-                        .inserted(result.getInserted() + result.getDrafts())
-                        .updated(result.getUpdated())
-                        .failed(result.getFailed())
-                        .errors(result.getErrors().stream()
-                                .map(msg -> ExcelImportResultDto.ImportError.builder().error(msg).build())
-                                .toList())
-                        .build())
-                .build();
 
-        return ResponseEntity.ok(ApiResponse.success(response));
+        log.info("[MEDICAL-SERVICES] POST /api/medical-services/import - Safe Mode");
+
+        var result = importService.importExcel(file);
+
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -99,9 +86,9 @@ public class MedicalServiceController {
     @Operation(summary = "Get service by ID", description = "Retrieve a medical service by its ID")
     public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> findById(@PathVariable Long id) {
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/{}", id);
-        
+
         MedicalServiceResponseDto result = serviceService.findById(id);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -113,15 +100,14 @@ public class MedicalServiceController {
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Sort field") @RequestParam(defaultValue = "code") String sortBy,
             @Parameter(description = "Sort direction") @RequestParam(defaultValue = "ASC") String sortDir,
-            @Parameter(description = "Filter by active status: true=active only, false=inactive only, null=all") 
-            @RequestParam(required = false) Boolean active) {
-        
+            @Parameter(description = "Filter by active status: true=active only, false=inactive only, null=all") @RequestParam(required = false) Boolean active) {
+
         log.info("[MEDICAL-SERVICES] GET /api/medical-services - page={}, size={}, active={}", page, size, active);
-        
+
         Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<MedicalServiceResponseDto> result = serviceService.findAll(pageable, active);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -130,9 +116,9 @@ public class MedicalServiceController {
     @Operation(summary = "Get service statistics", description = "Get counts of active and inactive services")
     public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> getStats() {
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/stats");
-        
+
         java.util.Map<String, Long> stats = serviceService.getStats();
-        
+
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
@@ -141,9 +127,9 @@ public class MedicalServiceController {
     @Operation(summary = "Get all services", description = "Get all active medical services (for dropdowns)")
     public ResponseEntity<ApiResponse<java.util.List<MedicalServiceResponseDto>>> findAllForDropdown() {
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/all - For dropdown selectors");
-        
+
         java.util.List<MedicalServiceResponseDto> result = serviceService.findAllActive();
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -153,37 +139,32 @@ public class MedicalServiceController {
 
     @GetMapping("/lookup")
     @PreAuthorize("hasAuthority('medical_services.view') or hasRole('SUPER_ADMIN') or hasRole('PROVIDER')")
-    @Operation(
-        summary = "Lookup medical services", 
-        description = """
+    @Operation(summary = "Lookup medical services", description = """
             Unified lookup endpoint for medical service selection.
-            
+
             ARCHITECTURAL LAW: MedicalService MUST always be represented as:
               CODE + NAME + CATEGORY
-            
+
             Features:
             - Search by: code, nameAr, nameEn, categoryNameAr, categoryNameEn
             - Optional filter by categoryId
             - Returns full context for display
-            
+
             Display format: [SVC-001] أشعة مقطعية CT Scan - التصنيف: الأشعة التشخيصية
-            
+
             Used in:
             - Provider Contract form (Pricing Item selector)
             - Benefit Policy Rule form (Service selector)
             - Provider Portal (Claim / PreAuth service lines)
-            """
-    )
+            """)
     public ResponseEntity<ApiResponse<java.util.List<com.waad.tba.modules.medicaltaxonomy.dto.MedicalServiceLookupDto>>> lookup(
-            @Parameter(description = "Search term (code, name, or category)") 
-            @RequestParam(required = false) String q,
-            @Parameter(description = "Filter by category ID") 
-            @RequestParam(required = false) Long categoryId) {
-        
+            @Parameter(description = "Search term (code, name, or category)") @RequestParam(required = false) String q,
+            @Parameter(description = "Filter by category ID") @RequestParam(required = false) Long categoryId) {
+
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/lookup - q={}, categoryId={}", q, categoryId);
-        
+
         var result = serviceService.lookup(q, categoryId);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -192,9 +173,9 @@ public class MedicalServiceController {
     @Operation(summary = "Get service by code", description = "Retrieve a medical service by its unique code")
     public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> findByCode(@PathVariable String code) {
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/code/{}", code);
-        
+
         MedicalServiceResponseDto result = serviceService.findByCode(code);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -205,12 +186,12 @@ public class MedicalServiceController {
             @PathVariable Long categoryId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        
+
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/category/{}", categoryId);
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("code"));
         Page<MedicalServiceResponseDto> result = serviceService.findByCategory(categoryId, pageable);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -220,12 +201,12 @@ public class MedicalServiceController {
     public ResponseEntity<ApiResponse<Page<MedicalServiceResponseDto>>> findServicesRequiringPA(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        
+
         log.info("[MEDICAL-SERVICES] GET /api/medical-services/requires-pa");
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("code"));
         Page<MedicalServiceResponseDto> result = serviceService.findServicesRequiringPA(pageable);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -240,14 +221,15 @@ public class MedicalServiceController {
             @Parameter(description = "Maximum base price") @RequestParam(required = false) BigDecimal maxPrice,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        
-        log.info("[MEDICAL-SERVICES] GET /api/medical-services/search - term={}, category={}, requiresPA={}, price=[{}, {}]",
+
+        log.info(
+                "[MEDICAL-SERVICES] GET /api/medical-services/search - term={}, category={}, requiresPA={}, price=[{}, {}]",
                 searchTerm, categoryId, requiresPA, minPrice, maxPrice);
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("code"));
         Page<MedicalServiceResponseDto> result = serviceService.search(
                 searchTerm, categoryId, requiresPA, minPrice, maxPrice, pageable);
-        
+
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -261,11 +243,11 @@ public class MedicalServiceController {
     public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> update(
             @PathVariable Long id,
             @Valid @RequestBody MedicalServiceUpdateDto dto) {
-        
+
         log.info("[MEDICAL-SERVICES] PUT /api/medical-services/{}", id);
-        
+
         MedicalServiceResponseDto result = serviceService.update(id, dto);
-        
+
         return ResponseEntity.ok(ApiResponse.success("Medical service updated successfully", result));
     }
 
@@ -275,12 +257,12 @@ public class MedicalServiceController {
     public ResponseEntity<ApiResponse<MedicalServiceResponseDto>> updateCategory(
             @PathVariable Long id,
             @RequestBody java.util.Map<String, Long> payload) {
-        
+
         Long categoryId = payload.get("categoryId");
         log.info("[MEDICAL-SERVICES] PATCH /api/medical-services/{}/category - newCategoryId={}", id, categoryId);
-        
+
         MedicalServiceResponseDto result = serviceService.updateCategory(id, categoryId);
-        
+
         return ResponseEntity.ok(ApiResponse.success("تم تحديث التصنيف بنجاح", result));
     }
 
@@ -289,23 +271,22 @@ public class MedicalServiceController {
     @Operation(summary = "Bulk update category", description = "Update category for multiple services at once")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> bulkUpdateCategory(
             @RequestBody java.util.Map<String, Object> payload) {
-        
+
         @SuppressWarnings("unchecked")
         java.util.List<Integer> serviceIdInts = (java.util.List<Integer>) payload.get("serviceIds");
         java.util.List<Long> serviceIds = serviceIdInts.stream()
                 .map(Integer::longValue)
                 .toList();
         Long categoryId = ((Number) payload.get("categoryId")).longValue();
-        
-        log.info("[MEDICAL-SERVICES] PATCH /api/medical-services/bulk/category - count={}, categoryId={}", 
+
+        log.info("[MEDICAL-SERVICES] PATCH /api/medical-services/bulk/category - count={}, categoryId={}",
                 serviceIds.size(), categoryId);
-        
+
         java.util.Map<String, Object> result = serviceService.bulkUpdateCategory(serviceIds, categoryId);
-        
+
         return ResponseEntity.ok(ApiResponse.success(
-            "تم تحديث التصنيف لـ " + result.get("updated") + " خدمة",
-            result
-        ));
+                "تم تحديث التصنيف لـ " + result.get("updated") + " خدمة",
+                result));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -317,62 +298,56 @@ public class MedicalServiceController {
     @Operation(summary = "Delete service", description = "Soft delete a medical service (sets active = false)")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         log.info("[MEDICAL-SERVICES] DELETE /api/medical-services/{}", id);
-        
+
         serviceService.delete(id);
-        
+
         return ResponseEntity.ok(ApiResponse.success("Medical service deleted successfully", null));
     }
 
     @PutMapping("/bulk/deactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN')")
-    @Operation(summary = "Deactivate all services", 
-               description = "Set active = false for ALL medical services.")
+    @Operation(summary = "Deactivate all services", description = "Set active = false for ALL medical services.")
     public ResponseEntity<ApiResponse<Integer>> deactivateAll() {
         log.warn("[MEDICAL-SERVICES] ⚠️ PUT /api/medical-services/bulk/deactivate - Bulk deactivate requested!");
-        
+
         int count = serviceService.deactivateAll();
-        
+
         return ResponseEntity.ok(ApiResponse.success(
-            "تم إلغاء تنشيط " + count + " خدمة طبية بنجاح", 
-            count
-        ));
+                "تم إلغاء تنشيط " + count + " خدمة طبية بنجاح",
+                count));
     }
 
     @PutMapping("/bulk/activate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN')")
-    @Operation(summary = "Activate all services", 
-               description = "Set active = true for ALL medical services.")
+    @Operation(summary = "Activate all services", description = "Set active = true for ALL medical services.")
     public ResponseEntity<ApiResponse<Integer>> activateAll() {
         log.warn("[MEDICAL-SERVICES] ✅ PUT /api/medical-services/bulk/activate - Bulk activate requested!");
-        
+
         int count = serviceService.activateAll();
-        
+
         return ResponseEntity.ok(ApiResponse.success(
-            "تم تنشيط " + count + " خدمة طبية بنجاح", 
-            count
-        ));
+                "تم تنشيط " + count + " خدمة طبية بنجاح",
+                count));
     }
 
     @DeleteMapping("/bulk/all")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('INSURANCE_ADMIN')")
-    @Operation(summary = "Permanently delete all services", 
-               description = "⚠️ DANGER: Permanently delete ALL medical services. This is IRREVERSIBLE!")
+    @Operation(summary = "Permanently delete all services", description = "⚠️ DANGER: Permanently delete ALL medical services. This is IRREVERSIBLE!")
     public ResponseEntity<ApiResponse<Integer>> deleteAll(
             @RequestParam(defaultValue = "false") boolean confirm) {
-        
+
         if (!confirm) {
             log.warn("[MEDICAL-SERVICES] Permanent delete attempted without confirmation");
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error("يجب تأكيد الحذف الدائم بإضافة ?confirm=true"));
+                    .body(ApiResponse.error("يجب تأكيد الحذف الدائم بإضافة ?confirm=true"));
         }
-        
+
         log.warn("[MEDICAL-SERVICES] ⚠️🚨 DELETE /api/medical-services/bulk/all - PERMANENT delete requested!");
-        
+
         int count = serviceService.permanentDeleteAll();
-        
+
         return ResponseEntity.ok(ApiResponse.success(
-            "⚠️ تم حذف " + count + " خدمة طبية نهائياً", 
-            count
-        ));
+                "⚠️ تم حذف " + count + " خدمة طبية نهائياً",
+                count));
     }
 }

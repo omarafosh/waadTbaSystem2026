@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 
 // RBAC Configuration
+import { ROLES } from 'constants/permissions.constants';
 import { filterMenuByPermissions } from 'config/rbac.config';
 
 // ==============================|| RBAC MENU FILTERING ||============================== //
@@ -93,6 +94,7 @@ const menuItem = [
     title: 'لوحة المعلومات',
     titleEn: 'Dashboard',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.EMPLOYER_ADMIN],
     children: [
       {
         id: 'dashboard',
@@ -114,6 +116,7 @@ const menuItem = [
     title: 'المستفيدين',
     titleEn: 'Insured',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.MEDICAL_REVIEWER],
     children: [
       {
         id: 'members',
@@ -135,6 +138,7 @@ const menuItem = [
     title: 'بوابة الخدمة',
     titleEn: 'Provider Portal',
     type: 'group',
+    restrictedTo: [ROLES.PROVIDER],
     children: [
       {
         id: 'provider-portal',
@@ -180,6 +184,7 @@ const menuItem = [
     title: 'خدماتي',
     titleEn: 'My Services',
     type: 'group',
+    restrictedTo: [ROLES.PROVIDER],
     children: [
       {
         id: 'my-services',
@@ -193,7 +198,7 @@ const menuItem = [
             title: 'مطالباتي',
             titleEn: 'My Claims',
             type: 'item',
-            url: '/claims',
+            url: '/reports/claims',
             icon: ReceiptIcon,
           },
           {
@@ -201,7 +206,7 @@ const menuItem = [
             title: 'موافقاتي',
             titleEn: 'My Pre-Approvals',
             type: 'item',
-            url: '/pre-approvals',
+            url: '/reports/pre-approvals',
             icon: AssignmentIcon,
           }
         ]
@@ -217,6 +222,7 @@ const menuItem = [
     title: 'جهات العمل',
     titleEn: 'Employers',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.PARTNER_MANAGER],
     children: [
       {
         id: 'employers',
@@ -255,6 +261,7 @@ const menuItem = [
     title: 'مقدمو الخدمات',
     titleEn: 'Providers',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.PARTNER_MANAGER],
     children: [
       {
         id: 'providers',
@@ -296,6 +303,7 @@ const menuItem = [
     title: 'المطالبات والموافقات',
     titleEn: 'Claims & Approvals',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.MEDICAL_REVIEWER],
     children: [
       {
         id: 'claims-approvals',
@@ -353,6 +361,7 @@ const menuItem = [
     title: 'التسويات المالية',
     titleEn: 'Settlement & Finance',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.ACCOUNTANT],
     children: [
       {
         id: 'settlement',
@@ -390,6 +399,7 @@ const menuItem = [
     title: 'التقارير',
     titleEn: 'Reports',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.EMPLOYER_ADMIN, ROLES.MEDICAL_REVIEWER, ROLES.ACCOUNTANT],
     children: [
       {
         id: 'reports',
@@ -491,6 +501,7 @@ const menuItem = [
     title: 'الوثائق',
     titleEn: 'Documents',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN, ROLES.EMPLOYER_ADMIN],
     children: [
       {
         id: 'documents-library',
@@ -512,6 +523,7 @@ const menuItem = [
     title: 'إعدادات النظام',
     titleEn: 'System Settings',
     type: 'group',
+    restrictedTo: [ROLES.SUPER_ADMIN, ROLES.INSURANCE_ADMIN],
     children: [
       // ────────────────────────────────────────────────────────────────────────
       // سجل التدقيق
@@ -557,6 +569,14 @@ const menuItem = [
             type: 'item',
             url: '/medical-packages',
             icon: InventoryIcon,
+          },
+          {
+            id: 'medical-service-sandbox',
+            title: 'أداة الاستيراد (تجريبي)',
+            titleEn: 'Import Tool (Sandbox)',
+            type: 'item',
+            url: '/admin/tools/service-import',
+            icon: HelperIcon,
           }
         ]
       },

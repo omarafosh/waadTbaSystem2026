@@ -5,6 +5,7 @@ import { formatNumber } from 'utils/formatters';
 import { providersService } from 'services/api/providers.service';
 import { exportToExcel } from 'utils/exportUtils';
 import { useCompanySettings } from 'contexts/CompanySettingsContext';
+import useAuth from 'hooks/useAuth';
 
 // MUI Components
 import {
@@ -44,6 +45,11 @@ import { PreApprovalsFilters, PreApprovalsTable } from 'components/reports/pre-a
 const PreApprovalsReport = () => {
   // Company branding from SSOT
   const { companyName } = useCompanySettings();
+  const { user } = useAuth();
+
+  // Role Detection
+  const isProvider = user?.roles?.includes('PROVIDER');
+  const userProviderId = user?.providerId;
 
   // Use centralized employer scope hook (RBAC enforcement)
   const [selectedEmployerId, setSelectedEmployerId] = useState(null);
@@ -56,13 +62,14 @@ const PreApprovalsReport = () => {
     }
   }, [isEmployerLocked, userEmployerId, selectedEmployerId]);
 
-  // State: Provider filter
-  const [selectedProviderId, setSelectedProviderId] = useState(null);
+  // State: Provider filter - Initialize with user's providerId if they are a provider
+  const [selectedProviderId, setSelectedProviderId] = useState(isProvider ? userProviderId : null);
   const [providers, setProviders] = useState([]);
 
-  // Fetch providers list on mount
+  // Fetch providers list on mount - Skip for providers to avoid 403
   useEffect(() => {
     const fetchProviders = async () => {
+      if (isProvider) return;
       try {
         const data = await providersService.getAll({ size: 500 });
         const providersList = data?.content ?? data?.items ?? data ?? [];
@@ -73,7 +80,7 @@ const PreApprovalsReport = () => {
       }
     };
     fetchProviders();
-  }, []);
+  }, [isProvider]);
 
   // State: Filters
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -219,6 +226,7 @@ const PreApprovalsReport = () => {
         providers={providers}
         selectedProviderId={selectedProviderId}
         onProviderChange={handleProviderChange}
+        canSelectProvider={!isProvider}
       />
 
       {/* Data Summary */}

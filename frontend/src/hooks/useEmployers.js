@@ -5,12 +5,17 @@ import { getEmployers, getEmployerById } from 'services/api/employers.service';
  * Custom hook to fetch all employers list
  * @returns {Object} { data, loading, error, refetch }
  */
-export const useEmployersList = () => {
+export const useEmployersList = (options = {}) => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!options.skip);
   const [error, setError] = useState(null);
 
   const fetchEmployers = async () => {
+    if (options.skip) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -27,7 +32,8 @@ export const useEmployersList = () => {
 
   useEffect(() => {
     fetchEmployers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.skip]);
 
   const refetch = () => {
     fetchEmployers();

@@ -23,108 +23,113 @@ import java.util.Optional;
 @Repository
 public interface MedicalCategoryRepository extends JpaRepository<MedicalCategory, Long> {
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BASIC QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BASIC QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Find category by unique code
-     */
-    Optional<MedicalCategory> findByCode(String code);
+  /**
+   * Find category by unique code
+   */
+  Optional<MedicalCategory> findByCode(String code);
 
-    /**
-     * Check if code exists (for duplicate validation)
-     */
-    boolean existsByCode(String code);
+  /**
+   * Check if code exists (for duplicate validation)
+   */
+  boolean existsByCode(String code);
 
-    /**
-     * Find all active categories
-     */
-    List<MedicalCategory> findByActiveTrue();
+  /**
+   * Find category by exact name (for import matching)
+   */
+  Optional<MedicalCategory> findByName(String name);
 
-    /**
-     * Find all active categories - paginated
-     */
-    Page<MedicalCategory> findByActiveTrue(Pageable pageable);
+  /**
+   * Find all active categories
+   */
+  List<MedicalCategory> findByActiveTrue();
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // HIERARCHY QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Find all active categories - paginated
+   */
+  Page<MedicalCategory> findByActiveTrue(Pageable pageable);
 
-    /**
-     * Find all root categories (parentId is null)
-     */
-    List<MedicalCategory> findByParentIdIsNull();
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HIERARCHY QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Find all root categories (active only)
-     */
-    @Query("SELECT mc FROM MedicalCategory mc WHERE mc.parentId IS NULL AND mc.active = true")
-    List<MedicalCategory> findRootCategories();
+  /**
+   * Find all root categories (parentId is null)
+   */
+  List<MedicalCategory> findByParentIdIsNull();
 
-    /**
-     * Find all direct children of a category
-     */
-    List<MedicalCategory> findByParentId(Long parentId);
+  /**
+   * Find all root categories (active only)
+   */
+  @Query("SELECT mc FROM MedicalCategory mc WHERE mc.parentId IS NULL AND mc.active = true")
+  List<MedicalCategory> findRootCategories();
 
-    /**
-     * Find all direct children of a category - paginated
-     */
-    Page<MedicalCategory> findByParentId(Long parentId, Pageable pageable);
+  /**
+   * Find all direct children of a category
+   */
+  List<MedicalCategory> findByParentId(Long parentId);
 
-    /**
-     * Find all direct children of a category (active only)
-     */
-    @Query("SELECT mc FROM MedicalCategory mc WHERE mc.parentId = :parentId AND mc.active = true")
-    List<MedicalCategory> findActiveChildrenByParentId(@Param("parentId") Long parentId);
+  /**
+   * Find all direct children of a category - paginated
+   */
+  Page<MedicalCategory> findByParentId(Long parentId, Pageable pageable);
 
-    /**
-     * Check if category has children (for delete validation)
-     */
-    boolean existsByParentId(Long parentId);
+  /**
+   * Find all direct children of a category (active only)
+   */
+  @Query("SELECT mc FROM MedicalCategory mc WHERE mc.parentId = :parentId AND mc.active = true")
+  List<MedicalCategory> findActiveChildrenByParentId(@Param("parentId") Long parentId);
 
-    /**
-     * Count children of a category
-     */
-    long countByParentId(Long parentId);
+  /**
+   * Check if category has children (for delete validation)
+   */
+  boolean existsByParentId(Long parentId);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SEARCH QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Count children of a category
+   */
+  long countByParentId(Long parentId);
 
-    /**
-     * Search by name - case insensitive
-     */
-    @Query("""
-        SELECT mc FROM MedicalCategory mc
-        WHERE LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-          AND mc.active = true
-    """)
-    List<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEARCH QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Search by name with pagination
-     */
-    @Query("""
-        SELECT mc FROM MedicalCategory mc
-        WHERE LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
-          AND mc.active = true
-    """)
-    Page<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);
+  /**
+   * Search by name - case insensitive
+   */
+  @Query("""
+          SELECT mc FROM MedicalCategory mc
+          WHERE LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
+            AND mc.active = true
+      """)
+  List<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // VALIDATION QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Search by name with pagination
+   */
+  @Query("""
+          SELECT mc FROM MedicalCategory mc
+          WHERE LOWER(mc.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))
+            AND mc.active = true
+      """)
+  Page<MedicalCategory> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);
 
-    /**
-     * Find by ID and ensure it's active
-     */
-    @Query("SELECT mc FROM MedicalCategory mc WHERE mc.id = :id AND mc.active = true")
-    Optional<MedicalCategory> findActiveById(@Param("id") Long id);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VALIDATION QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Find by code and ensure it's active
-     */
-    @Query("SELECT mc FROM MedicalCategory mc WHERE mc.code = :code AND mc.active = true")
-    Optional<MedicalCategory> findActiveByCode(@Param("code") String code);
+  /**
+   * Find by ID and ensure it's active
+   */
+  @Query("SELECT mc FROM MedicalCategory mc WHERE mc.id = :id AND mc.active = true")
+  Optional<MedicalCategory> findActiveById(@Param("id") Long id);
+
+  /**
+   * Find by code and ensure it's active
+   */
+  @Query("SELECT mc FROM MedicalCategory mc WHERE mc.code = :code AND mc.active = true")
+  Optional<MedicalCategory> findActiveByCode(@Param("code") String code);
 }

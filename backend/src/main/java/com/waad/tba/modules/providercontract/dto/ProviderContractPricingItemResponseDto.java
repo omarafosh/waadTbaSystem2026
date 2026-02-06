@@ -29,16 +29,16 @@ public class ProviderContractPricingItemResponseDto {
 
     // Service info (from medicalService relation)
     private ServiceSummaryDto medicalService;
-    
+
     // Service name (for imported items without medical service link)
     private String serviceName;
-    
+
     // Service code (for imported items - reference/lookup)
     private String serviceCode;
-    
+
     // Category name (for imported items - display/grouping)
     private String categoryName;
-    
+
     // Quantity (for imported items)
     private Integer quantity;
 
@@ -76,14 +76,16 @@ public class ProviderContractPricingItemResponseDto {
     public static ProviderContractPricingItemResponseDto fromEntity(ProviderContractPricingItem entity) {
         return fromEntity(entity, null);
     }
-    
+
     /**
      * Convert entity to response DTO with category lookup
-     * @param entity The pricing item entity
-     * @param categoryMap Map of categoryId -> MedicalCategory (for resolving service categories)
+     * 
+     * @param entity      The pricing item entity
+     * @param categoryMap Map of categoryId -> MedicalCategory (for resolving
+     *                    service categories)
      */
     public static ProviderContractPricingItemResponseDto fromEntity(
-            ProviderContractPricingItem entity, 
+            ProviderContractPricingItem entity,
             Map<Long, MedicalCategory> categoryMap) {
         if (entity == null) {
             return null;
@@ -115,7 +117,7 @@ public class ProviderContractPricingItemResponseDto {
         // 3. Item's categoryName field (for imported items)
         CategorySummaryDto effectiveCategoryDto = null;
         String effectiveCategoryName = entity.getCategoryName(); // Fallback for imported items
-        
+
         if (entity.getMedicalCategory() != null) {
             // Use item's override category
             effectiveCategoryDto = categoryDto;
@@ -136,7 +138,7 @@ public class ProviderContractPricingItemResponseDto {
         if (entity.getMedicalService() != null && entity.getMedicalService().getName() != null) {
             displayServiceName = entity.getMedicalService().getName();
         }
-        
+
         return ProviderContractPricingItemResponseDto.builder()
                 .id(entity.getId())
                 .contractId(entity.getContract() != null ? entity.getContract().getId() : null)
@@ -147,16 +149,19 @@ public class ProviderContractPricingItemResponseDto {
                 .quantity(entity.getQuantity())
                 .medicalCategory(categoryDto)
                 .effectiveCategory(effectiveCategoryDto)
-                .basePrice(entity.getBasePrice())
-                .contractPrice(entity.getContractPrice())
-                .discountPercent(entity.getDiscountPercent())
-                .savingsAmount(entity.getSavingsAmount())
+                .basePrice(entity.getBasePrice() != null ? entity.getBasePrice() : java.math.BigDecimal.ZERO)
+                .contractPrice(
+                        entity.getContractPrice() != null ? entity.getContractPrice() : java.math.BigDecimal.ZERO)
+                .discountPercent(
+                        entity.getDiscountPercent() != null ? entity.getDiscountPercent() : java.math.BigDecimal.ZERO)
+                .savingsAmount(
+                        entity.getSavingsAmount() != null ? entity.getSavingsAmount() : java.math.BigDecimal.ZERO)
                 .unit(entity.getUnit())
                 .currency(entity.getCurrency())
                 .effectiveFrom(entity.getEffectiveFrom())
                 .effectiveTo(entity.getEffectiveTo())
                 .isCurrentlyEffective(entity.isCurrentlyEffective())
-                .notes(entity.getNotes())
+                .notes(entity.getNotes() != null ? entity.getNotes() : "")
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

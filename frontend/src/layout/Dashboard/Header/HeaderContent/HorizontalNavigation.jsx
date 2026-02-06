@@ -30,7 +30,7 @@ export default function HorizontalNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth(); // Hook to check user role
-  const { sidebarGroups } = useRBACSidebar();
+  const { sidebarGroups, roles } = useRBACSidebar();
   const [anchorEls, setAnchorEls] = useState({});
 
   // ... (handlers remain the same) ...
@@ -143,8 +143,8 @@ export default function HorizontalNavigation() {
   };
 
   // Filter groups based on context
-  // FIX: Only filter if user is strictly a PROVIDER. Admins should see full menu even in portal routes.
-  const isProviderRole = user?.roles?.includes('PROVIDER');
+  // FIX: Use normalized roles from RBAC store for detection
+  const isProviderRole = roles?.includes('PROVIDER');
   const isProviderPortalRoute = location.pathname === '/provider' || location.pathname.startsWith('/provider/');
 
   // Show only Provider Menu if: User is Provider AND is in Provider Portal routes
@@ -152,7 +152,7 @@ export default function HorizontalNavigation() {
   const shouldFilterForProvider = isProviderRole && isProviderPortalRoute;
 
   const filteredGroups = shouldFilterForProvider
-    ? sidebarGroups?.filter(group => ['group-provider-portal'].includes(group.id))
+    ? sidebarGroups?.filter(group => ['group-provider-portal', 'group-my-services'].includes(group.id))
     : sidebarGroups;
 
   return (

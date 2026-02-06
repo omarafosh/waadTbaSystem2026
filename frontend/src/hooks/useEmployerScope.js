@@ -39,8 +39,10 @@ export const useEmployerScope = (selectedEmployerId = null) => {
     return selectedEmployerId;
   }, [isEmployerLocked, user?.employerId, selectedEmployerId]);
 
-  // Fetch employers list (for admin selector)
-  const { data: employersData, loading: employersLoading } = useEmployersList();
+  // Fetch employers list (for admin selector) - Skip for providers to avoid 403
+  const { data: employersData, loading: employersLoading } = useEmployersList({
+    skip: !canSelectEmployer
+  });
 
   const employers = useMemo(() => {
     if (!employersData) return [];

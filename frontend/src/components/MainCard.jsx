@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
 
 // material-ui
@@ -10,7 +11,7 @@ import Divider from '@mui/material/Divider';
 // project imports
 import Highlighter from './third-party/Highlighter';
 
-export default function MainCard({
+const MainCard = forwardRef(({
   border = true,
   boxShadow,
   children,
@@ -28,12 +29,14 @@ export default function MainCard({
   codeString,
   modal = false,
   ...others
-}) {
+}, ref) => {
   const { colorScheme } = useColorScheme();
 
   return (
     <Card
       elevation={elevation || 0}
+      ref={ref}
+      {...others}
       sx={(theme) => ({
         position: 'relative',
         ...(border && { border: `1px solid ${theme.vars.palette.grey['A800']}` }),
@@ -58,7 +61,6 @@ export default function MainCard({
         }),
         ...(typeof sx === 'function' ? sx(theme) : sx || {})
       })}
-      {...others}
     >
       {/* card header and action */}
       {title && (
@@ -94,7 +96,9 @@ export default function MainCard({
       )}
     </Card>
   );
-}
+});
+
+export default MainCard;
 
 MainCard.propTypes = {
   border: PropTypes.bool,

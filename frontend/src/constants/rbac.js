@@ -31,6 +31,8 @@ export const SystemRole = Object.freeze({
   USER: 'USER'
 });
 
+export const ROLES = SystemRole;
+
 // ============================================
 // Role Privilege Levels
 // ============================================
@@ -42,7 +44,6 @@ export const RolePrivilegeLevel = Object.freeze({
   [SystemRole.PARTNER_MANAGER]: 45,
   [SystemRole.MEDICAL_REVIEWER]: 40,
   [SystemRole.ACCOUNTANT]: 35,
-  [SystemRole.SERVICE_PROVIDER]: 30,
   [SystemRole.PROVIDER]: 30,
   [SystemRole.EMPLOYER]: 20,
   [SystemRole.USER]: 10
@@ -99,7 +100,7 @@ export const RoleDomainAccess = Object.freeze({
     PermissionDomain.CLAIMS,
     PermissionDomain.REPORTS
   ],
-  [SystemRole.REVIEWER]: [
+  [SystemRole.MEDICAL_REVIEWER]: [
     PermissionDomain.CLAIMS,
     PermissionDomain.PREAUTH
   ],
@@ -131,7 +132,7 @@ export const RoleDisplayNames = Object.freeze({
     ar: 'مدير صاحب العمل',
     en: 'Employer Administrator'
   },
-  [SystemRole.REVIEWER]: {
+  [SystemRole.MEDICAL_REVIEWER]: {
     ar: 'مراجع طبي',
     en: 'Medical Reviewer'
   },
@@ -143,6 +144,64 @@ export const RoleDisplayNames = Object.freeze({
     ar: 'مستخدم',
     en: 'Basic User'
   }
+});
+
+// ============================================
+// Authoritative Permission Constants (Literal Strings)
+// ============================================
+export const PERMISSIONS = Object.freeze({
+  VIEW_CLAIMS: 'VIEW_CLAIMS',
+  CREATE_CLAIM: 'CREATE_CLAIM',
+  UPDATE_CLAIM: 'UPDATE_CLAIM',
+  APPROVE_CLAIMS: 'APPROVE_CLAIMS',
+  REJECT_CLAIMS: 'REJECT_CLAIMS',
+  MANAGE_CLAIMS: 'MANAGE_CLAIMS',
+  VIEW_CLAIM_STATUS: 'VIEW_CLAIM_STATUS',
+  VIEW_PRE_AUTH: 'VIEW_PREAUTH',
+  CREATE_PRE_AUTH: 'CREATE_PREAUTH',
+  APPROVE_PRE_AUTH: 'APPROVE_PRE_AUTH',
+  REJECT_PRE_AUTH: 'REJECT_PRE_AUTH',
+  VIEW_VISITS: 'VIEW_VISITS',
+  MANAGE_VISITS: 'MANAGE_VISITS',
+  VIEW_MEMBERS: 'VIEW_MEMBERS',
+  VIEW_PROVIDER_PORTAL: 'VIEW_PROVIDER_PORTAL',
+  VIEW_REPORTS: 'VIEW_REPORTS',
+  SETTLE_CLAIMS: 'MANAGE_CLAIMS',
+  VIEW_PROVIDERS: 'VIEW_PROVIDERS',
+  VIEW_EMPLOYERS: 'VIEW_EMPLOYERS',
+  VIEW_BENEFIT_POLICIES: 'VIEW_BENEFIT_POLICIES'
+});
+
+// ============================================
+// authoritative Role-to-Permission Mapping
+// ============================================
+export const ROLE_PERMISSIONS = Object.freeze({
+  [SystemRole.PROVIDER]: [
+    PERMISSIONS.VIEW_VISITS, PERMISSIONS.MANAGE_VISITS,
+    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.CREATE_CLAIM, PERMISSIONS.UPDATE_CLAIM,
+    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.CREATE_PRE_AUTH,
+    PERMISSIONS.VIEW_CLAIM_STATUS,
+    PERMISSIONS.VIEW_MEMBERS,
+    PERMISSIONS.VIEW_PROVIDER_PORTAL,
+    PERMISSIONS.VIEW_REPORTS
+  ],
+  [SystemRole.PARTNER_MANAGER]: [
+    PERMISSIONS.VIEW_VISITS,
+    PERMISSIONS.VIEW_CLAIMS,
+    PERMISSIONS.VIEW_PRE_AUTH,
+    PERMISSIONS.VIEW_REPORTS
+  ],
+  [SystemRole.MEDICAL_REVIEWER]: [
+    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS,
+    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH,
+    PERMISSIONS.VIEW_REPORTS
+  ],
+  [SystemRole.ACCOUNTANT]: [
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.SETTLE_CLAIMS,
+    PERMISSIONS.VIEW_CLAIMS,
+    PERMISSIONS.VIEW_PROVIDERS
+  ]
 });
 
 // ============================================

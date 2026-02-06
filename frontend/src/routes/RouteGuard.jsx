@@ -73,22 +73,22 @@ const ForbiddenPage = ({ reason }) => {
         }}
       >
         <ErrorIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
-        
+
         <Typography variant="h5" gutterBottom color="error">
           {msg.title}
         </Typography>
-        
+
         <Alert severity="error" sx={{ mb: 2, textAlign: 'right' }}>
           {msg.description}
         </Alert>
-        
+
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           {msg.descriptionEn}
         </Typography>
 
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
+          color="primary"
           onClick={handleLogout}
           fullWidth
         >
@@ -161,7 +161,7 @@ const RouteGuard = ({ allowedRoles = null, children }) => {
       // - undefined = still loading (should not happen if authStatus is AUTHENTICATED)
       // - null = explicitly not linked (FORBIDDEN)
       // - number = valid
-      
+
       // Check if providerId is missing or explicitly null
       if (user.providerId === undefined || user.providerId === null) {
         // Log once (useMemo ensures this only runs when deps change)
@@ -169,11 +169,12 @@ const RouteGuard = ({ allowedRoles = null, children }) => {
         return { status: 'forbidden', reason: 'PROVIDER_NOT_LINKED', redirect: null };
       }
 
-      // PROVIDER can access: /provider/* AND /pre-approvals/* (for creating pre-auths from visit log)
+      // PROVIDER can access: /provider/*, /pre-approvals/*, and /reports/*
       const isProviderRoute = location.pathname.startsWith('/provider');
       const isPreApprovalsRoute = location.pathname.startsWith('/pre-approvals');
-      
-      if (!isProviderRoute && !isPreApprovalsRoute) {
+      const isReportsRoute = location.pathname.startsWith('/reports');
+
+      if (!isProviderRoute && !isPreApprovalsRoute && !isReportsRoute) {
         return { status: 'redirect', reason: null, redirect: '/provider/eligibility-check' };
       }
     }
@@ -181,7 +182,7 @@ const RouteGuard = ({ allowedRoles = null, children }) => {
     // Check role-based access
     if (allowedRoles && allowedRoles.length > 0) {
       const hasAccess = allowedRoles.includes(userRole);
-      
+
       if (!hasAccess) {
         // PROVIDER gets redirected to their portal
         if (userRole === 'PROVIDER') {
@@ -198,7 +199,7 @@ const RouteGuard = ({ allowedRoles = null, children }) => {
   // ═══════════════════════════════════════════════════════════════════════════
   // STEP 2: Render based on computed state (NO side effects in render)
   // ═══════════════════════════════════════════════════════════════════════════
-  
+
   // STATE: Loading - show loader, DO NOT redirect
   if (guardState.status === 'loading') {
     return <FullPageLoader />;

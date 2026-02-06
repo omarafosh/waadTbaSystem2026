@@ -9,5 +9,8 @@ import java.util.List;
 @Repository
 public interface ProviderDocumentRepository extends JpaRepository<ProviderDocument, Long> {
     List<ProviderDocument> findByProviderIdAndActiveTrue(Long providerId);
+
     boolean existsByProviderIdAndActiveTrue(Long providerId);
+
+    long countByProviderIdAndActiveTrue(Long providerId);
 }

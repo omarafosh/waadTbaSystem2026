@@ -11,7 +11,8 @@ import {
   hasAccessToDomain,
   isSuperAdminOnlyDomain,
   getAssignableRoles,
-  canModifyRole
+  canModifyRole,
+  ROLE_PERMISSIONS
 } from 'constants/rbac';
 
 // ==============================|| RBAC STORE - ROLE-BASED ACCESS CONTROL ||============================== //
@@ -65,47 +66,85 @@ export const useRBACStore = create((set, get) => ({
   /**
    * Initialize RBAC state from backend user data or localStorage
    * Called after login or on app startup
-   * SIMPLIFIED: No employer context initialization
+   * 
+   * ROBUSTNESS FIX (2026-02-06):
+   * - Role Normalization: Strips 'ROLE_' prefix from backend role names
+   * - Permission Hydration: Merges backend permissions with frontend defaults from ROLE_PERMISSIONS
+   * 
    * @param {Object} userData - User data from backend (optional)
    */
   initialize: (userData = null) => {
     try {
-      let roles = [];
+      let rawRoles = [];
       let user = null;
-      let permissions = [];
+      let rawPermissions = [];
 
       if (userData) {
         // Initialize from backend response (login)
-        roles = userData.roles || [];
+        rawRoles = userData.roles || [];
         user = userData;
-        permissions = userData.permissions || [];
-
-        // Save to localStorage
-        localStorage.setItem(STORAGE_KEYS.ROLES, JSON.stringify(roles));
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-        localStorage.setItem(STORAGE_KEYS.PERMISSIONS, JSON.stringify(permissions));
+        rawPermissions = userData.permissions || [];
       } else {
         // Initialize from localStorage (page refresh)
         const rolesStr = localStorage.getItem(STORAGE_KEYS.ROLES);
-        roles = rolesStr ? JSON.parse(rolesStr) : [];
+        rawRoles = rolesStr ? JSON.parse(rolesStr) : [];
 
         const userStr = localStorage.getItem(STORAGE_KEYS.USER);
         user = userStr ? JSON.parse(userStr) : null;
 
         const permissionsStr = localStorage.getItem(STORAGE_KEYS.PERMISSIONS);
-        permissions = permissionsStr ? JSON.parse(permissionsStr) : [];
+        rawPermissions = permissionsStr ? JSON.parse(permissionsStr) : [];
       }
 
+      // 1. ROLE NORMALIZATION (Strip 'ROLE_' prefix)
+      const normalizedRoles = rawRoles.map(role => {
+        const roleStr = typeof role === 'string' ? role : (role?.name || '');
+        return roleStr.replace(/^ROLE_/, '');
+      });
+
+      // 2. PERMISSION HYDRATION (Merge Backend + Frontend Defaults)
+      const hydratedPermissions = new Set();
+
+      // Add permissions from backend
+      rawPermissions.forEach(p => {
+        const pName = typeof p === 'string' ? p : p?.name;
+        if (pName) hydratedPermissions.add(pName);
+      });
+
+      // Hydrate with defaults based on normalized roles
+      normalizedRoles.forEach(role => {
+        const defaults = ROLE_PERMISSIONS[role] || [];
+        defaults.forEach(p => hydratedPermissions.add(p));
+      });
+
+      const finalPermissions = Array.from(hydratedPermissions);
+
+      // 3. COMPLETE HYDRATION (Update user object for downstream guards)
+      const hydratedUser = user ? {
+        ...user,
+        roles: normalizedRoles,
+        permissions: finalPermissions
+      } : null;
+
+      // Save to localStorage (normalized)
+      localStorage.setItem(STORAGE_KEYS.ROLES, JSON.stringify(normalizedRoles));
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(hydratedUser));
+      localStorage.setItem(STORAGE_KEYS.PERMISSIONS, JSON.stringify(finalPermissions));
+
       set({
-        roles,
-        permissions,
-        user,
+        roles: normalizedRoles,
+        permissions: finalPermissions,
+        user: hydratedUser,
         isInitialized: true
       });
 
-      console.log('🔒 RBAC Initialized:', { roles, user: user?.username || user?.name });
+      console.log('🔒 RBAC Initialized (Robust Mode):', {
+        roles: normalizedRoles,
+        permissionCount: finalPermissions.length,
+        hydrated: true
+      });
     } catch (error) {
-      console.error('Failed to initialize RBAC:', error);
+      console.error('❌ Failed to initialize RBAC:', error);
       set({ isInitialized: true });
     }
   },

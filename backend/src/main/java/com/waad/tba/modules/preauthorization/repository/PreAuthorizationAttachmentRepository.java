@@ -12,10 +12,10 @@ import java.util.List;
 @Repository
 public interface PreAuthorizationAttachmentRepository extends JpaRepository<PreAuthorizationAttachment, Long> {
 
-    /**
-     * Find all attachments for a pre-authorization
-     */
     List<PreAuthorizationAttachment> findByPreAuthorizationId(Long preAuthorizationId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM PreAuthorizationAttachment a WHERE a.preAuthorizationId IN (SELECT p.id FROM PreAuthorization p WHERE p.providerId = :providerId)")
+    List<PreAuthorizationAttachment> findByProviderId(Long providerId);
 
     /**
      * Count attachments for a pre-authorization

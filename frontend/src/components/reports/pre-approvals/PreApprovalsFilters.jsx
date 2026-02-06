@@ -36,7 +36,8 @@ const PreApprovalsFilters = ({
   onEmployerChange,
   providers = [],
   selectedProviderId,
-  onProviderChange
+  onProviderChange,
+  canSelectProvider = true
 }) => {
   /**
    * Handle filter field change
@@ -87,7 +88,11 @@ const PreApprovalsFilters = ({
               <InputLabel id="employer-filter-label">الشريك</InputLabel>
               <Select
                 labelId="employer-filter-label"
-                value={selectedEmployerId ?? ''}
+                value={
+                  (Array.isArray(employers) && employers.some(e => e.id === selectedEmployerId))
+                    ? (selectedEmployerId ?? '')
+                    : ''
+                }
                 label="الشريك"
                 onChange={(e) => onEmployerChange(e.target.value || null)}
                 startAdornment={
@@ -115,8 +120,13 @@ const PreApprovalsFilters = ({
             <InputLabel id="provider-filter-label">مقدم الخدمة</InputLabel>
             <Select
               labelId="provider-filter-label"
-              value={selectedProviderId ?? ''}
+              value={
+                (!canSelectProvider || (Array.isArray(providers) && providers.some(p => p.id === selectedProviderId)))
+                  ? (selectedProviderId ?? '')
+                  : ''
+              }
               label="مقدم الخدمة"
+              disabled={!canSelectProvider}
               onChange={(e) => onProviderChange(e.target.value || null)}
               startAdornment={
                 <InputAdornment position="start">
@@ -127,7 +137,7 @@ const PreApprovalsFilters = ({
               <MenuItem value="">
                 <em>جميع مقدمي الخدمة</em>
               </MenuItem>
-              {providers.map((provider) => (
+              {Array.isArray(providers) && providers.map((provider) => (
                 <MenuItem key={provider.id} value={provider.id}>
                   {provider.nameArabic || provider.name || provider.nameEnglish}
                 </MenuItem>
@@ -216,7 +226,8 @@ PreApprovalsFilters.propTypes = {
   onEmployerChange: PropTypes.func,
   providers: PropTypes.array,
   selectedProviderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  onProviderChange: PropTypes.func
+  onProviderChange: PropTypes.func,
+  canSelectProvider: PropTypes.bool
 };
 
 export default PreApprovalsFilters;

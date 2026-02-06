@@ -11,15 +11,14 @@ import java.util.List;
  */
 @Repository
 public interface VisitAttachmentRepository extends JpaRepository<VisitAttachment, Long> {
-    
-    /**
-     * Find all attachments for a specific visit
-     * 
-     * @param visitId Visit ID
-     * @return List of attachments
-     */
+
     List<VisitAttachment> findByVisitId(Long visitId);
-    
+
+    /**
+     * Find all attachments for a specific provider
+     */
+    List<VisitAttachment> findByVisitProviderId(Long providerId);
+
     /**
      * Count attachments for a specific visit
      * 
@@ -27,7 +26,7 @@ public interface VisitAttachmentRepository extends JpaRepository<VisitAttachment
      * @return Number of attachments
      */
     long countByVisitId(Long visitId);
-    
+
     /**
      * Delete all attachments for a specific visit
      * 

@@ -11,15 +11,14 @@ import java.util.List;
  */
 @Repository
 public interface ClaimAttachmentRepository extends JpaRepository<ClaimAttachment, Long> {
-    
-    /**
-     * Find all attachments for a specific claim
-     * 
-     * @param claimId Claim ID
-     * @return List of attachments
-     */
+
     List<ClaimAttachment> findByClaimId(Long claimId);
-    
+
+    /**
+     * Find all attachments for a specific provider
+     */
+    List<ClaimAttachment> findByClaimProviderId(Long providerId);
+
     /**
      * Count attachments for a specific claim
      * 
@@ -27,7 +26,7 @@ public interface ClaimAttachmentRepository extends JpaRepository<ClaimAttachment
      * @return Number of attachments
      */
     long countByClaimId(Long claimId);
-    
+
     /**
      * Delete all attachments for a specific claim
      * 

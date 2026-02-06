@@ -13,44 +13,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { ROLES, PERMISSIONS, hasPermission } from 'constants/permissions.constants';
-
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * ROLE PERMISSIONS MAPPING
- * ═══════════════════════════════════════════════════════════════════════════
- */
-export const ROLE_PERMISSIONS = {
-  [ROLES.SERVICE_PROVIDER]: [
-    PERMISSIONS.VIEW_VISITS, PERMISSIONS.MANAGE_VISITS,
-    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.CREATE_CLAIM, PERMISSIONS.UPDATE_CLAIM,
-    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.CREATE_PRE_AUTH,
-    PERMISSIONS.VIEW_MEMBERS,
-    PERMISSIONS.VIEW_PROVIDER_PORTAL
-  ],
-
-  [ROLES.PARTNER_MANAGER]: [
-    PERMISSIONS.VIEW_VISITS,
-    PERMISSIONS.VIEW_CLAIMS,
-    PERMISSIONS.VIEW_PRE_AUTH,
-    PERMISSIONS.VIEW_REPORTS
-  ],
-
-  [ROLES.MEDICAL_REVIEWER]: [
-    PERMISSIONS.VIEW_CLAIMS, PERMISSIONS.APPROVE_CLAIMS, PERMISSIONS.REJECT_CLAIMS,
-    PERMISSIONS.VIEW_PRE_AUTH, PERMISSIONS.APPROVE_PRE_AUTH, PERMISSIONS.REJECT_PRE_AUTH,
-    PERMISSIONS.VIEW_REPORTS
-  ],
-
-  [ROLES.ACCOUNTANT]: [
-    PERMISSIONS.VIEW_REPORTS,
-    PERMISSIONS.SETTLE_CLAIMS,
-    PERMISSIONS.VIEW_CLAIMS,
-    PERMISSIONS.VIEW_PROVIDERS
-  ],
-
-  [ROLES.SUPER_ADMIN]: ['ALL_PERMISSIONS']
-};
+import { ROLES, ROLE_PERMISSIONS } from 'constants/rbac';
+import { PERMISSIONS, hasPermission } from 'constants/permissions.constants';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -60,52 +24,53 @@ export const ROLE_PERMISSIONS = {
 
 /**
  * Filter menu items based on user permissions
+ * 
+ * ROBUSTNESS REFACTOR (2026-02-06):
+ * - Simplified recursive logic
+ * - Normalized role checks (removes ROLE_ prefix)
+ * - Prioritizes restrictedTo (Role exclusion) over permission inclusion
+ * 
  * @param {Array} menuItems - Full menu structure
- * @param {Object} user - User object with permissions
+ * @param {Object} user - User object { roles, permissions }
  * @returns {Array} Filtered menu items
  */
 export const filterMenuByPermissions = (menuItems, user) => {
-  if (!user) {
-    return [];
-  }
+  if (!user) return [];
 
-  // SUPER_ADMIN bypasses all menu filtering
-  if (user.roles?.includes('SUPER_ADMIN')) {
-    return menuItems;
-  }
+  // Normalize roles for local check
+  const userRoles = (user.roles || []).map(r => (typeof r === 'string' ? r : r.name).replace(/^ROLE_/, ''));
+  const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
 
-  /**
-   * Filter recursive menu items
-   */
   const filterRecursive = (items) => {
     return items
       .map(item => {
-        // If item has children, filter them recursively
+        // 1. ROLE RESTRICTION (Exclusion logic)
+        // If restrictedTo exists, ONLY those roles can see the item (even SuperAdmin)
+        const restrictedTo = (item.restrictedTo || []).map(r => r.replace(/^ROLE_/, ''));
+        if (restrictedTo.length > 0) {
+          const hasRequiredRole = userRoles.some(role => restrictedTo.includes(role));
+          if (!hasRequiredRole) return null;
+        }
+
+        // 2. RECURSIVE FILTERING for children
+        let filteredChildren = null;
         if (item.children) {
-          const filteredChildren = filterRecursive(item.children);
-
-          // If no children remain, hide the parent (group or collapse)
-          if (filteredChildren.length === 0) {
-            return null;
-          }
-
-          return {
-            ...item,
-            children: filteredChildren
-          };
+          filteredChildren = filterRecursive(item.children);
+          // If a group/collapse has no visible children, hide the parent
+          if (filteredChildren.length === 0) return null;
         }
 
-        // Check permission using centralized logic
-        // Use either item.permission (inline) or item.id (centralized map)
-        const canView = hasMenuPermission(user, item.id) || (item.permission && hasPermission(user, item.permission));
+        // 3. PERMISSION CHECK (Inclusion logic)
+        // SuperAdmin bypasses permission checks (but not restrictedTo above)
+        const canView = isSuperAdmin ||
+          hasMenuPermission(user, item.id) ||
+          (item.permission && hasPermission(user, item.permission));
 
-        if (!canView) {
-          return null;
-        }
+        if (!canView) return null;
 
-        return item;
+        return filteredChildren ? { ...item, children: filteredChildren } : item;
       })
-      .filter(item => item !== null);
+      .filter(Boolean);
   };
 
   return filterRecursive(menuItems);
@@ -203,109 +168,7 @@ export const MENU_PERMISSIONS = {
   'permission-matrix': [PERMISSIONS.MANAGE_ROLES]
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * ROLE DEFAULT PERMISSIONS (FOR REFERENCE ONLY - NOT ENFORCED)
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * This is DOCUMENTATION only. Actual permissions come from backend.
- * Used only for:
- * - Understanding expected role capabilities
- * - Initial role setup in backend
- * - Testing scenarios
- */
-export const ROLE_PERMISSION_REFERENCE = {
-  // ───────────────────────────────────────────────────────────────────────────
-  // 🔓 SUPER_ADMIN - All Permissions (Bypass)
-  // ───────────────────────────────────────────────────────────────────────────
-  SUPER_ADMIN: 'ALL_PERMISSIONS', // Bypass - sees everything
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 🏢 INSURANCE_ADMIN - Full Operational Access (No RBAC Management)
-  // ───────────────────────────────────────────────────────────────────────────
-  INSURANCE_ADMIN: [
-    PERMISSIONS.VIEW_EMPLOYERS,
-    PERMISSIONS.MANAGE_EMPLOYERS,
-    PERMISSIONS.VIEW_MEMBERS,
-    PERMISSIONS.MANAGE_MEMBERS,
-    PERMISSIONS.VIEW_PROVIDERS,
-    PERMISSIONS.MANAGE_PROVIDERS,
-    PERMISSIONS.VIEW_PROVIDER_CONTRACTS,
-    PERMISSIONS.MANAGE_PROVIDER_CONTRACTS,
-    PERMISSIONS.VIEW_CLAIMS,
-    PERMISSIONS.MANAGE_CLAIMS,
-    PERMISSIONS.APPROVE_CLAIMS,
-    PERMISSIONS.REJECT_CLAIMS,
-    PERMISSIONS.SETTLE_CLAIMS,
-    PERMISSIONS.VIEW_PRE_AUTH,
-    PERMISSIONS.MANAGE_PREAUTH,
-    PERMISSIONS.APPROVE_PRE_AUTH,
-    PERMISSIONS.REJECT_PRE_AUTH,
-    PERMISSIONS.VIEW_VISITS,
-    PERMISSIONS.MANAGE_VISITS,
-    PERMISSIONS.VIEW_BENEFIT_POLICIES,
-    PERMISSIONS.MANAGE_BENEFIT_POLICIES,
-    PERMISSIONS.VIEW_MEDICAL_SERVICES,
-    PERMISSIONS.MANAGE_MEDICAL_SERVICES,
-    PERMISSIONS.VIEW_REPORTS,
-    PERMISSIONS.MANAGE_REPORTS,
-    PERMISSIONS.MANAGE_SETTINGS
-  ],
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 👔 PARTNER_MANAGER (مدير الشريك) - Limited Operational View
-  // ───────────────────────────────────────────────────────────────────────────
-  PARTNER_MANAGER: [
-    PERMISSIONS.VIEW_MEMBERS, // ✅ Can view insured members
-    PERMISSIONS.VIEW_VISITS, // ✅ Can view visit logs
-    PERMISSIONS.VIEW_CLAIMS, // ✅ Can view claims (read-only)
-    PERMISSIONS.VIEW_BENEFIT_POLICIES, // ✅ Can view policies
-    PERMISSIONS.VIEW_REPORTS // ✅ Can view reports
-    // ❌ NO: MANAGE_*, APPROVE_*, SETTLE_*, RBAC, SETTINGS
-  ],
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 🩺 MEDICAL_REVIEWER (المراجع الطبي) - Review Only
-  // ───────────────────────────────────────────────────────────────────────────
-  MEDICAL_REVIEWER: [
-    PERMISSIONS.VIEW_CLAIMS, // ✅ View claims for review
-    PERMISSIONS.APPROVE_CLAIMS, // ✅ Approve claims
-    PERMISSIONS.REJECT_CLAIMS, // ✅ Reject claims
-    PERMISSIONS.VIEW_PRE_AUTH, // ✅ View pre-auth requests
-    PERMISSIONS.APPROVE_PRE_AUTH, // ✅ Approve pre-auth
-    PERMISSIONS.REJECT_PRE_AUTH, // ✅ Reject pre-auth
-    PERMISSIONS.VIEW_MEDICAL_SERVICES, // ✅ View services for reference
-    PERMISSIONS.VIEW_REPORTS // ✅ View review reports
-    // ❌ NO: VISITS, MEMBERS, EMPLOYERS, PROVIDERS, FINANCIAL, SETTINGS
-  ],
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 💰 ACCOUNTANT (المحاسب) - Financial & Reports Only
-  // ───────────────────────────────────────────────────────────────────────────
-  ACCOUNTANT: [
-    PERMISSIONS.VIEW_CLAIMS, // ✅ View claims for accounting
-    PERMISSIONS.SETTLE_CLAIMS, // ✅ Financial settlement
-    PERMISSIONS.VIEW_PROVIDERS, // ✅ View providers for settlement
-    PERMISSIONS.VIEW_PROVIDER_CONTRACTS, // ✅ View contracts for pricing
-    PERMISSIONS.VIEW_EMPLOYERS, // ✅ View employers for billing
-    PERMISSIONS.VIEW_REPORTS, // ✅ View financial reports
-    PERMISSIONS.MANAGE_REPORTS // ✅ Generate custom reports
-    // ❌ NO: MEMBERS, VISITS, PRE_AUTH, MEDICAL_REVIEW, SETTINGS
-  ],
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 🏥 PROVIDER (مقدم الخدمة)
-  // ───────────────────────────────────────────────────────────────────────────
-  PROVIDER: [
-    PERMISSIONS.VIEW_MEMBERS, // ✅ Eligibility check only
-    PERMISSIONS.MANAGE_VISITS, // ✅ Log visits (main functionality)
-    PERMISSIONS.CREATE_CLAIM, // ✅ Create claims from visits
-    PERMISSIONS.CREATE_PRE_AUTH, // ✅ Create pre-auth from visits
-    PERMISSIONS.VIEW_CLAIM_STATUS, // ✅ View status of submitted claims
-    PERMISSIONS.VIEW_PRE_AUTH // ✅ View status of submitted pre-auth
-    // ❌ NO: APPROVE_*, REJECT_*, SETTLE_*, REPORTS, SETTINGS, EMPLOYERS
-  ]
-};
+// Note: ROLE_PERMISSION_REFERENCE removed - consolidated into constants/rbac.js
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -313,8 +176,9 @@ export const ROLE_PERMISSION_REFERENCE = {
  * ═══════════════════════════════════════════════════════════════════════════
  */
 export const hasMenuPermission = (user, menuId) => {
-  // SUPER_ADMIN bypass
-  if (user?.roles?.includes('SUPER_ADMIN')) {
+  // SUPER_ADMIN bypass (Robust prefix handling)
+  const roles = (user?.roles || []).map(r => (typeof r === 'string' ? r : r.name).replace(/^ROLE_/, ''));
+  if (roles.includes('SUPER_ADMIN')) {
     return true;
   }
 
@@ -382,7 +246,6 @@ export const canAccessRoute = (user, path) => {
 
 export default {
   MENU_PERMISSIONS,
-  ROLE_PERMISSION_REFERENCE,
   hasMenuPermission,
   filterMenuByPermissions,
   canAccessRoute

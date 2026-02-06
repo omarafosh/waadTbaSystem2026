@@ -15,12 +15,12 @@ const ProviderReports = Loadable(lazy(() => import('pages/reports/ProviderReport
 const ComingSoonReport = Loadable(lazy(() => import('pages/reports/ComingSoonReport')));
 
 const REPORT_VIEWERS = ['SUPER_ADMIN', 'ADMIN', 'INSURANCE_COMPANY', 'EMPLOYER_ADMIN'];
-const REPORT_REVIEWERS = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'REVIEWER'];
+const REPORT_REVIEWERS = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYER_ADMIN', 'REVIEWER', 'PROVIDER'];
 
 const ReportRoutes = {
     path: 'reports',
     children: [
-        createRoute({ path: '', element: ReportsPage, roles: ['ADMIN', 'SUPER_ADMIN', 'INSURANCE_COMPANY', 'EMPLOYER_ADMIN'] }),
+        createRoute({ path: '', element: ReportsPage, roles: ['ADMIN', 'SUPER_ADMIN', 'INSURANCE_COMPANY', 'EMPLOYER_ADMIN', 'PROVIDER'] }),
         createRoute({ path: 'employer-dashboard', element: EmployerDashboard, roles: ['ADMIN', 'SUPER_ADMIN', 'EMPLOYER_ADMIN'] }),
         createRoute({ path: 'claims', element: ClaimsReport, roles: REPORT_REVIEWERS }),
         createRoute({ path: 'pre-approvals', element: PreApprovalsReport, roles: REPORT_REVIEWERS }),

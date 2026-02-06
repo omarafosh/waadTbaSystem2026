@@ -469,8 +469,8 @@ const ProviderContractView = () => {
     setPricingForm({
       medicalServiceId: item.medicalService || null,
       medicalCategoryId: item.medicalCategory || null,
-      basePrice: item.basePrice,
-      contractPrice: item.contractPrice,
+      basePrice: item.basePrice ?? '',
+      contractPrice: item.contractPrice ?? '',
       notes: item.notes || ''
     });
     setEditPricingDialogOpen(true);
@@ -614,17 +614,17 @@ const ProviderContractView = () => {
 
       {/* Contract Summary Card */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <MainCard title="معلومات العقد" secondary={<Chip label={statusConfig.label} color={statusConfig.color} size="small" />}>
             <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <List disablePadding>
                   <InfoRow label="رمز العقد" value={contract.contractCode} icon={ContractIcon} />
                   <InfoRow label="نموذج التسعير" value={pricingModelConfig.label} icon={PriceIcon} />
                   <InfoRow label="نسبة الخصم" value={contract.discountPercent ? `${contract.discountPercent}%` : '-'} icon={PriceIcon} />
                 </List>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <List disablePadding>
                   <InfoRow label="تاريخ البدء" value={formatDate(contract.startDate)} icon={CalendarIcon} />
                   <InfoRow label="تاريخ الانتهاء" value={formatDate(contract.endDate)} icon={CalendarIcon} />
@@ -635,7 +635,7 @@ const ProviderContractView = () => {
           </MainCard>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MainCard title="مقدم الخدمة" secondary={<ProviderIcon color="primary" />}>
             <List disablePadding>
               <InfoRow label="الاسم" value={contract.providerName || contract.provider?.name || '-'} />
@@ -906,7 +906,7 @@ const ProviderContractView = () => {
                 setPricingForm({
                   ...pricingForm,
                   medicalServiceId: newValue,
-                  basePrice: newValue ? newValue.basePrice : '',
+                  basePrice: newValue ? (newValue.basePrice ?? '') : '',
                   contractPrice: '',
                   medicalCategoryId: null // Reset category when service changes
                 });
@@ -921,20 +921,23 @@ const ProviderContractView = () => {
               options={medicalCategories || []}
               getOptionLabel={(option) => option.nameAr || option.nameEn || option.name || ''}
               groupBy={(option) => option.parentId ? 'تصنيف فرعي' : 'تصنيف رئيسي'}
-              renderOption={(props, option) => (
-                <li {...props}>
-                  <Stack>
-                    <Typography variant="body2" fontWeight={option.parentId ? 400 : 600}>
-                      {option.code} - {option.nameAr}
-                    </Typography>
-                    {option.nameEn && (
-                      <Typography variant="caption" color="text.secondary">
-                        {option.nameEn}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <li key={key} {...otherProps}>
+                    <Stack>
+                      <Typography variant="body2" fontWeight={option.parentId ? 400 : 600}>
+                        {option.code} - {option.nameAr}
                       </Typography>
-                    )}
-                  </Stack>
-                </li>
-              )}
+                      {option.nameEn && (
+                        <Typography variant="caption" color="text.secondary">
+                          {option.nameEn}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </li>
+                );
+              }}
               value={pricingForm.medicalCategoryId}
               onChange={(e, newValue) => {
                 setPricingForm({
@@ -1017,15 +1020,18 @@ const ProviderContractView = () => {
               options={medicalCategories || []}
               getOptionLabel={(option) => option.name || ''}
               groupBy={(option) => option.parentId ? 'تصنيف فرعي' : 'تصنيف رئيسي'}
-              renderOption={(props, option) => (
-                <li {...props}>
-                  <Stack>
-                    <Typography variant="body2" fontWeight={option.parentId ? 400 : 600}>
-                      {option.code} - {option.name}
-                    </Typography>
-                  </Stack>
-                </li>
-              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <li key={key} {...otherProps}>
+                    <Stack>
+                      <Typography variant="body2" fontWeight={option.parentId ? 400 : 600}>
+                        {option.code} - {option.name}
+                      </Typography>
+                    </Stack>
+                  </li>
+                );
+              }}
               value={pricingForm.medicalCategoryId}
               onChange={(e, newValue) => {
                 setPricingForm({

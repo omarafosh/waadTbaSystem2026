@@ -55,6 +55,7 @@ const useRBACSidebar = () => {
   return {
     sidebarGroups,
     sidebarItems,
+    roles,
     loading: !isInitialized
   };
 };

@@ -9,6 +9,7 @@ const CompaniesList = Loadable(lazy(() => import('pages/companies')));
 const ReviewerCompaniesList = Loadable(lazy(() => import('pages/reviewer-companies')));
 const AdminCompaniesList = Loadable(lazy(() => import('pages/admin/companies')));
 const AdminRolesList = Loadable(lazy(() => import('pages/admin/roles')));
+const MedicalServiceSandbox = Loadable(lazy(() => import('pages/admin/tools/MedicalServiceSandbox')));
 const Settings = Loadable(lazy(() => import('pages/settings')));
 const CompanySettings = Loadable(lazy(() => import('pages/settings/company')));
 const ProfileOverview = Loadable(lazy(() => import('pages/profile/ProfileOverview')));
@@ -38,7 +39,8 @@ export const AdminRoutes = [
         path: 'admin',
         children: [
             createRoute({ path: 'companies', element: AdminCompaniesList, roles: ['SUPER_ADMIN'] }),
-            createRoute({ path: 'roles', element: AdminRolesList, roles: ['SUPER_ADMIN'] })
+            createRoute({ path: 'roles', element: AdminRolesList, roles: ['SUPER_ADMIN'] }),
+            createRoute({ path: 'tools/service-import', element: MedicalServiceSandbox, roles: ['SUPER_ADMIN'] })
         ]
     }
 ];

@@ -1,164 +1,236 @@
 package com.waad.tba.modules.medicaltaxonomy.service;
 
-import com.waad.tba.common.exception.BusinessRuleException;
+import com.waad.tba.modules.medicaltaxonomy.dto.ImportChangeDto;
+import com.waad.tba.modules.medicaltaxonomy.dto.ImportPreviewResultDto;
+import com.waad.tba.modules.medicaltaxonomy.dto.MedicalServiceImportDto;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalCategory;
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
-import com.waad.tba.modules.medicaltaxonomy.enums.MedicalServiceStatus;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalCategoryRepository;
 import com.waad.tba.modules.medicaltaxonomy.repository.MedicalServiceRepository;
-import lombok.Builder;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.InputStream;
+import com.waad.tba.modules.medicaltaxonomy.dto.ExcelImportResultDto;
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MedicalServiceImportService {
 
     private final MedicalServiceRepository serviceRepository;
     private final MedicalCategoryRepository categoryRepository;
 
-    @Getter
-    @Builder
-    public static class ImportResult {
-        private int total;
-        private int inserted;
-        private int updated;
-        private int failed;
-        private int drafts;
-        private List<String> errors;
+    /**
+     * Parse Excel file and preview changes without saving.
+     */
+    @Transactional(readOnly = true)
+    public ImportPreviewResultDto previewImport(MultipartFile file) throws IOException {
+        List<MedicalServiceImportDto> importedRows = parseExcel(file);
+        return calculateDiff(importedRows);
     }
 
-    @Transactional
-    public ImportResult importExcel(MultipartFile file) {
-        log.info("Starting Medical Services safe import...");
-        List<String> errors = new ArrayList<>();
-        int inserted = 0;
-        int updated = 0;
-        int drafts = 0;
-        int total = 0;
+    /**
+     * Parse Excel file to DTOs.
+     * Assumes standard format: Code | Name | Category | Price
+     */
+    private List<MedicalServiceImportDto> parseExcel(MultipartFile file) throws IOException {
+        List<MedicalServiceImportDto> rows = new ArrayList<>();
 
-        try (InputStream is = file.getInputStream();
-             Workbook workbook = WorkbookFactory.create(is)) {
-
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
-            
-            // Pre-load categories cache to avoid N+1 queries
-            Map<String, MedicalCategory> categoryCache = loadCategoryCache();
 
+            // Skip header (row 0)
+            boolean firstRow = true;
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue; // Skip header
+                if (firstRow) {
+                    firstRow = false;
+                    continue;
+                }
 
-                total++;
+                // Stop at empty rows
+                if (row.getCell(0) == null || row.getCell(0).toString().trim().isEmpty()) {
+                    break;
+                }
+
                 try {
-                    processRow(row, categoryCache, errors);
-                    
-                    // Track stats (simplified for this example)
-                    inserted++;
-                    // Logic inside processRow handles saving
-                    
+                    String code = getCellValueAsString(row.getCell(0));
+                    String name = getCellValueAsString(row.getCell(1));
+                    String category = getCellValueAsString(row.getCell(2));
+                    BigDecimal price = getCellValueAsBigDecimal(row.getCell(3));
+
+                    rows.add(MedicalServiceImportDto.builder()
+                            .code(code)
+                            .name(name)
+                            .category(category)
+                            .basePrice(price)
+                            .build());
                 } catch (Exception e) {
-                    errors.add("Row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                    log.warn("Error parsing row {}: {}", row.getRowNum(), e.getMessage());
                 }
             }
+        }
+        return rows;
+    }
 
-        } catch (Exception e) {
-            throw new BusinessRuleException("Failed to process Excel file: " + e.getMessage());
+    /**
+     * Calculate what will change if these rows are imported.
+     */
+    private ImportPreviewResultDto calculateDiff(List<MedicalServiceImportDto> rows) {
+        List<ImportChangeDto> changes = new ArrayList<>();
+        int newCount = 0;
+        int updatedCount = 0;
+        int unchangedCount = 0;
+        int errorCount = 0;
+
+        for (int i = 0; i < rows.size(); i++) {
+            MedicalServiceImportDto row = rows.get(i);
+            String rowNum = String.valueOf(i + 2); // Excel row number (1-based, +header)
+
+            try {
+                Optional<MedicalService> existingOpt = serviceRepository.findByCode(row.getCode());
+
+                if (existingOpt.isPresent()) {
+                    MedicalService existing = existingOpt.get();
+                    boolean isChanged = false;
+                    List<String> updates = new ArrayList<>();
+
+                    // Check for changes
+                    if (!trim(row.getName()).equalsIgnoreCase(trim(existing.getName()))) {
+                        updates.add("Name update");
+                        isChanged = true;
+                    }
+                    if (row.getBasePrice() != null && existing.getBasePrice() != null
+                            && row.getBasePrice().compareTo(existing.getBasePrice()) != 0) {
+                        updates.add("Price update");
+                        isChanged = true;
+                    }
+
+                    // Category Check (Simulation)
+                    MedicalCategory cat = findCategory(row.getCategory());
+                    if (cat != null && !cat.getId().equals(existing.getCategoryId())) {
+                        updates.add("Category update");
+                        isChanged = true;
+                    }
+
+                    if (isChanged) {
+                        updatedCount++;
+                        changes.add(ImportChangeDto.builder()
+                                .rowNumber(rowNum)
+                                .serviceCode(row.getCode())
+                                .serviceName(row.getName())
+                                .category(row.getCategory())
+                                .changeType("UPDATE")
+                                .oldPrice(existing.getBasePrice())
+                                .newPrice(row.getBasePrice())
+                                .oldName(existing.getName())
+                                .newName(row.getName())
+                                .notes(String.join(", ", updates))
+                                .build());
+                    } else {
+                        unchangedCount++;
+                    }
+
+                } else {
+                    // NEW Service
+                    newCount++;
+                    changes.add(ImportChangeDto.builder()
+                            .rowNumber(rowNum)
+                            .serviceCode(row.getCode())
+                            .serviceName(row.getName())
+                            .category(row.getCategory())
+                            .changeType("NEW")
+                            .newPrice(row.getBasePrice())
+                            .newName(row.getName())
+                            .notes("New Entry")
+                            .build());
+                }
+            } catch (Exception e) {
+                errorCount++;
+                changes.add(ImportChangeDto.builder()
+                        .rowNumber(rowNum)
+                        .serviceCode(row.getCode())
+                        .changeType("ERROR")
+                        .notes(e.getMessage())
+                        .build());
+            }
         }
 
-        return ImportResult.builder()
-                .total(total)
-                .inserted(inserted) // Note: this count is simplified
-                .failed(errors.size())
-                .errors(errors)
+        return ImportPreviewResultDto.builder()
+                .totalRecords(rows.size())
+                .newServices(newCount)
+                .updatedServices(updatedCount)
+                .unchangedServices(unchangedCount)
+                .errorCount(errorCount)
+                .changes(changes)
                 .build();
     }
 
-    private Map<String, MedicalCategory> loadCategoryCache() {
-        Map<String, MedicalCategory> cache = new HashMap<>();
-        categoryRepository.findAll().forEach(c -> {
-            if (c.getName() != null) cache.put(c.getName().trim().toLowerCase(), c);
-            cache.put(c.getCode().trim().toLowerCase(), c);
-        });
-        return cache;
+    private MedicalCategory findCategory(String name) {
+        if (name == null)
+            return null;
+        return categoryRepository.findByName(name.trim()).orElse(null);
     }
 
-    private void processRow(Row row, Map<String, MedicalCategory> categoryCache, List<String> errors) {
-        // 1. Extract Data
-        String name = getCellValue(row, 0);       // Col A: Name (Required)
-        String code = getCellValue(row, 1);       // Col B: Code (Optional)
-        String categoryName = getCellValue(row, 2); // Col C: Category (Optional)
-        String basePriceStr = getCellValue(row, 3);// Col D: Price (Reference)
-
-        // Rule: Name is mandatory
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Service Name is missing");
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null)
+            return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                return String.valueOf((long) cell.getNumericCellValue());
+            default:
+                return "";
         }
-
-        // 2. Determine Code (Auto-generate if missing)
-        String finalCode;
-        if (code == null || code.isEmpty()) {
-            finalCode = "MS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        } else {
-            finalCode = code;
-        }
-
-        // 3. Resolve Category & Status
-        MedicalCategory category = null;
-        MedicalServiceStatus status = MedicalServiceStatus.DRAFT;
-        
-        if (categoryName != null && !categoryName.isEmpty()) {
-            category = categoryCache.get(categoryName.trim().toLowerCase());
-            if (category != null) {
-                status = MedicalServiceStatus.ACTIVE;
-            }
-        }
-
-        // 4. Create Entity
-        MedicalService service = serviceRepository.findByCode(finalCode)
-                .orElse(new MedicalService());
-
-        service.setCode(finalCode);
-        service.setName(name);
-        
-        // Only set status active if we have a valid category
-        // otherwise DRAFT (Safe Mode)
-        service.setStatus(status);
-        service.setActive(status == MedicalServiceStatus.ACTIVE);
-        
-        if (category != null) {
-            service.setCategoryId(category.getId());
-        } else {
-            service.setCategoryId(null); // Explicitly null for drafts
-        }
-
-        // Optional Price
-        if (basePriceStr != null && !basePriceStr.isEmpty()) {
-            try {
-                service.setBasePrice(new BigDecimal(basePriceStr));
-            } catch (NumberFormatException ignored) {}
-        }
-
-        serviceRepository.save(service);
     }
 
-    private String getCellValue(Row row, int index) {
-        Cell cell = row.getCell(index, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-        if (cell == null) return null;
-        
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue().trim();
-            case NUMERIC -> String.valueOf((int)cell.getNumericCellValue()); // Treat codes/names as strings
-            default -> null;
-        };
+    private BigDecimal getCellValueAsBigDecimal(Cell cell) {
+        if (cell == null)
+            return null;
+        if (cell.getCellType() == CellType.NUMERIC) {
+            return BigDecimal.valueOf(cell.getNumericCellValue());
+        }
+        try {
+            return new BigDecimal(cell.getStringCellValue().trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String trim(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    /**
+     * Stub for Legacy/Main Controller Import (To fix compilation)
+     * This will be implemented fully after Sandbox verification.
+     */
+    @Transactional
+    public ExcelImportResultDto importExcel(MultipartFile file) {
+        // For now, return a placeholder result to satisfy the compiler
+        // The real implementation will come later.
+        log.info("Safe Import stub called - implementation pending sandbox verification");
+
+        return ExcelImportResultDto.builder()
+                .success(false)
+                .message("Experimental Mode: Please use the Sandbox Import to test this file first.")
+                .summary(ExcelImportResultDto.ImportSummary.builder()
+                        .inserted(0)
+                        .updated(0)
+                        .failed(0)
+                        .total(0)
+                        .skipped(0)
+                        .errors(new ArrayList<ExcelImportResultDto.ImportError>())
+                        .build())
+                .build();
     }
 }
