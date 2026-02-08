@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // material-ui
@@ -80,7 +80,8 @@ import { useClaimsList } from 'hooks/useClaims';
 // KPI Card Component - Clean Enterprise Design
 // ─────────────────────────────────────────────────────────────────────────────
 
-const KPICard = ({
+// Optimization: Wrapped in memo to prevent unnecessary re-renders when parent re-renders.
+const KPICard = memo(({
   title,
   value,
   subtitle,
@@ -188,13 +189,14 @@ const KPICard = ({
       </CardContent>
     </Card>
   );
-};
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Section Header Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SectionHeader = ({ title, icon: Icon, color = 'primary' }) => {
+// Optimization: Wrapped in memo to prevent unnecessary re-renders.
+const SectionHeader = memo(({ title, icon: Icon, color = 'primary' }) => {
   const theme = useTheme();
 
   return (
@@ -213,13 +215,14 @@ const SectionHeader = ({ title, icon: Icon, color = 'primary' }) => {
       </Typography>
     </Stack>
   );
-};
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Status Badge Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-const StatusBadge = ({ status }) => {
+// Optimization: Wrapped in memo to prevent unnecessary re-renders.
+const StatusBadge = memo(({ status }) => {
   const statusConfig = {
     DRAFT: { label: 'مسودة', color: 'default', icon: PendingIcon },
     SUBMITTED: { label: 'مقدمة', color: 'info', icon: PendingIcon },
@@ -242,13 +245,14 @@ const StatusBadge = ({ status }) => {
       sx={{ fontWeight: 500, fontSize: '0.75rem' }}
     />
   );
-};
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Recent Claims Table Component (Redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RecentClaimsTable = ({ claims, loading, onViewClaim }) => {
+// Optimization: Wrapped in memo to prevent unnecessary re-renders.
+const RecentClaimsTable = memo(({ claims, loading, onViewClaim }) => {
   const theme = useTheme();
 
   // Show only 10 most recent
@@ -389,7 +393,55 @@ const RecentClaimsTable = ({ claims, loading, onViewClaim }) => {
       </TableContainer>
     </MainCard>
   );
-};
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Optimization: Moved InfoRow outside Dashboard component to prevent re-creation on every render.
+// Also wrapped in memo to prevent re-renders when props are stable.
+const InfoRow = memo(({ label, value, icon: Icon, color = 'primary', loading }) => {
+  const theme = useTheme();
+  const colorValue = theme.palette[color]?.main || theme.palette.primary.main;
+
+  return (
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      sx={{
+        py: 0.75, // Reduced padding
+        borderBottom: '1px dashed',
+        borderColor: 'divider',
+        '&:last-child': { borderBottom: 0, pb: 0 },
+        '&:first-of-type': { pt: 0 }
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Box sx={{
+          display: 'flex',
+          p: 0.25,
+          borderRadius: 0.75,
+          bgcolor: alpha(colorValue, 0.1),
+          color: colorValue
+        }}>
+          <Icon sx={{ fontSize: 16 }} />
+        </Box>
+        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontSize: '0.75rem' }}>
+          {label}
+        </Typography>
+      </Stack>
+      {loading ? (
+        <Skeleton width={60} height={20} />
+      ) : (
+        <Typography variant="caption" fontWeight={700} fontFamily="Roboto, sans-serif" sx={{ fontSize: '0.75rem' }}>
+          {value}
+        </Typography>
+      )}
+    </Stack>
+  );
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN DASHBOARD COMPONENT
@@ -488,53 +540,6 @@ export default function Dashboard() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════════
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // HELPER COMPONENTS
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  const InfoRow = ({ label, value, icon: Icon, color = 'primary', loading }) => {
-    const theme = useTheme();
-    const colorValue = theme.palette[color]?.main || theme.palette.primary.main;
-
-    return (
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{
-          py: 0.75, // Reduced padding
-          borderBottom: '1px dashed',
-          borderColor: 'divider',
-          '&:last-child': { borderBottom: 0, pb: 0 },
-          '&:first-of-type': { pt: 0 }
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Box sx={{
-            display: 'flex',
-            p: 0.25,
-            borderRadius: 0.75,
-            bgcolor: alpha(colorValue, 0.1),
-            color: colorValue
-          }}>
-            <Icon sx={{ fontSize: 16 }} />
-          </Box>
-          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontSize: '0.75rem' }}>
-            {label}
-          </Typography>
-        </Stack>
-        {loading ? (
-          <Skeleton width={60} height={20} />
-        ) : (
-          <Typography variant="caption" fontWeight={700} fontFamily="Roboto, sans-serif" sx={{ fontSize: '0.75rem' }}>
-            {value}
-          </Typography>
-        )}
-      </Stack>
-    );
-  };
-
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
