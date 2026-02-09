@@ -6,10 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.waad.tba.modules.claim.entity.Claim;
-import com.waad.tba.modules.claim.repository.ClaimRepository;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
-import com.waad.tba.modules.preauthorization.repository.PreAuthorizationRepository;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
 import com.waad.tba.modules.visit.dto.VisitCreateDto;
@@ -23,8 +21,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VisitMapper {
 
-    private final ClaimRepository claimRepository;
-    private final PreAuthorizationRepository preAuthorizationRepository;
     private final ProviderRepository providerRepository;
 
     public VisitResponseDto toResponseDto(Visit entity) {
@@ -77,10 +73,10 @@ public class VisitMapper {
                 .build();
         
         // Add claim info
-        populateClaimInfo(dto, entity.getId());
+        populateClaimInfo(dto, entity);
         
         // Add pre-authorization info
-        populatePreAuthInfo(dto, entity.getId());
+        populatePreAuthInfo(dto, entity);
         
         return dto;
     }
@@ -88,11 +84,14 @@ public class VisitMapper {
     /**
      * Populate claim information for the visit
      */
-    private void populateClaimInfo(VisitResponseDto dto, Long visitId) {
-        if (visitId == null) return;
+    private void populateClaimInfo(VisitResponseDto dto, Visit visit) {
+        if (visit == null || visit.getClaims() == null) return;
         
         try {
-            List<Claim> claims = claimRepository.findByVisitId(visitId);
+            List<Claim> claims = visit.getClaims().stream()
+                .filter(c -> Boolean.TRUE.equals(c.getActive()))
+                .toList();
+
             dto.setClaimCount(claims.size());
             
             if (!claims.isEmpty()) {
@@ -116,11 +115,14 @@ public class VisitMapper {
     /**
      * Populate pre-authorization information for the visit
      */
-    private void populatePreAuthInfo(VisitResponseDto dto, Long visitId) {
-        if (visitId == null) return;
+    private void populatePreAuthInfo(VisitResponseDto dto, Visit visit) {
+        if (visit == null || visit.getPreAuthorizations() == null) return;
         
         try {
-            List<PreAuthorization> preAuths = preAuthorizationRepository.findByVisitIdAndActiveTrue(visitId);
+            List<PreAuthorization> preAuths = visit.getPreAuthorizations().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .toList();
+
             dto.setPreAuthCount(preAuths.size());
             
             if (!preAuths.isEmpty()) {

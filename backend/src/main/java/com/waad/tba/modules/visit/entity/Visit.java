@@ -13,6 +13,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.exception.BusinessRuleException;
 import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
+import org.hibernate.annotations.BatchSize;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -117,8 +119,14 @@ public class Visit {
      * Related claims created from this visit (one visit can have multiple claims)
      */
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @Builder.Default
     private List<com.waad.tba.modules.claim.entity.Claim> claims = new ArrayList<>();
+
+    @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
+    @Builder.Default
+    private List<PreAuthorization> preAuthorizations = new ArrayList<>();
     
     /**
      * Related eligibility checks for this visit
@@ -160,6 +168,22 @@ public class Visit {
     public void addEligibilityCheck(com.waad.tba.modules.eligibility.entity.EligibilityCheck check) {
         eligibilityChecks.add(check);
         check.setVisit(this);
+    }
+
+    /**
+     * Helper method to add a pre-authorization to this visit
+     */
+    public void addPreAuthorization(PreAuthorization preAuthorization) {
+        preAuthorizations.add(preAuthorization);
+        preAuthorization.setVisit(this);
+    }
+
+    /**
+     * Helper method to remove a pre-authorization from this visit
+     */
+    public void removePreAuthorization(PreAuthorization preAuthorization) {
+        preAuthorizations.remove(preAuthorization);
+        preAuthorization.setVisit(null);
     }
     
     // ==================== BUSINESS LOGIC ====================
