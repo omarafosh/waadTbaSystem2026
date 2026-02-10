@@ -148,7 +148,8 @@ const PreApprovalView = () => {
 
   // Placeholder for Convert to Claim (UI only - no logic)
   const handleConvertToClaim = () => {
-    // TODO: Implement in future phase};
+    // TODO: Implement in future phase
+  };
 
   if (loading) {
     return (
