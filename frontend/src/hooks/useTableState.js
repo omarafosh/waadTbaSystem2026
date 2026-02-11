@@ -16,7 +16,7 @@
  * });
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 /**
@@ -208,33 +208,54 @@ export const useTableState = (config = {}) => {
   // RETURN STATE AND CONTROLS
   // ========================================
 
-  return {
-    // Pagination
-    page,
-    pageSize,
-    setPage: setPage,
-    setPageSize: setPageSize,
+  // Memoize the return object to prevent unnecessary re-renders of child components (e.g., GenericDataTable)
+  return useMemo(
+    () => ({
+      // Pagination
+      page,
+      pageSize,
+      setPage: setPage,
+      setPageSize: setPageSize,
 
-    // Sorting
-    sorting,
-    setSorting: setSorting,
+      // Sorting
+      sorting,
+      setSorting: setSorting,
 
-    // Filtering
-    columnFilters,
-    setColumnFilters,
-    setFilter: handleFilterChange,
-    clearFilters: handleClearFilters,
-    hasActiveFilters,
+      // Filtering
+      columnFilters,
+      setColumnFilters,
+      setFilter: handleFilterChange,
+      clearFilters: handleClearFilters,
+      hasActiveFilters,
 
-    // Row Selection
-    rowSelection,
-    setRowSelection: handleRowSelectionChange,
-    clearSelection: handleClearSelection,
-    selectedRowCount,
+      // Row Selection
+      rowSelection,
+      setRowSelection: handleRowSelectionChange,
+      clearSelection: handleClearSelection,
+      selectedRowCount,
 
-    // Reset
-    resetState: resetTableState
-  };
+      // Reset
+      resetState: resetTableState
+    }),
+    [
+      page,
+      pageSize,
+      setPage,
+      setPageSize,
+      sorting,
+      setSorting,
+      columnFilters,
+      setColumnFilters,
+      handleFilterChange,
+      handleClearFilters,
+      hasActiveFilters,
+      rowSelection,
+      handleRowSelectionChange,
+      handleClearSelection,
+      selectedRowCount,
+      resetTableState
+    ]
+  );
 };
 
 export default useTableState;
