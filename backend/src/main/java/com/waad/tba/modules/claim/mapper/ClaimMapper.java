@@ -302,7 +302,30 @@ public class ClaimMapper {
         }
     }
 
+    /**
+     * Map Claim to ClaimViewDto.
+     * Delegates to mapToViewDto with includeDetails=true for full backward compatibility.
+     */
     public ClaimViewDto toViewDto(Claim claim) {
+        return mapToViewDto(claim, true);
+    }
+
+    /**
+     * Map Claim to ClaimViewDto (Summary only).
+     * Skips lines and attachments to avoid N+1 queries in list views.
+     */
+    public ClaimViewDto toSummaryDto(Claim claim) {
+        return mapToViewDto(claim, false);
+    }
+
+    /**
+     * Internal mapping method with control over details fetching.
+     *
+     * @param claim The Claim entity
+     * @param includeDetails Whether to fetch and map lines and attachments
+     * @return ClaimViewDto
+     */
+    private ClaimViewDto mapToViewDto(Claim claim, boolean includeDetails) {
         ClaimViewDto dto = ClaimViewDto.builder()
                 .id(claim.getId())
                 // Generate claimNumber (format: CLM-{id} for simplicity)
@@ -395,13 +418,19 @@ public class ClaimMapper {
             dto.setPreApprovalStatus(claim.getPreAuthorization().getStatus() != null ? claim.getPreAuthorization().getStatus().name() : null);
         }
 
-        dto.setLines(claim.getLines() != null && !claim.getLines().isEmpty() 
-                ? claim.getLines().stream().map(this::toLineDto).collect(Collectors.toList()) 
-                : new ArrayList<>());
+        if (includeDetails) {
+            dto.setLines(claim.getLines() != null && !claim.getLines().isEmpty()
+                    ? claim.getLines().stream().map(this::toLineDto).collect(Collectors.toList())
+                    : new ArrayList<>());
 
-        dto.setAttachments(claim.getAttachments() != null && !claim.getAttachments().isEmpty() 
-                ? claim.getAttachments().stream().map(this::toAttachmentDto).collect(Collectors.toList()) 
-                : new ArrayList<>());
+            dto.setAttachments(claim.getAttachments() != null && !claim.getAttachments().isEmpty()
+                    ? claim.getAttachments().stream().map(this::toAttachmentDto).collect(Collectors.toList())
+                    : new ArrayList<>());
+        } else {
+            // For summary view, return empty lists to avoid N+1 queries
+            dto.setLines(new ArrayList<>());
+            dto.setAttachments(new ArrayList<>());
+        }
 
         return dto;
     }
