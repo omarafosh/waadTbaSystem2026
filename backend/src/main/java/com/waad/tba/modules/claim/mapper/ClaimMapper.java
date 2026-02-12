@@ -302,7 +302,14 @@ public class ClaimMapper {
         }
     }
 
-    public ClaimViewDto toViewDto(Claim claim) {
+    /**
+     * Map Claim to ClaimViewDto WITHOUT mapping lines or attachments.
+     * Use this for list views to prevent N+1 queries.
+     *
+     * @param claim The Claim entity
+     * @return ClaimViewDto with empty lines and attachments
+     */
+    public ClaimViewDto toSummaryDto(Claim claim) {
         ClaimViewDto dto = ClaimViewDto.builder()
                 .id(claim.getId())
                 // Generate claimNumber (format: CLM-{id} for simplicity)
@@ -395,6 +402,22 @@ public class ClaimMapper {
             dto.setPreApprovalStatus(claim.getPreAuthorization().getStatus() != null ? claim.getPreAuthorization().getStatus().name() : null);
         }
 
+        // Use empty lists for summary to avoid N+1 queries
+        dto.setLines(new ArrayList<>());
+        dto.setAttachments(new ArrayList<>());
+
+        return dto;
+    }
+
+    /**
+     * Map Claim to ClaimViewDto with FULL details (including lines and attachments).
+     * Use this for detail views.
+     */
+    public ClaimViewDto toViewDto(Claim claim) {
+        // Reuse summary DTO logic
+        ClaimViewDto dto = toSummaryDto(claim);
+
+        // Fetch and map lines and attachments (triggers lazy loading)
         dto.setLines(claim.getLines() != null && !claim.getLines().isEmpty() 
                 ? claim.getLines().stream().map(this::toLineDto).collect(Collectors.toList()) 
                 : new ArrayList<>());
