@@ -163,7 +163,7 @@ public class ClaimService {
             log.info("✅ Found {} claims for provider {}", providerClaims.size(), providerId);
             
             return providerClaims.stream()
-                    .map(claimMapper::toViewDto)
+                    .map(claimMapper::toSummaryDto)
                     .collect(Collectors.toList());
         }
         
@@ -181,7 +181,7 @@ public class ClaimService {
         }
         
         return claims.stream()
-                .map(claimMapper::toViewDto)
+                .map(claimMapper::toSummaryDto)
                 .collect(Collectors.toList());
     }
 
@@ -527,7 +527,7 @@ public class ClaimService {
             return Page.empty();
         }
         
-        return claimsPage.map(claimMapper::toViewDto);
+        return claimsPage.map(claimMapper::toSummaryDto);
     }
 
     @Transactional(readOnly = true)
@@ -547,7 +547,7 @@ public class ClaimService {
         
         List<Claim> claims = claimRepository.findByMemberId(memberId);
         return claims.stream()
-                .map(claimMapper::toViewDto)
+                .map(claimMapper::toSummaryDto)
                 .collect(Collectors.toList());
     }
 
@@ -566,7 +566,7 @@ public class ClaimService {
 
         List<Claim> claims = claimRepository.findByPreAuthorizationId(preAuthorizationId);
         return claims.stream()
-                .map(claimMapper::toViewDto)
+                .map(claimMapper::toSummaryDto)
                 .collect(Collectors.toList());
     }
 
@@ -1267,12 +1267,12 @@ public class ClaimService {
             log.info("🔒 Filtering pending claims (Inbox) for provider: {}", providerId);
             
             return claimRepository.findByProviderIdAndStatusIn(providerId, pendingStatuses, pageable)
-                    .map(claimMapper::toViewDto);
+                    .map(claimMapper::toSummaryDto);
         }
 
         Page<Claim> claims = claimRepository.findByStatusIn(pendingStatuses, pageable);
         
-        return claims.map(claimMapper::toViewDto);
+        return claims.map(claimMapper::toSummaryDto);
     }
 
     /**
@@ -1291,12 +1291,12 @@ public class ClaimService {
             log.info("🔒 Filtering approved claims for provider: {}", providerId);
             
             return claimRepository.findByProviderIdAndStatus(providerId, ClaimStatus.APPROVED, pageable)
-                    .map(claimMapper::toViewDto);
+                    .map(claimMapper::toSummaryDto);
         }
         
         Page<Claim> claims = claimRepository.findByStatus(ClaimStatus.APPROVED, pageable);
         
-        return claims.map(claimMapper::toViewDto);
+        return claims.map(claimMapper::toSummaryDto);
     }
 
     /**
@@ -1544,7 +1544,7 @@ public class ClaimService {
         log.info("🔍 Fetching claims for visit: {}", visitId);
         List<Claim> claims = claimRepository.findByVisitId(visitId);
         return claims.stream()
-                .map(claimMapper::toViewDto)
+                .map(claimMapper::toSummaryDto)
                 .collect(Collectors.toList());
     }
 
@@ -1587,11 +1587,11 @@ public class ClaimService {
             providerContextGuard.validateProviderBinding(currentUser);
             Long providerId = currentUser.getProviderId();
             return claimRepository.findByProviderIdAndStatus(providerId, status, pageable)
-                    .map(claimMapper::toViewDto);
+                    .map(claimMapper::toSummaryDto);
         }
         
         Page<Claim> claims = claimRepository.findByStatus(status, pageable);
-        return claims.map(claimMapper::toViewDto);
+        return claims.map(claimMapper::toSummaryDto);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
