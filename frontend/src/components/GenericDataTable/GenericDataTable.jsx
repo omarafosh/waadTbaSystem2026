@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GenericDataTable - Reusable Table Component with TanStack React Table
  * 
  * A fully-featured, customizable data table component built with @tanstack/react-table
@@ -24,7 +24,6 @@
 
 import { useMemo, Fragment, memo } from 'react';
 import PropTypes from 'prop-types';
-import { alpha } from '@mui/material/styles';
 
 // TanStack React Table
 import {
@@ -54,22 +53,77 @@ import {
   Chip,
   Stack,
   IconButton,
-  Tooltip,
   InputAdornment
 } from '@mui/material';
 
 // MUI Icons
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';   // New Import
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'; // New Import
-import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 
 // ============================================================================
 // HELPER COMPONENTS
 // ============================================================================
+
+/**
+ * GenericDataTableRow - Memoized Table Row
+ *
+ * Performance optimization: Prevents unnecessary re-renders of rows when
+ * parent state changes (e.g., pagination options, dialogs) but data remains the same.
+ */
+const GenericDataTableRow = memo(({ row, onRowClick, cellPadding, columns }) => {
+  return (
+    <TableRow
+      hover
+      onClick={() => onRowClick && onRowClick(row.original)}
+      sx={{
+        cursor: onRowClick ? 'pointer' : 'default',
+        '&:hover': {
+          backgroundColor: onRowClick ? 'action.hover' : 'inherit'
+        }
+      }}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          align={cell.column.columnDef.align || 'center'}
+          sx={{
+            py: cellPadding === 'dense' ? 1 : 2,
+            verticalAlign: 'middle'
+          }}
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparator to prevent unnecessary re-renders
+  // We only re-render if:
+  // 1. The data (row.original) changed (reference check)
+  // 2. The selection state changed
+  // 3. The columns definition changed (reference check from parent useMemo)
+  //    Note: This assumes column visibility is managed by parent changing 'columns' prop.
+  // 4. The onRowClick handler changed (reference check)
+  // 5. The cellPadding prop changed
+  return (
+    prevProps.row.original === nextProps.row.original &&
+    prevProps.row.getIsSelected() === nextProps.row.getIsSelected() &&
+    prevProps.columns === nextProps.columns &&
+    prevProps.onRowClick === nextProps.onRowClick &&
+    prevProps.cellPadding === nextProps.cellPadding
+  );
+});
+
+GenericDataTableRow.displayName = 'GenericDataTableRow';
+
+GenericDataTableRow.propTypes = {
+  row: PropTypes.object.isRequired,
+  onRowClick: PropTypes.func,
+  cellPadding: PropTypes.string,
+  columns: PropTypes.array
+};
 
 /**
  * Column Filter Component
@@ -203,12 +257,6 @@ const GenericDataTable = memo(({
 
   const handlePageSizeChange = (event) => {
     tableState.setPageSize(parseInt(event.target.value, 10));
-  };
-
-  const handleRowClickInternal = (row) => {
-    if (onRowClick) {
-      onRowClick(row.original);
-    }
   };
 
   // ========================================
@@ -367,30 +415,13 @@ const GenericDataTable = memo(({
     return (
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow
+          <GenericDataTableRow
             key={row.id}
-            hover
-            onClick={() => handleRowClickInternal(row)}
-            sx={{
-              cursor: onRowClick ? 'pointer' : 'default',
-              '&:hover': {
-                backgroundColor: onRowClick ? 'action.hover' : 'inherit'
-              }
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                align={cell.column.columnDef.align || 'center'}
-                sx={{
-                  py: cellPadding === 'dense' ? 1 : 2,
-                  verticalAlign: 'middle'
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
+            row={row}
+            onRowClick={onRowClick}
+            cellPadding={cellPadding}
+            columns={tableColumns}
+          />
         ))}
       </TableBody>
     );
