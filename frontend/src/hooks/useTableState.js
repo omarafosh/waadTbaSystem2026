@@ -208,7 +208,7 @@ export const useTableState = (config = {}) => {
   // RETURN STATE AND CONTROLS
   // ========================================
 
-  return {
+  return useMemo(() => ({
     // Pagination
     page,
     pageSize,
@@ -234,7 +234,24 @@ export const useTableState = (config = {}) => {
 
     // Reset
     resetState: resetTableState
-  };
+  }), [
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+    sorting,
+    setSorting,
+    columnFilters,
+    setColumnFilters,
+    handleFilterChange,
+    handleClearFilters,
+    hasActiveFilters,
+    rowSelection,
+    handleRowSelectionChange,
+    handleClearSelection,
+    selectedRowCount,
+    resetTableState
+  ]);
 };
 
 export default useTableState;
