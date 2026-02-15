@@ -22,9 +22,10 @@
  * />
  */
 
-import { useMemo, Fragment, memo } from 'react';
+import { useMemo, Fragment, memo, useCallback, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { alpha } from '@mui/material/styles';
+import GenericDataTableRow from './GenericDataTableRow';
 
 // TanStack React Table
 import {
@@ -205,11 +206,17 @@ const GenericDataTable = memo(({
     tableState.setPageSize(parseInt(event.target.value, 10));
   };
 
-  const handleRowClickInternal = (row) => {
-    if (onRowClick) {
-      onRowClick(row.original);
+  // Stabilize onRowClick to prevent row re-renders if parent passes inline function
+  const onRowClickRef = useRef(onRowClick);
+  useEffect(() => {
+    onRowClickRef.current = onRowClick;
+  }, [onRowClick]);
+
+  const handleRowClickStable = useCallback((row) => {
+    if (onRowClickRef.current) {
+      onRowClickRef.current(row.original); // Pass original data as per API
     }
-  };
+  }, []); // Empty dependency array = stable forever
 
   // ========================================
   // RENDER HELPERS
@@ -367,30 +374,13 @@ const GenericDataTable = memo(({
     return (
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow
+          <GenericDataTableRow
             key={row.id}
-            hover
-            onClick={() => handleRowClickInternal(row)}
-            sx={{
-              cursor: onRowClick ? 'pointer' : 'default',
-              '&:hover': {
-                backgroundColor: onRowClick ? 'action.hover' : 'inherit'
-              }
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                align={cell.column.columnDef.align || 'center'}
-                sx={{
-                  py: cellPadding === 'dense' ? 1 : 2,
-                  verticalAlign: 'middle'
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
+            row={row}
+            onRowClick={onRowClick ? handleRowClickStable : undefined}
+            cellPadding={cellPadding}
+            columns={tableColumns} // Pass for memoization check
+          />
         ))}
       </TableBody>
     );

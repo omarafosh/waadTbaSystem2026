@@ -304,7 +304,7 @@ const PreApprovalCreate = () => {
 
           // Map to standard service format
           const mappedServices = items.map(item => {
-            const serviceId = item.medicalServiceId || item.id;: ${item.serviceCode}, medicalServiceId=${item.medicalServiceId}, price=${item.contractPrice}`);
+            const serviceId = item.medicalServiceId || item.id;
             return {
               id: serviceId,  // MUST be MedicalService ID
               pricingItemId: item.id,
