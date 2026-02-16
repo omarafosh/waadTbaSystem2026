@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -13,6 +14,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.exception.BusinessRuleException;
 import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -117,13 +119,23 @@ public class Visit {
      * Related claims created from this visit (one visit can have multiple claims)
      */
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @Builder.Default
     private List<com.waad.tba.modules.claim.entity.Claim> claims = new ArrayList<>();
+
+    /**
+     * Related pre-authorizations for this visit
+     */
+    @OneToMany(mappedBy = "visit", fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
+    @Builder.Default
+    private List<PreAuthorization> preAuthorizations = new ArrayList<>();
     
     /**
      * Related eligibility checks for this visit
      */
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @Builder.Default
     private List<com.waad.tba.modules.eligibility.entity.EligibilityCheck> eligibilityChecks = new ArrayList<>();
 
@@ -160,6 +172,14 @@ public class Visit {
     public void addEligibilityCheck(com.waad.tba.modules.eligibility.entity.EligibilityCheck check) {
         eligibilityChecks.add(check);
         check.setVisit(this);
+    }
+
+    /**
+     * Helper method to add a pre-authorization to this visit
+     */
+    public void addPreAuthorization(PreAuthorization preAuthorization) {
+        preAuthorizations.add(preAuthorization);
+        preAuthorization.setVisit(this);
     }
     
     // ==================== BUSINESS LOGIC ====================
