@@ -6,10 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.waad.tba.modules.claim.entity.Claim;
-import com.waad.tba.modules.claim.repository.ClaimRepository;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
-import com.waad.tba.modules.preauthorization.repository.PreAuthorizationRepository;
 import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
 import com.waad.tba.modules.visit.dto.VisitCreateDto;
@@ -23,8 +21,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VisitMapper {
 
-    private final ClaimRepository claimRepository;
-    private final PreAuthorizationRepository preAuthorizationRepository;
     private final ProviderRepository providerRepository;
 
     public VisitResponseDto toResponseDto(Visit entity) {
@@ -77,10 +73,10 @@ public class VisitMapper {
                 .build();
         
         // Add claim info
-        populateClaimInfo(dto, entity.getId());
+        populateClaimInfo(dto, entity);
         
         // Add pre-authorization info
-        populatePreAuthInfo(dto, entity.getId());
+        populatePreAuthInfo(dto, entity);
         
         return dto;
     }
@@ -88,14 +84,14 @@ public class VisitMapper {
     /**
      * Populate claim information for the visit
      */
-    private void populateClaimInfo(VisitResponseDto dto, Long visitId) {
-        if (visitId == null) return;
+    private void populateClaimInfo(VisitResponseDto dto, Visit entity) {
+        if (entity == null) return;
         
         try {
-            List<Claim> claims = claimRepository.findByVisitId(visitId);
-            dto.setClaimCount(claims.size());
+            List<Claim> claims = entity.getClaims();
+            dto.setClaimCount(claims != null ? claims.size() : 0);
             
-            if (!claims.isEmpty()) {
+            if (claims != null && !claims.isEmpty()) {
                 // Get the latest claim (by createdAt or id)
                 Claim latestClaim = claims.stream()
                         .max(Comparator.comparing(Claim::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
@@ -116,18 +112,26 @@ public class VisitMapper {
     /**
      * Populate pre-authorization information for the visit
      */
-    private void populatePreAuthInfo(VisitResponseDto dto, Long visitId) {
-        if (visitId == null) return;
+    private void populatePreAuthInfo(VisitResponseDto dto, Visit entity) {
+        if (entity == null) return;
         
         try {
-            List<PreAuthorization> preAuths = preAuthorizationRepository.findByVisitIdAndActiveTrue(visitId);
-            dto.setPreAuthCount(preAuths.size());
+            List<PreAuthorization> preAuths = entity.getPreAuthorizations();
             
-            if (!preAuths.isEmpty()) {
+            // Filter active only (in memory to avoid N+1)
+            List<PreAuthorization> activePreAuths = preAuths != null ?
+                preAuths.stream()
+                        .filter(pa -> Boolean.TRUE.equals(pa.getActive()))
+                        .toList() :
+                List.of();
+
+            dto.setPreAuthCount(activePreAuths.size());
+
+            if (!activePreAuths.isEmpty()) {
                 // Get the latest pre-authorization
-                PreAuthorization latestPreAuth = preAuths.stream()
+                PreAuthorization latestPreAuth = activePreAuths.stream()
                         .max(Comparator.comparing(PreAuthorization::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
-                        .orElse(preAuths.get(0));
+                        .orElse(activePreAuths.get(0));
                 
                 dto.setLatestPreAuthId(latestPreAuth.getId());
                 if (latestPreAuth.getStatus() != null) {
