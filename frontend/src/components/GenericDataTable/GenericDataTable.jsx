@@ -1,6 +1,6 @@
 ﻿/**
  * GenericDataTable - Reusable Table Component with TanStack React Table
- * 
+ *
  * A fully-featured, customizable data table component built with @tanstack/react-table
  * and Material-UI. Supports:
  * - Column-based filtering (text, number, select)
@@ -10,7 +10,7 @@
  * - Responsive design
  * - Row actions
  * - Custom cell renderers
- * 
+ *
  * @example
  * <GenericDataTable
  *   columns={columns}
@@ -22,9 +22,9 @@
  * />
  */
 
-import { useMemo, Fragment, memo } from 'react';
+import { useMemo, Fragment, memo, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { alpha } from '@mui/material/styles';
+import GenericDataTableRow from './GenericDataTableRow';
 
 // TanStack React Table
 import {
@@ -54,16 +54,12 @@ import {
   Chip,
   Stack,
   IconButton,
-  Tooltip,
   InputAdornment
 } from '@mui/material';
 
 // MUI Icons
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';   // New Import
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'; // New Import
-import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 
@@ -130,389 +126,376 @@ ColumnFilter.propTypes = {
 // MAIN COMPONENT WRAPPED IN MEMO FOR PERFORMANCE
 // ============================================================================
 
-const GenericDataTable = memo(({
-  columns = [],
-  data = [],
-  totalCount = 0,
-  isLoading = false,
-  tableState,
-  enableFiltering = true,
-  enableSorting = true,
-  enablePagination = true,
-  stickyHeader = true,
-  minHeight = 400,
-  maxHeight = 'calc(100vh - 300px)',
-  onRowClick,
-  emptyMessage = 'لا توجد بيانات',
-  rowsPerPageOptions = [5, 10, 15, 25, 50, 100],
+const GenericDataTable = memo(
+  ({
+    columns = [],
+    data = [],
+    totalCount = 0,
+    isLoading = false,
+    tableState,
+    enableFiltering = true,
+    enableSorting = true,
+    enablePagination = true,
+    stickyHeader = true,
+    minHeight = 400,
+    maxHeight = 'calc(100vh - 300px)',
+    onRowClick,
+    emptyMessage = 'لا توجد بيانات',
+    rowsPerPageOptions = [5, 10, 15, 25, 50, 100],
 
-  // Custom Styles Props
-  headerVariant = 'light', // 'light' | 'primary'
-  cellPadding = 'normal'   // 'normal' | 'dense'
-}) => {
-  // ========================================
-  // TABLE CONFIGURATION
-  // ========================================
+    // Custom Styles Props
+    headerVariant = 'light', // 'light' | 'primary'
+    cellPadding = 'normal' // 'normal' | 'dense'
+  }) => {
+    // ========================================
+    // TABLE CONFIGURATION
+    // ========================================
 
-  const tableColumns = useMemo(() => {
-    return columns.map((col) => ({
-      ...col,
-      enableSorting: col.enableSorting !== false && enableSorting,
-      enableColumnFilter: col.enableColumnFilter !== false && enableFiltering
-    }));
-  }, [columns, enableSorting, enableFiltering]);
+    const tableColumns = useMemo(() => {
+      return columns.map((col) => ({
+        ...col,
+        enableSorting: col.enableSorting !== false && enableSorting,
+        enableColumnFilter: col.enableColumnFilter !== false && enableFiltering
+      }));
+    }, [columns, enableSorting, enableFiltering]);
 
-  // ========================================
-  // REACT TABLE INSTANCE
-  // ========================================
+    // ========================================
+    // REACT TABLE INSTANCE
+    // ========================================
 
-  const table = useReactTable({
-    data,
-    columns: tableColumns,
-    pageCount: Math.ceil(totalCount / tableState.pageSize),
-    state: {
-      sorting: tableState.sorting,
-      columnFilters: Object.entries(tableState.columnFilters).map(([id, value]) => ({
-        id,
-        value
-      })),
-      pagination: {
-        pageIndex: tableState.page,
-        pageSize: tableState.pageSize
-      }
-    },
-    onSortingChange: tableState.setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    // Since we are doing Server-Side, we DO NOT need client-side sorters affecting the view directly
-    // but TanStack table still needs the model to renders headers correctly.
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: true,
-    manualSorting: true,
-    manualFiltering: true
-  });
-
-  // ========================================
-  // EVENT HANDLERS
-  // ========================================
-
-  const handlePageChange = (event, newPage) => {
-    tableState.setPage(newPage);
-  };
-
-  const handlePageSizeChange = (event) => {
-    tableState.setPageSize(parseInt(event.target.value, 10));
-  };
-
-  const handleRowClickInternal = (row) => {
-    if (onRowClick) {
-      onRowClick(row.original);
-    }
-  };
-
-  // ========================================
-  // RENDER HELPERS
-  // ========================================
-
-  const renderTableHeader = () => (
-    <TableHead
-      sx={{
-        position: stickyHeader ? 'sticky' : 'static',
-        top: 0,
-        zIndex: 10,
-        backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'background.paper',
-        '& .MuiTableCell-head': {
-          color: headerVariant === 'primary' ? 'common.white' : 'text.primary',
-          backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'primary.lighter',
-          fontWeight: 'bold',
-          py: headerVariant === 'primary' ? 1.5 : 2
+    const table = useReactTable({
+      data,
+      columns: tableColumns,
+      pageCount: Math.ceil(totalCount / tableState.pageSize),
+      state: {
+        sorting: tableState.sorting,
+        columnFilters: Object.entries(tableState.columnFilters).map(([id, value]) => ({
+          id,
+          value
+        })),
+        pagination: {
+          pageIndex: tableState.page,
+          pageSize: tableState.pageSize
         }
-      }}
-    >
-      {table.getHeaderGroups().map((headerGroup) => (
-        <Fragment key={headerGroup.id}>
-          {/* Header Row */}
-          <TableRow>
-            {headerGroup.headers.map((header) => (
-              <TableCell
-                key={header.id}
-                align={header.column.columnDef.headerAlign || header.column.columnDef.align || 'center'}
-                sx={{
-                  fontWeight: 'bold',
-                  minWidth: header.column.columnDef.minWidth || 100,
-                  width: header.column.columnDef.width,
-                  maxWidth: header.column.columnDef.maxWidth,
-                  verticalAlign: 'middle', // User request: Center elements vertically
-                  borderBottom: headerVariant === 'primary' ? 'none' : undefined,
-                  fontSize: '1rem', // Match body font size
-                  // SORT ICON COLOR OVERRIDE
-                  '& .MuiTableSortLabel-icon': {
-                    color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
-                    opacity: headerVariant === 'primary' ? 0.7 : 1,
-                    fontSize: '1.2rem' // Scalable unit
-                  },
-                  '& .MuiTableSortLabel-root:hover .MuiTableSortLabel-icon': {
-                    opacity: 1
-                  },
-                  '& .Mui-active .MuiTableSortLabel-icon': {
-                    color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
-                    opacity: 1
-                  }
-                }}
-              >
-                {header.isPlaceholder ? null : (
-                  <Box sx={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    justifyContent: header.column.columnDef.headerAlign === 'right' ? 'flex-end' :
-                      (header.column.columnDef.headerAlign === 'left' ? 'flex-start' : 'center')
-                  }}>
-                    {header.column.getCanSort() ? (
-                      <TableSortLabel
-                        active={header.column.getIsSorted() !== false}
-                        direction={header.column.getIsSorted() || 'asc'}
-                        onClick={header.column.getToggleSortingHandler()}
-                        IconComponent={header.column.getIsSorted() === 'desc' ? ArrowDownwardIcon : ArrowUpwardIcon}
-                        hideSortIcon={false}
-                        sx={{
-                          color: 'inherit',
-                          '&.Mui-active': {
-                            color: 'inherit',
-                            '& .MuiTableSortLabel-icon': {
-                              color: headerVariant === 'primary' ? 'common.white !important' : 'primary.main',
-                              opacity: 1
-                            }
-                          },
-                          flexDirection: 'row',
-                          '& .MuiTableSortLabel-icon': {
-                            opacity: header.column.getIsSorted() ? 1 : 0, // Only show if sorted
-                            transition: 'opacity 0.2s',
-                            width: 16, // Reduced size (from 20)
-                            height: 16 // Reduced size (from 20)
-                          },
-                          '&:hover .MuiTableSortLabel-icon': {
-                            opacity: 0.5
-                          }
-                        }}
-                      >
-                        <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                        </Typography>
-                      </TableSortLabel>
-                    ) : (
-                      <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }} color="inherit">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-              </TableCell>
-            ))}
-          </TableRow>
+      },
+      onSortingChange: tableState.setSorting,
+      getCoreRowModel: getCoreRowModel(),
+      // Since we are doing Server-Side, we DO NOT need client-side sorters affecting the view directly
+      // but TanStack table still needs the model to renders headers correctly.
+      getSortedRowModel: getSortedRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      manualPagination: true,
+      manualSorting: true,
+      manualFiltering: true
+    });
 
-          {/* Filter Row */}
-          {enableFiltering && (
-            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-              {headerGroup.headers.map((header) => (
-                <TableCell key={`filter-${header.id}`} sx={{ py: 1, px: 2 }}>
-                  {header.column.getCanFilter() ? (
-                    <ColumnFilter
-                      column={header.column.columnDef}
-                      value={tableState.columnFilters[header.column.id] || ''}
-                      onChange={(value) => tableState.setFilter(header.column.id, value)}
-                    />
-                  ) : null}
-                </TableCell>
-              ))}
-            </TableRow>
-          )}
-        </Fragment>
-      ))}
-    </TableHead>
-  );
+    // ========================================
+    // EVENT HANDLERS
+    // ========================================
 
-  const renderTableBody = () => {
-    if (isLoading) {
-      return (
-        <TableBody>
-          <TableRow>
-            <TableCell colSpan={columns.length} align="center" sx={{ py: 10 }}>
-              <CircularProgress />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                جاري التحميل...
-              </Typography>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      );
-    }
+    const handlePageChange = (event, newPage) => {
+      tableState.setPage(newPage);
+    };
 
-    if (!data || data.length === 0) {
-      return (
-        <TableBody>
-          <TableRow>
-            <TableCell colSpan={columns.length} align="center" sx={{ py: 10 }}>
-              <Typography variant="h6" color="text.secondary">
-                {emptyMessage}
-              </Typography>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      );
-    }
+    const handlePageSizeChange = (event) => {
+      tableState.setPageSize(parseInt(event.target.value, 10));
+    };
 
-    return (
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow
-            key={row.id}
-            hover
-            onClick={() => handleRowClickInternal(row)}
-            sx={{
-              cursor: onRowClick ? 'pointer' : 'default',
-              '&:hover': {
-                backgroundColor: onRowClick ? 'action.hover' : 'inherit'
-              }
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                align={cell.column.columnDef.align || 'center'}
-                sx={{
-                  py: cellPadding === 'dense' ? 1 : 2,
-                  verticalAlign: 'middle'
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    );
-  };
+    // Stabilize onRowClick handler to prevent row re-renders
+    const onRowClickRef = useRef(onRowClick);
 
-  // ========================================
-  // RENDER
-  // ========================================
+    useEffect(() => {
+      onRowClickRef.current = onRowClick;
+    }, [onRowClick]);
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Active Filters Display */}
-      {enableFiltering && tableState.hasActiveFilters && (
-        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-            الفلاتر النشطة:
-          </Typography>
-          {Object.entries(tableState.columnFilters).map(([columnId, value]) => {
-            const column = columns.find((col) => (col.accessorKey || col.id) === columnId);
-            return (
-              <Chip
-                key={columnId}
-                label={`${column?.header || columnId}: ${value}`}
-                size="small"
-                onDelete={() => tableState.setFilter(columnId, '')}
-                color="primary"
-                variant="outlined"
-              />
-            );
-          })}
-          <Chip
-            label="مسح الكل"
-            size="small"
-            onClick={tableState.clearFilters}
-            color="error"
-            variant="outlined"
-            icon={<ClearIcon />}
-          />
-        </Stack>
-      )}
+    const handleRowClickInternal = useCallback((row) => {
+      if (onRowClickRef.current) {
+        onRowClickRef.current(row.original);
+      }
+    }, []);
 
-      {/* Table Container */}
-      <TableContainer
-        component={Paper}
-        elevation={0}
+    // ========================================
+    // RENDER HELPERS
+    // ========================================
+
+    const renderTableHeader = () => (
+      <TableHead
         sx={{
-          flex: 1, // Auto expand to fill remaining space
-          minHeight: 0, // Critical for flexbox scrolling
-          overflow: 'auto',
-          width: '100%',
-          borderRadius: 0,
-          '&::-webkit-scrollbar': {
-            width: 8,
-            height: 8
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'grey.300',
-            borderRadius: 4
+          position: stickyHeader ? 'sticky' : 'static',
+          top: 0,
+          zIndex: 10,
+          backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'background.paper',
+          '& .MuiTableCell-head': {
+            color: headerVariant === 'primary' ? 'common.white' : 'text.primary',
+            backgroundColor: headerVariant === 'primary' ? 'primary.main' : 'primary.lighter',
+            fontWeight: 'bold',
+            py: headerVariant === 'primary' ? 1.5 : 2
           }
         }}
       >
-        <Table
-          stickyHeader={stickyHeader}
-          size={cellPadding === 'dense' ? 'small' : 'medium'}
-          sx={{ minWidth: 650, width: '100%' }}
-        >
-          {renderTableHeader()}
-          {renderTableBody()}
-        </Table>
-      </TableContainer>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <Fragment key={headerGroup.id}>
+            {/* Header Row */}
+            <TableRow>
+              {headerGroup.headers.map((header) => (
+                <TableCell
+                  key={header.id}
+                  align={header.column.columnDef.headerAlign || header.column.columnDef.align || 'center'}
+                  sx={{
+                    fontWeight: 'bold',
+                    minWidth: header.column.columnDef.minWidth || 100,
+                    width: header.column.columnDef.width,
+                    maxWidth: header.column.columnDef.maxWidth,
+                    verticalAlign: 'middle', // User request: Center elements vertically
+                    borderBottom: headerVariant === 'primary' ? 'none' : undefined,
+                    fontSize: '1rem', // Match body font size
+                    // SORT ICON COLOR OVERRIDE
+                    '& .MuiTableSortLabel-icon': {
+                      color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                      opacity: headerVariant === 'primary' ? 0.7 : 1,
+                      fontSize: '1.2rem' // Scalable unit
+                    },
+                    '& .MuiTableSortLabel-root:hover .MuiTableSortLabel-icon': {
+                      opacity: 1
+                    },
+                    '& .Mui-active .MuiTableSortLabel-icon': {
+                      color: headerVariant === 'primary' ? 'common.white !important' : 'inherit',
+                      opacity: 1
+                    }
+                  }}
+                >
+                  {header.isPlaceholder ? null : (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        justifyContent:
+                          header.column.columnDef.headerAlign === 'right'
+                            ? 'flex-end'
+                            : header.column.columnDef.headerAlign === 'left'
+                              ? 'flex-start'
+                              : 'center'
+                      }}
+                    >
+                      {header.column.getCanSort() ? (
+                        <TableSortLabel
+                          active={header.column.getIsSorted() !== false}
+                          direction={header.column.getIsSorted() || 'asc'}
+                          onClick={header.column.getToggleSortingHandler()}
+                          IconComponent={header.column.getIsSorted() === 'desc' ? ArrowDownwardIcon : ArrowUpwardIcon}
+                          hideSortIcon={false}
+                          sx={{
+                            color: 'inherit',
+                            '&.Mui-active': {
+                              color: 'inherit',
+                              '& .MuiTableSortLabel-icon': {
+                                color: headerVariant === 'primary' ? 'common.white !important' : 'primary.main',
+                                opacity: 1
+                              }
+                            },
+                            flexDirection: 'row',
+                            '& .MuiTableSortLabel-icon': {
+                              opacity: header.column.getIsSorted() ? 1 : 0, // Only show if sorted
+                              transition: 'opacity 0.2s',
+                              width: 16, // Reduced size (from 20)
+                              height: 16 // Reduced size (from 20)
+                            },
+                            '&:hover .MuiTableSortLabel-icon': {
+                              opacity: 0.5
+                            }
+                          }}
+                        >
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </Typography>
+                        </TableSortLabel>
+                      ) : (
+                        <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }} color="inherit">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
 
-      {/* Pagination */}
-      {enablePagination && !isLoading && data.length > 0 && (
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={tableState.page}
-          onPageChange={handlePageChange}
-          rowsPerPage={tableState.pageSize}
-          onRowsPerPageChange={handlePageSizeChange}
-          rowsPerPageOptions={rowsPerPageOptions}
-          labelRowsPerPage="عدد الصفوف:"
-          labelDisplayedRows={({ from, to, count }) => {
-            const f = from.toLocaleString('en-US');
-            const t = to.toLocaleString('en-US');
-            const c = count !== -1 ? count.toLocaleString('en-US') : `أكثر من ${to.toLocaleString('en-US')}`;
-            return `${f}–${t} من ${c}`;
-          }}
+            {/* Filter Row */}
+            {enableFiltering && (
+              <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                {headerGroup.headers.map((header) => (
+                  <TableCell key={`filter-${header.id}`} sx={{ py: 1, px: 2 }}>
+                    {header.column.getCanFilter() ? (
+                      <ColumnFilter
+                        column={header.column.columnDef}
+                        value={tableState.columnFilters[header.column.id] || ''}
+                        onChange={(value) => tableState.setFilter(header.column.id, value)}
+                      />
+                    ) : null}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )}
+          </Fragment>
+        ))}
+      </TableHead>
+    );
+
+    const renderTableBody = () => {
+      if (isLoading) {
+        return (
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} align="center" sx={{ py: 10 }}>
+                <CircularProgress />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  جاري التحميل...
+                </Typography>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        );
+      }
+
+      if (!data || data.length === 0) {
+        return (
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} align="center" sx={{ py: 10 }}>
+                <Typography variant="h6" color="text.secondary">
+                  {emptyMessage}
+                </Typography>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        );
+      }
+
+      return (
+        <TableBody>
+          {table.getRowModel().rows.map((row) => (
+            <GenericDataTableRow
+              key={row.id}
+              row={row}
+              onRowClick={handleRowClickInternal}
+              isRowClickable={!!onRowClick}
+              cellPadding={cellPadding}
+            />
+          ))}
+        </TableBody>
+      );
+    };
+
+    // ========================================
+    // RENDER
+    // ========================================
+
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Active Filters Display */}
+        {enableFiltering && tableState.hasActiveFilters && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+              الفلاتر النشطة:
+            </Typography>
+            {Object.entries(tableState.columnFilters).map(([columnId, value]) => {
+              const column = columns.find((col) => (col.accessorKey || col.id) === columnId);
+              return (
+                <Chip
+                  key={columnId}
+                  label={`${column?.header || columnId}: ${value}`}
+                  size="small"
+                  onDelete={() => tableState.setFilter(columnId, '')}
+                  color="primary"
+                  variant="outlined"
+                />
+              );
+            })}
+            <Chip label="مسح الكل" size="small" onClick={tableState.clearFilters} color="error" variant="outlined" icon={<ClearIcon />} />
+          </Stack>
+        )}
+
+        {/* Table Container */}
+        <TableContainer
+          component={Paper}
+          elevation={0}
           sx={{
-            borderTop: 1,
-            borderColor: 'divider',
-            overflow: 'visible', // Ensure dropdowns aren't clipped
-            '.MuiTablePagination-toolbar': {
-              minHeight: 52,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end', // Keep controls to the end (left in LTR, right in RTL)
-              gap: 2,
-              flexWrap: 'wrap' // Allow wrapping on very small screens
+            flex: 1, // Auto expand to fill remaining space
+            minHeight: 0, // Critical for flexbox scrolling
+            overflow: 'auto',
+            width: '100%',
+            borderRadius: 0,
+            '&::-webkit-scrollbar': {
+              width: 8,
+              height: 8
             },
-            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
-              mb: 0,
-              mt: 0,
-              fontSize: '0.875rem' // Ensure consistent font size
-            },
-            '.MuiTablePagination-select': {
-              paddingTop: 0.5,
-              paddingBottom: 0.5,
-              display: 'flex',
-              alignItems: 'center'
-            },
-            '.MuiTablePagination-actions': {
-              marginLeft: 2,
-              display: 'flex',
-              alignItems: 'center'
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'grey.300',
+              borderRadius: 4
             }
           }}
-        />
-      )}
-    </Box>
-  );
-});
+        >
+          <Table stickyHeader={stickyHeader} size={cellPadding === 'dense' ? 'small' : 'medium'} sx={{ minWidth: 650, width: '100%' }}>
+            {renderTableHeader()}
+            {renderTableBody()}
+          </Table>
+        </TableContainer>
+
+        {/* Pagination */}
+        {enablePagination && !isLoading && data.length > 0 && (
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={tableState.page}
+            onPageChange={handlePageChange}
+            rowsPerPage={tableState.pageSize}
+            onRowsPerPageChange={handlePageSizeChange}
+            rowsPerPageOptions={rowsPerPageOptions}
+            labelRowsPerPage="عدد الصفوف:"
+            labelDisplayedRows={({ from, to, count }) => {
+              const f = from.toLocaleString('en-US');
+              const t = to.toLocaleString('en-US');
+              const c = count !== -1 ? count.toLocaleString('en-US') : `أكثر من ${to.toLocaleString('en-US')}`;
+              return `${f}–${t} من ${c}`;
+            }}
+            sx={{
+              borderTop: 1,
+              borderColor: 'divider',
+              overflow: 'visible', // Ensure dropdowns aren't clipped
+              '.MuiTablePagination-toolbar': {
+                minHeight: 52,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end', // Keep controls to the end (left in LTR, right in RTL)
+                gap: 2,
+                flexWrap: 'wrap' // Allow wrapping on very small screens
+              },
+              '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                mb: 0,
+                mt: 0,
+                fontSize: '0.875rem' // Ensure consistent font size
+              },
+              '.MuiTablePagination-select': {
+                paddingTop: 0.5,
+                paddingBottom: 0.5,
+                display: 'flex',
+                alignItems: 'center'
+              },
+              '.MuiTablePagination-actions': {
+                marginLeft: 2,
+                display: 'flex',
+                alignItems: 'center'
+              }
+            }}
+          />
+        )}
+      </Box>
+    );
+  }
+);
 
 GenericDataTable.displayName = 'GenericDataTable';
 
