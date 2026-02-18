@@ -384,6 +384,34 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     /**
+     * Get aggregated claim statistics (count, open, approved, cost).
+     * Returns: [totalClaims, openClaims, approvedClaims, totalMedicalCost]
+     * Optimized: 1 query instead of 4
+     */
+    @Query("SELECT " +
+           "COUNT(c), " +
+           "COALESCE(SUM(CASE WHEN c.status IN ('PENDING', 'PENDING_REVIEW') THEN 1L ELSE 0L END), 0L), " +
+           "COALESCE(SUM(CASE WHEN c.status IN ('APPROVED', 'SETTLED') THEN 1L ELSE 0L END), 0L), " +
+           "COALESCE(SUM(c.approvedAmount), 0) " +
+           "FROM Claim c WHERE c.active = true")
+    Object[] getGlobalClaimStats();
+
+    /**
+     * Get aggregated claim statistics filtered by employer (count, open, approved, cost).
+     * Returns: [totalClaims, openClaims, approvedClaims, totalMedicalCost]
+     * Optimized: 1 query instead of 4
+     */
+    @Query("SELECT " +
+           "COUNT(c), " +
+           "COALESCE(SUM(CASE WHEN c.status IN ('PENDING', 'PENDING_REVIEW') THEN 1L ELSE 0L END), 0L), " +
+           "COALESCE(SUM(CASE WHEN c.status IN ('APPROVED', 'SETTLED') THEN 1L ELSE 0L END), 0L), " +
+           "COALESCE(SUM(c.approvedAmount), 0) " +
+           "FROM Claim c " +
+           "WHERE c.active = true " +
+           "AND c.member.employerOrganization.id = :employerOrgId")
+    Object[] getClaimStatsByEmployer(@Param("employerOrgId") Long employerOrgId);
+
+    /**
      * Count claims by status (aggregation)
      */
     @Query("SELECT c.status, COUNT(c) FROM Claim c WHERE c.active = true GROUP BY c.status")
