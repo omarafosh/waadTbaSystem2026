@@ -79,24 +79,44 @@ public class DashboardService {
 
         log.debug("📊 Fetching dashboard summary statistics" + (employerId != null ? " for employerId=" + employerId : " (all employers)"));
 
-        // Count members - filter by employer if provided
-        long totalMembers = employerId != null 
-            ? memberRepository.countByEmployerOrganizationId(employerId)
-            : memberRepository.count();
-        long activeMembers = employerId != null
-            ? memberRepository.countByEmployerOrganizationIdAndActiveTrue(employerId)
-            : memberRepository.countActiveMembers();
+        // Count members (Optimized: 1 query instead of 2)
+        Object[] memberStats = employerId != null
+            ? memberRepository.getMemberStatsByEmployer(employerId)
+            : memberRepository.getGlobalMemberStats();
 
-        // Count claims - filter by employer via member relationship if provided
-        long totalClaims = employerId != null
-            ? claimRepository.countByMemberEmployerOrganizationId(employerId)
-            : claimRepository.countActive();
-        long openClaims = employerId != null
-            ? claimRepository.countOpenClaimsByEmployer(employerId)
-            : claimRepository.countOpenClaims();
-        long approvedClaims = employerId != null
-            ? claimRepository.countApprovedClaimsByEmployer(employerId)
-            : claimRepository.countApprovedClaims();
+        long totalMembers = 0;
+        long activeMembers = 0;
+
+        if (memberStats != null) {
+            totalMembers = ((Number) memberStats[0]).longValue();
+            activeMembers = ((Number) memberStats[1]).longValue();
+        }
+
+        // Count claims & cost (Optimized: 1 query instead of 4)
+        Object[] claimStats = employerId != null
+            ? claimRepository.getClaimStatsByEmployer(employerId)
+            : claimRepository.getGlobalClaimStats();
+
+        long totalClaims = 0;
+        long openClaims = 0;
+        long approvedClaims = 0;
+        BigDecimal totalMedicalCost = BigDecimal.ZERO;
+
+        if (claimStats != null) {
+            totalClaims = ((Number) claimStats[0]).longValue();
+            openClaims = ((Number) claimStats[1]).longValue();
+            approvedClaims = ((Number) claimStats[2]).longValue();
+
+            // Safe casting for totalMedicalCost which might return as Integer/Long/Double from DB due to COALESCE
+            Object costObj = claimStats[3];
+            if (costObj instanceof BigDecimal) {
+                totalMedicalCost = (BigDecimal) costObj;
+            } else if (costObj != null) {
+                totalMedicalCost = new BigDecimal(costObj.toString());
+            } else {
+                totalMedicalCost = BigDecimal.ZERO;
+            }
+        }
 
         // Count providers (not filtered by employer - providers serve all employers)
         long totalProviders = providerRepository.count();
@@ -106,11 +126,6 @@ public class DashboardService {
         long totalContracts = contractRepository.countByActiveTrue();
         long activeContracts = contractRepository.countByStatusAndActiveTrue(
             com.waad.tba.modules.providercontract.entity.ProviderContract.ContractStatus.ACTIVE);
-
-        // Sum medical costs - filter by employer if provided
-        BigDecimal totalMedicalCost = employerId != null
-            ? claimRepository.sumApprovedAmountsByEmployer(employerId)
-            : claimRepository.sumApprovedAmounts();
 
         // Calculate monthly growth (simplified - compare current month vs previous month)
         BigDecimal monthlyGrowth = calculateMonthlyGrowth(employerId);

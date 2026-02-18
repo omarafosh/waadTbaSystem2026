@@ -315,6 +315,29 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     // ═══════════════════════════════════════════════════════════════════════════════
 
     /**
+     * Get aggregated member statistics (total, active).
+     * Returns: [totalMembers, activeMembers]
+     * Optimized: 1 query instead of 2
+     */
+    @Query("SELECT " +
+           "COUNT(m), " +
+           "COALESCE(SUM(CASE WHEN m.active = true AND m.status = 'ACTIVE' THEN 1L ELSE 0L END), 0L) " +
+           "FROM Member m")
+    Object[] getGlobalMemberStats();
+
+    /**
+     * Get aggregated member statistics filtered by employer (total, active).
+     * Returns: [totalMembers, activeMembers]
+     * Optimized: 1 query instead of 2
+     */
+    @Query("SELECT " +
+           "COUNT(m), " +
+           "COALESCE(SUM(CASE WHEN m.active = true THEN 1L ELSE 0L END), 0L) " +
+           "FROM Member m " +
+           "WHERE m.employerOrganization.id = :employerOrgId")
+    Object[] getMemberStatsByEmployer(@Param("employerOrgId") Long employerOrgId);
+
+    /**
      * Count active members (status = 'ACTIVE')
      */
     @Query("SELECT COUNT(m) FROM Member m WHERE m.active = true AND m.status = 'ACTIVE'")
