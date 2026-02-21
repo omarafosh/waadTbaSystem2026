@@ -13,6 +13,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.waad.tba.common.entity.Organization;
 import com.waad.tba.common.exception.BusinessRuleException;
 import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.provider.entity.Provider;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -58,6 +62,11 @@ public class Visit {
 
     @Column(name = "provider_id")
     private Long providerId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id", insertable = false, updatable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
+    private Provider provider;
 
     private String doctorName;
     
@@ -117,6 +126,7 @@ public class Visit {
      * Related claims created from this visit (one visit can have multiple claims)
      */
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 20)
     @Builder.Default
     private List<com.waad.tba.modules.claim.entity.Claim> claims = new ArrayList<>();
     
