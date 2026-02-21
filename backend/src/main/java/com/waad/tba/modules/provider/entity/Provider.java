@@ -2,6 +2,7 @@ package com.waad.tba.modules.provider.entity;
 
 import com.waad.tba.modules.providercontract.entity.ProviderContract;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ import java.util.HashSet;
 
 @Entity
 @Table(name = "providers")
+@BatchSize(size = 20)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

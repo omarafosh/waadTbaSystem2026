@@ -1,0 +1,3 @@
+## 2026-02-21 - Optimization of Mappers
+**Learning:** Legacy JPA entities with raw ID columns (e.g., `providerId`) can be optimized for Mappers by adding a read-only `@ManyToOne` relationship with `insertable=false, updatable=false`. Combined with `@BatchSize` on the target entity class, this allows efficient batch fetching and eliminates N+1 query problems in transformation logic without modifying the database schema or existing writes.
+**Action:** When finding N+1 issues in Mappers accessing ID-only references, check if a read-only relationship can be added to the Entity to leverage Hibernate's batch fetching.

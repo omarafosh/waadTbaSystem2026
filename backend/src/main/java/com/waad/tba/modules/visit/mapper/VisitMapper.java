@@ -6,12 +6,10 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.waad.tba.modules.claim.entity.Claim;
-import com.waad.tba.modules.claim.repository.ClaimRepository;
 import com.waad.tba.modules.member.entity.Member;
 import com.waad.tba.modules.preauthorization.entity.PreAuthorization;
 import com.waad.tba.modules.preauthorization.repository.PreAuthorizationRepository;
 import com.waad.tba.modules.provider.entity.Provider;
-import com.waad.tba.modules.provider.repository.ProviderRepository;
 import com.waad.tba.modules.visit.dto.VisitCreateDto;
 import com.waad.tba.modules.visit.dto.VisitResponseDto;
 import com.waad.tba.modules.visit.entity.Visit;
@@ -23,9 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VisitMapper {
 
-    private final ClaimRepository claimRepository;
     private final PreAuthorizationRepository preAuthorizationRepository;
-    private final ProviderRepository providerRepository;
 
     public VisitResponseDto toResponseDto(Visit entity) {
         if (entity == null) return null;
@@ -46,11 +42,8 @@ public class VisitMapper {
         
         // Get provider name
         String providerName = null;
-        if (entity.getProviderId() != null) {
-            Provider provider = providerRepository.findById(entity.getProviderId()).orElse(null);
-            if (provider != null) {
-                providerName = provider.getName();
-            }
+        if (entity.getProvider() != null) {
+            providerName = entity.getProvider().getName();
         }
         
         VisitResponseDto dto = VisitResponseDto.builder()
@@ -77,7 +70,7 @@ public class VisitMapper {
                 .build();
         
         // Add claim info
-        populateClaimInfo(dto, entity.getId());
+        populateClaimInfo(dto, entity);
         
         // Add pre-authorization info
         populatePreAuthInfo(dto, entity.getId());
@@ -88,11 +81,16 @@ public class VisitMapper {
     /**
      * Populate claim information for the visit
      */
-    private void populateClaimInfo(VisitResponseDto dto, Long visitId) {
-        if (visitId == null) return;
+    private void populateClaimInfo(VisitResponseDto dto, Visit entity) {
+        if (entity == null) return;
         
         try {
-            List<Claim> claims = claimRepository.findByVisitId(visitId);
+            List<Claim> claims = entity.getClaims();
+            if (claims == null) {
+                dto.setClaimCount(0);
+                return;
+            }
+
             dto.setClaimCount(claims.size());
             
             if (!claims.isEmpty()) {
