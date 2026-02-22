@@ -1,10 +1,14 @@
 package com.waad.tba.modules.preauthorization.entity;
 
 import com.waad.tba.modules.medicaltaxonomy.entity.MedicalService;
+import com.waad.tba.modules.member.entity.Member;
+import com.waad.tba.modules.provider.entity.Provider;
 import com.waad.tba.modules.visit.entity.Visit;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
@@ -69,6 +73,18 @@ public class PreAuthorization {
      */
     @Column(name = "provider_id", nullable = false)
     private Long providerId;
+
+    // ==================== OPTIMIZED FETCH RELATIONSHIPS (READ-ONLY) ====================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", insertable = false, updatable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id", insertable = false, updatable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
+    private Provider provider;
 
     // ==================== VISIT-CENTRIC ARCHITECTURE ====================
 

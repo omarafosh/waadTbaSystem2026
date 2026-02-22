@@ -43,7 +43,14 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     /**
      * Find all pre-authorizations for a member
      */
-    Page<PreAuthorization> findByMemberIdAndActiveTrue(Long memberId, Pageable pageable);
+    @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.member m " +
+           "LEFT JOIN FETCH pa.provider p " +
+           "LEFT JOIN FETCH pa.visit v " +
+           "LEFT JOIN FETCH pa.medicalService ms " +
+           "WHERE pa.memberId = :memberId AND pa.active = true",
+           countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.memberId = :memberId AND pa.active = true")
+    Page<PreAuthorization> findByMemberIdAndActiveTrue(@Param("memberId") Long memberId, Pageable pageable);
 
     /**
      * Find all pre-authorizations for a specific employer (via member)
@@ -82,7 +89,14 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     /**
      * Find all pre-authorizations for a provider
      */
-    Page<PreAuthorization> findByProviderIdAndActiveTrue(Long providerId, Pageable pageable);
+    @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.member m " +
+           "LEFT JOIN FETCH pa.provider p " +
+           "LEFT JOIN FETCH pa.visit v " +
+           "LEFT JOIN FETCH pa.medicalService ms " +
+           "WHERE pa.providerId = :providerId AND pa.active = true",
+           countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.providerId = :providerId AND pa.active = true")
+    Page<PreAuthorization> findByProviderIdAndActiveTrue(@Param("providerId") Long providerId, Pageable pageable);
 
     /**
      * Find pre-authorizations by provider and status
@@ -120,6 +134,8 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
      * @return Page of PreAuthorizations with related entities fetched
      */
     @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.member m " +
+           "LEFT JOIN FETCH pa.provider p " +
            "LEFT JOIN FETCH pa.visit v " +
            "LEFT JOIN FETCH pa.medicalService ms " +
            "WHERE pa.active = true " +
@@ -131,6 +147,8 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
      * Find pre-authorizations by status list and provider with pagination.
      */
     @Query(value = "SELECT pa FROM PreAuthorization pa " +
+           "LEFT JOIN FETCH pa.member m " +
+           "LEFT JOIN FETCH pa.provider p " +
            "LEFT JOIN FETCH pa.visit v " +
            "LEFT JOIN FETCH pa.medicalService ms " +
            "WHERE pa.active = true " +
