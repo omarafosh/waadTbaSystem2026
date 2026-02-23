@@ -178,23 +178,22 @@ public class ProviderVisitService {
                 providerId, memberId, normalizedMemberName, normalizedStatus, fromDate, toDate);
 
         // Validate status if provided
+        VisitStatus statusEnum = null;
         if (normalizedStatus != null) {
             try {
-                VisitStatus.valueOf(normalizedStatus);
+                statusEnum = VisitStatus.valueOf(normalizedStatus);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid filter status: {}, ignoring", normalizedStatus);
-                normalizedStatus = null;
             }
         }
 
-        // Create unsorted pageable for native query (sort handled in query or
-        // controller)
-        // Native queries don't work well with Spring Data's property-based sorting
+        // Create unsorted pageable (sort handled in query)
+        // We use hardcoded sort in JPQL query for consistency
         Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 
-        // Use repository method with filters (native query)
+        // Use repository method with filters
         Page<Visit> visits = visitRepository.findByFilters(
-                providerId, memberId, normalizedMemberName, normalizedStatus, fromDate, toDate, unsortedPageable);
+                providerId, memberId, normalizedMemberName, statusEnum, fromDate, toDate, unsortedPageable);
 
         return visits.map(v -> mapToResponse(v, v.getMember(), null, false));
     }
