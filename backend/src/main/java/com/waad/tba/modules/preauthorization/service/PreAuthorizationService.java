@@ -851,8 +851,17 @@ public class PreAuthorizationService {
      */
     private PreAuthorizationResponseDto mapToResponseDtoLight(PreAuthorization preAuth) {
         // Fetch related entities for complete display
-        Member member = memberRepository.findById(preAuth.getMemberId()).orElse(null);
-        Provider provider = providerRepository.findById(preAuth.getProviderId()).orElse(null);
+        // OPTIMIZATION: Use fetched entities if available to prevent N+1 queries
+        Member member = preAuth.getMember();
+        if (member == null) {
+            member = memberRepository.findById(preAuth.getMemberId()).orElse(null);
+        }
+
+        Provider provider = preAuth.getProvider();
+        if (provider == null) {
+            provider = providerRepository.findById(preAuth.getProviderId()).orElse(null);
+        }
+
         MedicalService service = preAuth.getMedicalService();
         
         // Fallback: try to find service by code if not loaded
