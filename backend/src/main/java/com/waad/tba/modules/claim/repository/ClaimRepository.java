@@ -77,8 +77,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -96,6 +98,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "LEFT JOIN FETCH m.employerOrganization e " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND m.employerOrganization.id = :employerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -114,6 +117,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "LEFT JOIN FETCH m.employerOrganization e " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -124,6 +128,11 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :query, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :query, '%')) " +
@@ -135,6 +144,11 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      */
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND m.employerOrganization.id = :employerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :query, '%')) " +
@@ -143,14 +157,22 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     List<Claim> searchByEmployerId(@Param("query") String query, @Param("employerId") Long employerId);
 
     @Query("SELECT c FROM Claim c " +
-           "LEFT JOIN FETCH c.member " +
-           "LEFT JOIN FETCH c.preAuthorization " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.member.id = :memberId AND c.active = true")
     List<Claim> findByMemberId(@Param("memberId") Long memberId);
 
     @Query("SELECT c FROM Claim c " +
-           "LEFT JOIN FETCH c.member " +
-           "LEFT JOIN FETCH c.preAuthorization " +
+           "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
+           "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.preAuthorization.id = :preAuthorizationId AND c.active = true")
     List<Claim> findByPreAuthorizationId(@Param("preAuthorizationId") Long preAuthorizationId);
 
@@ -191,8 +213,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND c.status IN :statuses",
            countQuery = "SELECT COUNT(c) FROM Claim c WHERE c.active = true AND c.status IN :statuses")
@@ -207,8 +231,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND c.status = :status",
            countQuery = "SELECT COUNT(c) FROM Claim c WHERE c.active = true AND c.status = :status")
@@ -239,8 +265,11 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      */
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :query, '%')) " +
@@ -255,8 +284,11 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      */
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.visit v " +
+           "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId")
     List<Claim> findByProviderId(@Param("providerId") Long providerId);
@@ -352,8 +384,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      */
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.visit v " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
@@ -368,8 +402,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      */
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
+           "LEFT JOIN FETCH c.visit v " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
@@ -667,6 +703,7 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
            "WHERE c.active = true " +
@@ -679,8 +716,10 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query("SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "LEFT JOIN FETCH c.visit v " +
            "WHERE c.active = true " +
            "AND c.id = :claimNumber")
     java.util.Optional<Claim> findByClaimNumber(@Param("claimNumber") Long claimNumber);
@@ -927,5 +966,3 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
         @Param("toDate") java.time.LocalDate toDate
     );
 }
-
-
