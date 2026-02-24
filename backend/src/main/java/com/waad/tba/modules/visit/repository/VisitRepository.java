@@ -114,38 +114,24 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
      * @param pageable Pagination
      * @return Page of visits matching filters
      */
-    @Query(value = "SELECT v.* FROM visits v " +
-           "LEFT JOIN members m ON m.id = v.member_id " +
-           "LEFT JOIN organizations eo ON eo.id = v.employer_org_id " +
+    @Query("SELECT v FROM Visit v " +
+           "LEFT JOIN FETCH v.member m " +
+           "LEFT JOIN FETCH m.employerOrganization eo " +
            "WHERE v.active = true " +
-           "AND (CAST(:providerId AS BIGINT) IS NULL OR v.provider_id = CAST(:providerId AS BIGINT)) " +
-           "AND (CAST(:memberId AS BIGINT) IS NULL OR v.member_id = CAST(:memberId AS BIGINT)) " +
-           "AND (CAST(:memberName AS VARCHAR) IS NULL OR CAST(:memberName AS VARCHAR) = '' OR " +
-           "     LOWER(m.full_name) LIKE LOWER('%' || CAST(:memberName AS VARCHAR) || '%') OR " +
-           "     m.card_number LIKE '%' || CAST(:memberName AS VARCHAR) || '%' OR " +
-           "     m.civil_id LIKE '%' || CAST(:memberName AS VARCHAR) || '%') " +
-           "AND (CAST(:status AS VARCHAR) IS NULL OR v.status = CAST(:status AS VARCHAR)) " +
-           "AND (CAST(:fromDate AS DATE) IS NULL OR v.visit_date >= CAST(:fromDate AS DATE)) " +
-           "AND (CAST(:toDate AS DATE) IS NULL OR v.visit_date <= CAST(:toDate AS DATE)) " +
-           "ORDER BY v.visit_date DESC, v.id DESC",
-           countQuery = "SELECT COUNT(*) FROM visits v " +
-           "LEFT JOIN members m ON m.id = v.member_id " +
-           "WHERE v.active = true " +
-           "AND (CAST(:providerId AS BIGINT) IS NULL OR v.provider_id = CAST(:providerId AS BIGINT)) " +
-           "AND (CAST(:memberId AS BIGINT) IS NULL OR v.member_id = CAST(:memberId AS BIGINT)) " +
-           "AND (CAST(:memberName AS VARCHAR) IS NULL OR CAST(:memberName AS VARCHAR) = '' OR " +
-           "     LOWER(m.full_name) LIKE LOWER('%' || CAST(:memberName AS VARCHAR) || '%') OR " +
-           "     m.card_number LIKE '%' || CAST(:memberName AS VARCHAR) || '%' OR " +
-           "     m.civil_id LIKE '%' || CAST(:memberName AS VARCHAR) || '%') " +
-           "AND (CAST(:status AS VARCHAR) IS NULL OR v.status = CAST(:status AS VARCHAR)) " +
-           "AND (CAST(:fromDate AS DATE) IS NULL OR v.visit_date >= CAST(:fromDate AS DATE)) " +
-           "AND (CAST(:toDate AS DATE) IS NULL OR v.visit_date <= CAST(:toDate AS DATE))",
-           nativeQuery = true)
+           "AND (:providerId IS NULL OR v.providerId = :providerId) " +
+           "AND (:memberId IS NULL OR m.id = :memberId) " +
+           "AND (:memberName IS NULL OR :memberName = '' OR " +
+           "     LOWER(m.fullName) LIKE LOWER(CONCAT('%', :memberName, '%')) OR " +
+           "     m.cardNumber LIKE CONCAT('%', :memberName, '%') OR " +
+           "     m.nationalNumber LIKE CONCAT('%', :memberName, '%')) " +
+           "AND (:status IS NULL OR v.status = :status) " +
+           "AND (cast(:fromDate as date) IS NULL OR v.visitDate >= :fromDate) " +
+           "AND (cast(:toDate as date) IS NULL OR v.visitDate <= :toDate)")
     Page<Visit> findByFilters(
         @Param("providerId") Long providerId,
         @Param("memberId") Long memberId,
         @Param("memberName") String memberName,
-        @Param("status") String status,
+        @Param("status") VisitStatus status,
         @Param("fromDate") java.time.LocalDate fromDate,
         @Param("toDate") java.time.LocalDate toDate,
         Pageable pageable);
