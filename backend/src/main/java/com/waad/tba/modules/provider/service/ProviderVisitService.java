@@ -170,31 +170,35 @@ public class ProviderVisitService {
         String normalizedMemberName = (memberName != null && !memberName.trim().isEmpty())
                 ? memberName.trim()
                 : null;
-        String normalizedStatus = (status != null && !status.trim().isEmpty())
-                ? status.trim()
-                : null;
 
-        log.debug("📋 Fetching visit log: provider={}, member={}, memberName={}, status={}, from={}, to={}",
-                providerId, memberId, normalizedMemberName, normalizedStatus, fromDate, toDate);
-
-        // Validate status if provided
-        if (normalizedStatus != null) {
+        VisitStatus visitStatus = null;
+        if (status != null && !status.trim().isEmpty()) {
             try {
-                VisitStatus.valueOf(normalizedStatus);
+                visitStatus = VisitStatus.valueOf(status.trim());
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid filter status: {}, ignoring", normalizedStatus);
-                normalizedStatus = null;
+                log.warn("Invalid filter status: {}, ignoring", status);
             }
         }
 
-        // Create unsorted pageable for native query (sort handled in query or
-        // controller)
-        // Native queries don't work well with Spring Data's property-based sorting
-        Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        log.debug("📋 Fetching visit log: provider={}, member={}, memberName={}, status={}, from={}, to={}",
+                providerId, memberId, normalizedMemberName, visitStatus, fromDate, toDate);
 
-        // Use repository method with filters (native query)
+        // Ensure robust sorting: visitDate DESC, id DESC
+        Sort sort = pageable.getSort();
+        if (sort.isUnsorted()) {
+            sort = Sort.by(Sort.Direction.DESC, "visitDate", "id");
+        } else {
+            // Append ID as tie-breaker if not present (heuristic)
+            if (sort.getOrderFor("id") == null) {
+                sort = sort.and(Sort.by(Sort.Direction.DESC, "id"));
+            }
+        }
+
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        // Use repository method with filters (JPQL with Fetch Join)
         Page<Visit> visits = visitRepository.findByFilters(
-                providerId, memberId, normalizedMemberName, normalizedStatus, fromDate, toDate, unsortedPageable);
+                providerId, memberId, normalizedMemberName, visitStatus, fromDate, toDate, sortedPageable);
 
         return visits.map(v -> mapToResponse(v, v.getMember(), null, false));
     }
