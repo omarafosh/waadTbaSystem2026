@@ -2,6 +2,7 @@ package com.waad.tba.modules.provider.entity;
 
 import com.waad.tba.modules.providercontract.entity.ProviderContract;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -75,6 +76,7 @@ public class Provider {
      * (Without a formal contract for each)
      */
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 25)
     @Builder.Default
     private List<ProviderAllowedEmployer> allowedEmployers = new ArrayList<>();
     @Column(name = "allow_all_employers", nullable = false)
@@ -93,6 +95,7 @@ public class Provider {
     private String updatedBy;
 
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 25)
     @Builder.Default
     private List<ProviderContract> contracts = new ArrayList<>();
 

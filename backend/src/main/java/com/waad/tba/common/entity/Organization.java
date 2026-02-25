@@ -2,6 +2,7 @@ package com.waad.tba.common.entity;
 
 import com.waad.tba.common.enums.OrganizationType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@BatchSize(size = 25)
 public class Organization {
 
     @Id
