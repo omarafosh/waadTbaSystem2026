@@ -66,7 +66,8 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
            "LEFT JOIN FETCH c.preAuthorization pa " +
            "LEFT JOIN FETCH c.lines cl " +
            "LEFT JOIN FETCH cl.medicalService ms " +
-           "LEFT JOIN FETCH c.attachments " +
+           // REMOVED: c.attachments to avoid MultipleBagFetchException (Cartesian product)
+           // Attachments will be lazy-loaded in a separate query (efficient with @BatchSize)
            "WHERE c.id = :id")
     java.util.Optional<Claim> findByIdWithDetails(@Param("id") Long id);
 
