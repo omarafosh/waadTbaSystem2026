@@ -319,6 +319,108 @@ public class ProviderContractService {
     }
 
     /**
+     * Get effective prices for a list of services (Batch optimized).
+     * This avoids N+1 queries when processing a claim with multiple lines.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, EffectivePriceResponseDto> getEffectivePrices(Long providerId, List<Long> serviceIds, LocalDate date) {
+        log.info("Resolving effective prices for provider={}, {} services, date={}", providerId, serviceIds.size(), date);
+
+        if (serviceIds == null || serviceIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        final LocalDate effectiveDate = (date != null) ? date : LocalDate.now();
+
+        Provider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found: " + providerId));
+
+        // Find active contract ONCE
+        ProviderContract contract = contractRepository.findActiveContractByProvider(providerId)
+                .orElse(null);
+
+        java.util.Map<Long, EffectivePriceResponseDto> result = new java.util.HashMap<>();
+
+        // Batch fetch services to get codes/names
+        List<MedicalService> services = medicalServiceRepository.findAllById(serviceIds);
+        java.util.Map<Long, MedicalService> serviceMap = services.stream()
+                .collect(Collectors.toMap(MedicalService::getId, s -> s));
+
+        // If no contract, return "No Contract" for all services
+        if (contract == null) {
+            for (Long serviceId : serviceIds) {
+                MedicalService svc = serviceMap.get(serviceId);
+                if (svc != null) {
+                    result.put(serviceId, EffectivePriceResponseDto.builder()
+                            .providerId(providerId)
+                            .providerName(provider.getName())
+                            .serviceCode(svc.getCode())
+                            .serviceName(svc.getName())
+                            .hasContract(false)
+                            .message("No active contract found for provider")
+                            .build());
+                }
+            }
+            return result;
+        }
+
+        // Batch fetch pricing items for this contract and services
+        List<com.waad.tba.modules.providercontract.entity.ProviderContractPricingItem> pricingItems =
+                pricingItemService.findByContractIdAndMedicalServiceIdIn(contract.getId(), serviceIds);
+
+        // Create map of ServiceID -> PricingItem
+        // Filter by effective date logic
+        java.util.Map<Long, com.waad.tba.modules.providercontract.entity.ProviderContractPricingItem> pricingMap =
+            pricingItems.stream()
+                .filter(p -> p.getActive() &&
+                        (p.getEffectiveFrom() == null || !p.getEffectiveFrom().isAfter(effectiveDate)) &&
+                        (p.getEffectiveTo() == null || !p.getEffectiveTo().isBefore(effectiveDate)))
+                .collect(Collectors.toMap(
+                    p -> p.getMedicalService().getId(),
+                    p -> p,
+                    (existing, replacement) -> existing // If duplicates (shouldn't happen), keep first
+                ));
+
+        // Build result map
+        for (Long serviceId : serviceIds) {
+            MedicalService svc = serviceMap.get(serviceId);
+            if (svc == null) continue; // Should not happen if serviceIds are valid
+
+            var pricingItem = pricingMap.get(serviceId);
+
+            if (pricingItem == null) {
+                result.put(serviceId, EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(svc.getCode())
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .hasContract(false)
+                        .message("Service not found in provider contract")
+                        .build());
+            } else {
+                result.put(serviceId, EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(svc.getCode())
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .contractPrice(pricingItem.getContractPrice())
+                        .basePrice(pricingItem.getBasePrice())
+                        .currency(contract.getCurrency())
+                        .effectiveDate(effectiveDate)
+                        .effectiveFrom(pricingItem.getEffectiveFrom())
+                        .effectiveTo(pricingItem.getEffectiveTo())
+                        .hasContract(true)
+                        .message("Price resolved from contract")
+                        .build());
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Get services requiring pre-approval for a member from provider's active contract.
      */
     @Transactional(readOnly = true)
