@@ -149,6 +149,16 @@ public class ProviderContractPricingItemService {
     }
 
     /**
+     * Get pricing items for a list of services in a contract
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderContractPricingItem> findByContractIdAndMedicalServiceIdIn(Long contractId, List<Long> serviceIds) {
+        log.debug("Finding pricing items for contract: {} and {} services", contractId, serviceIds.size());
+
+        return pricingRepository.findByContractIdAndMedicalServiceIdInAndActiveTrue(contractId, serviceIds);
+    }
+
+    /**
      * Get contract pricing statistics
      */
     @Transactional(readOnly = true)
