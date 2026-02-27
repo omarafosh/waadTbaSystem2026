@@ -74,11 +74,18 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      * PHASE 5.B: Enhanced with full fetch joins for member.benefitPolicy and insuranceOrganization
      * to avoid N+1 queries in ClaimMapper.toViewDto()
      */
-    @Query("SELECT c FROM Claim c " +
+    @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+           countQuery = "SELECT COUNT(c) FROM Claim c " +
+           "LEFT JOIN c.member m " +
            "WHERE c.active = true " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -90,12 +97,20 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      * Search claims with pagination filtered by employer ID.
      * PHASE 5.B: Enhanced with full fetch joins
      */
-    @Query("SELECT c FROM Claim c " +
+    @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH m.employerOrganization e " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND m.employerOrganization.id = :employerId " +
+           "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+           countQuery = "SELECT COUNT(c) FROM Claim c " +
+           "LEFT JOIN c.member m " +
            "WHERE c.active = true " +
            "AND m.employerOrganization.id = :employerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -108,12 +123,20 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      * Search claims with pagination filtered by provider ID.
      * PHASE 6: Added for Provider Portal
      */
-    @Query("SELECT c FROM Claim c " +
+    @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH m.employerOrganization e " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(c.diagnosisDescription) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.nationalNumber) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+           countQuery = "SELECT COUNT(c) FROM Claim c " +
+           "LEFT JOIN c.member m " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
            "AND (LOWER(c.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -350,11 +373,15 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      * Find claims by provider ID and status with pagination.
      * Used by PROVIDER role to filter their claims by status.
      */
-    @Query("SELECT c FROM Claim c " +
+    @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status = :status",
+           countQuery = "SELECT COUNT(c) FROM Claim c " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
            "AND c.status = :status")
@@ -366,11 +393,15 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
      * Find claims by provider ID and status LIST with pagination.
      * Used by PROVIDER role to filter their inbox (e.g. SUBMITTED + UNDER_REVIEW).
      */
-    @Query("SELECT c FROM Claim c " +
+    @Query(value = "SELECT c FROM Claim c " +
            "LEFT JOIN FETCH c.member m " +
            "LEFT JOIN FETCH m.benefitPolicy bp " +
            "LEFT JOIN FETCH c.insuranceOrganization io " +
            "LEFT JOIN FETCH c.preAuthorization pa " +
+           "WHERE c.active = true " +
+           "AND c.providerId = :providerId " +
+           "AND c.status IN :statuses",
+           countQuery = "SELECT COUNT(c) FROM Claim c " +
            "WHERE c.active = true " +
            "AND c.providerId = :providerId " +
            "AND c.status IN :statuses")
