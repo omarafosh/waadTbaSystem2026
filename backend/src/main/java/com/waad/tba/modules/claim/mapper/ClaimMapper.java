@@ -138,14 +138,26 @@ public class ClaimMapper {
         List<String> servicesRequiringPA = new ArrayList<>(); // Track services that need PA
         Member member = visit.getMember();
         
+        // ⚡ Bolt: Batch fetch MedicalService entities to avoid N+1 queries in the loop
+        List<Long> medicalServiceIds = dto.getLines().stream()
+                .map(ClaimLineDto::getMedicalServiceId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        java.util.Map<Long, MedicalService> medicalServiceMap = medicalServiceRepository.findAllById(medicalServiceIds)
+                .stream()
+                .collect(Collectors.toMap(MedicalService::getId, ms -> ms));
+
         for (ClaimLineDto lineDto : dto.getLines()) {
             if (lineDto.getMedicalServiceId() == null) {
                 throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Each line MUST reference a MedicalService");
             }
             
-            // Fetch MedicalService
-            MedicalService medicalService = medicalServiceRepository.findById(lineDto.getMedicalServiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId()));
+            // ⚡ Bolt: Use map lookup instead of individual database queries
+            MedicalService medicalService = medicalServiceMap.get(lineDto.getMedicalServiceId());
+            if (medicalService == null) {
+                throw new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId());
+            }
             
             // Get contract price from ProviderContractService
             EffectivePriceResponseDto priceResponse = providerContractService.getEffectivePrice(
