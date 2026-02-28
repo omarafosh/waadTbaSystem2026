@@ -138,14 +138,26 @@ public class ClaimMapper {
         List<String> servicesRequiringPA = new ArrayList<>(); // Track services that need PA
         Member member = visit.getMember();
         
+        // PERFORMANCE OPTIMIZATION: Batch preload MedicalServices
+        List<Long> medicalServiceIds = dto.getLines().stream()
+                .filter(l -> l.getMedicalServiceId() != null)
+                .map(ClaimLineDto::getMedicalServiceId)
+                .distinct()
+                .toList();
+
+        java.util.Map<Long, MedicalService> medicalServiceMap = medicalServiceRepository.findAllById(medicalServiceIds).stream()
+                .collect(java.util.stream.Collectors.toMap(MedicalService::getId, s -> s));
+
         for (ClaimLineDto lineDto : dto.getLines()) {
             if (lineDto.getMedicalServiceId() == null) {
                 throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Each line MUST reference a MedicalService");
             }
             
-            // Fetch MedicalService
-            MedicalService medicalService = medicalServiceRepository.findById(lineDto.getMedicalServiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId()));
+            // Fetch MedicalService from preloaded map
+            MedicalService medicalService = medicalServiceMap.get(lineDto.getMedicalServiceId());
+            if (medicalService == null) {
+                throw new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId());
+            }
             
             // Get contract price from ProviderContractService
             EffectivePriceResponseDto priceResponse = providerContractService.getEffectivePrice(
