@@ -214,6 +214,70 @@ public class BenefitPolicyCoverageService {
      * @param serviceDate Date of service
      * @return Validation result with coverage breakdown
      */
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BATCH IN-MEMORY RESOLUTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * In-memory equivalent of BenefitPolicyRuleRepository.findBestRuleForService
+     * Resolves the best active rule for a given service and category based on precedence:
+     * 1. Service match + Encounter type match (Score 0)
+     * 2. Service match + Encounter type null (Score 1)
+     * 3. Category match + Encounter type match (Score 2)
+     * 4. Category match + Encounter type null (Score 3)
+     */
+    private Optional<BenefitPolicyRule> findBestRuleInMemory(
+            List<BenefitPolicyRule> activeRules,
+            Long serviceId,
+            Long categoryId,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+
+        BenefitPolicyRule bestRule = null;
+        int bestScore = 5; // Higher than any possible match score
+
+        for (BenefitPolicyRule rule : activeRules) {
+            Long rServiceId = rule.getMedicalService() != null ? rule.getMedicalService().getId() : null;
+            Long rCategoryId = rule.getMedicalCategory() != null ? rule.getMedicalCategory().getId() : null;
+            com.waad.tba.modules.visit.entity.VisitType rEncounterType = rule.getEncounterType();
+
+            // Check target match conditions
+            boolean serviceMatch = rServiceId != null && rServiceId.equals(serviceId);
+            boolean categoryMatch = rCategoryId != null && rCategoryId.equals(categoryId) && rServiceId == null;
+
+            if (!serviceMatch && !categoryMatch) {
+                continue;
+            }
+
+            // Check encounter match conditions
+            boolean encounterMatch = rEncounterType != null && rEncounterType == encounterType;
+            boolean encounterNull = rEncounterType == null;
+
+            if (!encounterMatch && !encounterNull) {
+                continue;
+            }
+
+            // Calculate score (lower is better)
+            int score = 4;
+            if (serviceMatch && encounterMatch) {
+                score = 0;
+            } else if (serviceMatch && encounterNull) {
+                score = 1;
+            } else if (categoryMatch && encounterMatch) {
+                score = 2;
+            } else if (categoryMatch && encounterNull) {
+                score = 3;
+            }
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestRule = rule;
+            }
+        }
+
+        return Optional.ofNullable(bestRule);
+    }
+
     public ClaimCoverageResult validateClaimCoverage(
             Member member, 
             List<ServiceCoverageInput> serviceItems, 
@@ -232,8 +296,22 @@ public class BenefitPolicyCoverageService {
         BigDecimal totalCoveredAmount = BigDecimal.ZERO;
         BigDecimal totalPatientAmount = BigDecimal.ZERO;
 
+        // BATCH FETCHING to avoid N+1 queries during validation
+        List<Long> serviceIds = serviceItems.stream()
+                .map(ServiceCoverageInput::getServiceId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
+
+        java.util.Map<Long, MedicalService> serviceMap = java.util.Collections.emptyMap();
+        if (!serviceIds.isEmpty()) {
+            serviceMap = serviceRepository.findAllById(serviceIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+        }
+
+        List<BenefitPolicyRule> activeRules = ruleRepository.findByBenefitPolicyIdAndActiveTrue(policy.getId());
+
         for (ServiceCoverageInput item : serviceItems) {
-            ServiceCoverageResult result = validateServiceCoverageForInput(policy, item, encounterType);
+            ServiceCoverageResult result = validateServiceCoverageForInputBatch(policy, item, encounterType, serviceMap, activeRules);
             serviceResults.add(result);
 
             if (!result.isCovered()) {
@@ -286,6 +364,23 @@ public class BenefitPolicyCoverageService {
             BenefitPolicy policy, 
             ServiceCoverageInput input,
             com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        // Fallback for single use
+        Long serviceId = input.getServiceId();
+        MedicalService service = serviceId != null ? serviceRepository.findById(serviceId).orElse(null) : null;
+        java.util.Map<Long, MedicalService> serviceMap = service != null
+            ? java.util.Map.of(serviceId, service)
+            : java.util.Collections.emptyMap();
+        List<BenefitPolicyRule> rules = ruleRepository.findByBenefitPolicyIdAndActiveTrue(policy.getId());
+        return validateServiceCoverageForInputBatch(policy, input, encounterType, serviceMap, rules);
+    }
+
+    private ServiceCoverageResult validateServiceCoverageForInputBatch(
+            BenefitPolicy policy,
+            ServiceCoverageInput input,
+            com.waad.tba.modules.visit.entity.VisitType encounterType,
+            java.util.Map<Long, MedicalService> serviceMap,
+            List<BenefitPolicyRule> activeRules) {
+
         Long serviceId = input.getServiceId();
         String serviceName = input.getServiceName() != null ? input.getServiceName() : "Unknown Service";
 
@@ -298,7 +393,7 @@ public class BenefitPolicyCoverageService {
                 .build();
         }
 
-        MedicalService service = serviceRepository.findById(serviceId).orElse(null);
+        MedicalService service = serviceMap.get(serviceId);
         if (service == null) {
             return ServiceCoverageResult.builder()
                 .serviceId(serviceId)
@@ -312,8 +407,7 @@ public class BenefitPolicyCoverageService {
             ? service.getCategoryId() 
             : null;
 
-        Optional<BenefitPolicyRule> ruleOpt = ruleRepository.findBestRuleForService(
-            policy.getId(), serviceId, categoryId, encounterType);
+        Optional<BenefitPolicyRule> ruleOpt = findBestRuleInMemory(activeRules, serviceId, categoryId, encounterType);
 
         if (ruleOpt.isEmpty()) {
             return ServiceCoverageResult.builder()
@@ -846,9 +940,37 @@ public class BenefitPolicyCoverageService {
             return result;
         }
         
+        BenefitPolicy policy = member.getBenefitPolicy();
+        if (policy == null) {
+            for (Long id : serviceIds) result.put(id, 0);
+            return result;
+        }
+
+        java.util.Map<Long, MedicalService> serviceMap = serviceRepository.findAllById(serviceIds).stream()
+                .collect(java.util.stream.Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+        List<BenefitPolicyRule> activeRules = ruleRepository.findByBenefitPolicyIdAndActiveTrue(policy.getId());
+
+        int defaultPercent = policy.getDefaultCoveragePercent() != null
+                ? policy.getDefaultCoveragePercent()
+                : SYSTEM_DEFAULT_COVERAGE_PERCENT;
+
         for (Long serviceId : serviceIds) {
-            // Using existing single-item method (could be optimized with "IN" query later)
-            result.put(serviceId, getEffectiveCoveragePercent(member, serviceId, encounterType));
+            MedicalService service = serviceMap.get(serviceId);
+            if (service == null) {
+                result.put(serviceId, 0);
+                continue;
+            }
+
+            Long categoryId = service.getCategoryId();
+            Optional<BenefitPolicyRule> ruleOpt = findBestRuleInMemory(activeRules, serviceId, categoryId, encounterType);
+
+            if (ruleOpt.isPresent()) {
+                BenefitPolicyRule rule = ruleOpt.get();
+                result.put(serviceId, rule.getEffectiveCoveragePercent());
+            } else {
+                // Return default percent just like ResolvedCoverage.from POLICY_DEFAULT
+                result.put(serviceId, defaultPercent);
+            }
         }
         return result;
     }
