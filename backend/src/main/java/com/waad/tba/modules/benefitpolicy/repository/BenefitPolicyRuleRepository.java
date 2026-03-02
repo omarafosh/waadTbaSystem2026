@@ -68,6 +68,26 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
     List<BenefitPolicyRule> findByMedicalServiceId(Long serviceId);
 
     // ═══════════════════════════════════════════════════════════════════════════
+    /**
+     * Fetch all rules matching a batch of services or categories.
+     * Used for batch coverage calculation to avoid N+1 queries.
+     */
+    @Query("""
+        SELECT r FROM BenefitPolicyRule r
+        WHERE r.benefitPolicy.id = :policyId
+          AND r.active = true
+          AND (
+              r.medicalService.id IN :serviceIds
+              OR (r.medicalCategory.id IN :categoryIds AND r.medicalService IS NULL)
+          )
+          AND (r.encounterType = :encounterType OR r.encounterType IS NULL)
+        """)
+    List<BenefitPolicyRule> findApplicableRulesForServicesAndCategories(
+            @Param("policyId") Long policyId,
+            @Param("serviceIds") List<Long> serviceIds,
+            @Param("categoryIds") List<Long> categoryIds,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType);
+
     // FIND BY CATEGORY
     // ═══════════════════════════════════════════════════════════════════════════
 
