@@ -126,9 +126,81 @@ ColumnFilter.propTypes = {
   onChange: PropTypes.func.isRequired
 };
 
+
+// ============================================================================
+// GENERIC DATA TABLE ROW (Memoized)
+// ============================================================================
+const GenericDataTableRow = memo(({ row, columns, cellPadding, onRowClick }) => {
+  const handleRowClickInternal = () => {
+    if (onRowClick) {
+      onRowClick(row.original);
+    }
+  };
+
+  return (
+    <TableRow
+      hover
+      onClick={onRowClick ? handleRowClickInternal : undefined}
+      sx={{
+        cursor: onRowClick ? 'pointer' : 'default',
+        '&:hover': {
+          backgroundColor: onRowClick ? 'action.hover' : 'inherit'
+        }
+      }}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          align={cell.column.columnDef.align || 'center'}
+          sx={{
+            py: cellPadding === 'dense' ? 1 : 2,
+            verticalAlign: 'middle'
+          }}
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparator for TanStack Table rows since row object reference changes every render
+  // We check original data, index, and table-level dynamic state (selection, expansion, visible cells length)
+  const prevVisibleCells = prevProps.row.getVisibleCells();
+  const nextVisibleCells = nextProps.row.getVisibleCells();
+
+  if (prevVisibleCells.length !== nextVisibleCells.length) {
+    return false;
+  }
+
+  for (let i = 0; i < prevVisibleCells.length; i++) {
+    if (prevVisibleCells[i].column.id !== nextVisibleCells[i].column.id) {
+      return false;
+    }
+  }
+
+  return (
+    prevProps.row.original === nextProps.row.original &&
+    prevProps.row.index === nextProps.row.index &&
+    prevProps.row.getIsSelected() === nextProps.row.getIsSelected() &&
+    prevProps.row.getIsExpanded() === nextProps.row.getIsExpanded() &&
+    prevProps.columns === nextProps.columns &&
+    prevProps.cellPadding === nextProps.cellPadding &&
+    prevProps.onRowClick === nextProps.onRowClick
+  );
+});
+
+GenericDataTableRow.displayName = 'GenericDataTableRow';
+GenericDataTableRow.propTypes = {
+  row: PropTypes.object.isRequired,
+  columns: PropTypes.array.isRequired,
+  cellPadding: PropTypes.string.isRequired,
+  onRowClick: PropTypes.func
+};
+
 // ============================================================================
 // MAIN COMPONENT WRAPPED IN MEMO FOR PERFORMANCE
 // ============================================================================
+
 
 const GenericDataTable = memo(({
   columns = [],
@@ -205,11 +277,7 @@ const GenericDataTable = memo(({
     tableState.setPageSize(parseInt(event.target.value, 10));
   };
 
-  const handleRowClickInternal = (row) => {
-    if (onRowClick) {
-      onRowClick(row.original);
-    }
-  };
+
 
   // ========================================
   // RENDER HELPERS
@@ -367,30 +435,13 @@ const GenericDataTable = memo(({
     return (
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow
+          <GenericDataTableRow
             key={row.id}
-            hover
-            onClick={() => handleRowClickInternal(row)}
-            sx={{
-              cursor: onRowClick ? 'pointer' : 'default',
-              '&:hover': {
-                backgroundColor: onRowClick ? 'action.hover' : 'inherit'
-              }
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                align={cell.column.columnDef.align || 'center'}
-                sx={{
-                  py: cellPadding === 'dense' ? 1 : 2,
-                  verticalAlign: 'middle'
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
+            row={row}
+            columns={columns}
+            cellPadding={cellPadding}
+            onRowClick={onRowClick}
+          />
         ))}
       </TableBody>
     );
