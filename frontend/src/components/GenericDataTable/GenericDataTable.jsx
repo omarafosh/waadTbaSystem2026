@@ -22,7 +22,7 @@
  * />
  */
 
-import { useMemo, Fragment, memo } from 'react';
+import { useMemo, useCallback, Fragment, memo } from 'react';
 import PropTypes from 'prop-types';
 import { alpha } from '@mui/material/styles';
 
@@ -127,6 +127,51 @@ ColumnFilter.propTypes = {
 };
 
 // ============================================================================
+// EXTRACTED ROW COMPONENT FOR PERFORMANCE (MEMOIZED)
+// ============================================================================
+
+const GenericDataTableRow = memo(
+  ({ row, visibleColumnIds, cellPadding, onRowClick, handleRowClickInternal }) => {
+    return (
+      <TableRow
+        hover
+        onClick={() => handleRowClickInternal(row)}
+        sx={{
+          cursor: onRowClick ? 'pointer' : 'default',
+          '&:hover': {
+            backgroundColor: onRowClick ? 'action.hover' : 'inherit'
+          }
+        }}
+      >
+        {row.getVisibleCells().map((cell) => (
+          <TableCell
+            key={cell.id}
+            align={cell.column.columnDef.align || 'center'}
+            sx={{
+              py: cellPadding === 'dense' ? 1 : 2,
+              verticalAlign: 'middle'
+            }}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        ))}
+      </TableRow>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.row.original === nextProps.row.original &&
+      prevProps.row.index === nextProps.row.index &&
+      prevProps.visibleColumnIds === nextProps.visibleColumnIds &&
+      prevProps.cellPadding === nextProps.cellPadding &&
+      prevProps.onRowClick === nextProps.onRowClick
+    );
+  }
+);
+
+GenericDataTableRow.displayName = 'GenericDataTableRow';
+
+// ============================================================================
 // MAIN COMPONENT WRAPPED IN MEMO FOR PERFORMANCE
 // ============================================================================
 
@@ -205,11 +250,11 @@ const GenericDataTable = memo(({
     tableState.setPageSize(parseInt(event.target.value, 10));
   };
 
-  const handleRowClickInternal = (row) => {
+  const handleRowClickInternal = useCallback((row) => {
     if (onRowClick) {
       onRowClick(row.original);
     }
-  };
+  }, [onRowClick]);
 
   // ========================================
   // RENDER HELPERS
@@ -364,33 +409,20 @@ const GenericDataTable = memo(({
       );
     }
 
+    // A primitive representation of the visible columns to detect toggles/hiding
+    const visibleColumnIds = table.getVisibleLeafColumns().map((col) => col.id).join(',');
+
     return (
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow
+          <GenericDataTableRow
             key={row.id}
-            hover
-            onClick={() => handleRowClickInternal(row)}
-            sx={{
-              cursor: onRowClick ? 'pointer' : 'default',
-              '&:hover': {
-                backgroundColor: onRowClick ? 'action.hover' : 'inherit'
-              }
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                align={cell.column.columnDef.align || 'center'}
-                sx={{
-                  py: cellPadding === 'dense' ? 1 : 2,
-                  verticalAlign: 'middle'
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
+            row={row}
+            visibleColumnIds={visibleColumnIds}
+            cellPadding={cellPadding}
+            onRowClick={onRowClick}
+            handleRowClickInternal={handleRowClickInternal}
+          />
         ))}
       </TableBody>
     );
