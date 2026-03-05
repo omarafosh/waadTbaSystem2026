@@ -62,27 +62,13 @@ public class PreAuthDashboardService {
     public OverallStats getOverallStats() {
         log.info("[DASHBOARD] Calculating overall statistics");
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
-
-        long totalCount = all.size();
-        long pendingCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.PENDING).count();
-        long approvedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED).count();
-        long rejectedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.REJECTED).count();
-
-        // CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
-        BigDecimal totalRequested = all.stream()
-                .map(PreAuthorization::getContractPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalApproved = all.stream()
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .map(PreAuthorization::getApprovedAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Object[] overall = preAuthRepository.getOverallStatistics();
+        long totalCount = overall != null && overall[0] != null ? ((Number) overall[0]).longValue() : 0L;
+        BigDecimal totalRequested = overall != null && overall[1] != null ? toBigDecimal(overall[1]) : BigDecimal.ZERO;
+        BigDecimal totalApproved = overall != null && overall[2] != null ? toBigDecimal(overall[2]) : BigDecimal.ZERO;
+        long pendingCount = overall != null && overall[3] != null ? ((Number) overall[3]).longValue() : 0L;
+        long approvedCount = overall != null && overall[4] != null ? ((Number) overall[4]).longValue() : 0L;
+        long rejectedCount = overall != null && overall[5] != null ? ((Number) overall[5]).longValue() : 0L;
 
         BigDecimal avgApproved = approvedCount > 0
                 ? totalApproved.divide(BigDecimal.valueOf(approvedCount), 2, RoundingMode.HALF_UP)
@@ -183,13 +169,6 @@ public class PreAuthDashboardService {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(days);
 
-        List<PreAuthorization> allInRange = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .filter(pa -> pa.getRequestDate() != null)
-                .filter(pa -> !pa.getRequestDate().isBefore(startDate))
-                .collect(Collectors.toList());
-
         Map<LocalDate, TrendData> trendMap = new HashMap<>();
 
         // Initialize all dates with zero
@@ -206,25 +185,17 @@ public class PreAuthDashboardService {
         }
 
         // Aggregate data by date
-        for (PreAuthorization pa : allInRange) {
-            LocalDate date = pa.getRequestDate();
+        List<Object[]> results = preAuthRepository.getTrendStatistics(startDate);
+        for (Object[] row : results) {
+            LocalDate date = (LocalDate) row[0];
             TrendData trend = trendMap.get(date);
 
             if (trend != null) {
-                trend.setCreated(trend.getCreated() + 1);
-
-                if (pa.getStatus() == PreAuthStatus.APPROVED) {
-                    trend.setApproved(trend.getApproved() + 1);
-                    trend.setApprovedAmount(trend.getApprovedAmount().add(
-                            pa.getApprovedAmount() != null ? pa.getApprovedAmount() : BigDecimal.ZERO));
-                }
-
-                if (pa.getStatus() == PreAuthStatus.REJECTED) {
-                    trend.setRejected(trend.getRejected() + 1);
-                }
-
-                trend.setTotalAmount(trend.getTotalAmount().add(
-                        pa.getContractPrice() != null ? pa.getContractPrice() : BigDecimal.ZERO));
+                trend.setCreated(row[1] != null ? ((Number) row[1]).longValue() : 0L);
+                trend.setApproved(row[2] != null ? ((Number) row[2]).longValue() : 0L);
+                trend.setRejected(row[3] != null ? ((Number) row[3]).longValue() : 0L);
+                trend.setTotalAmount(row[4] != null ? toBigDecimal(row[4]) : BigDecimal.ZERO);
+                trend.setApprovedAmount(row[5] != null ? toBigDecimal(row[5]) : BigDecimal.ZERO);
             }
         }
 
@@ -240,24 +211,19 @@ public class PreAuthDashboardService {
     public List<ProviderSummary> getTopProviders(int limit) {
         log.info("[DASHBOARD] Fetching top {} providers by volume", limit);
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
-
         Map<Long, ProviderStats> providerStatsMap = new HashMap<>();
 
-        for (PreAuthorization pa : all) {
-            Long providerId = pa.getProviderId();
-            ProviderStats stats = providerStatsMap.computeIfAbsent(providerId, k -> new ProviderStats());
+        List<Object[]> results = preAuthRepository.getProviderStatistics();
+        for (Object[] row : results) {
+            Long providerId = row[0] != null ? ((Number) row[0]).longValue() : null;
+            if (providerId == null) continue;
 
-            stats.totalPreAuths++;
+            ProviderStats stats = new ProviderStats();
+            stats.totalPreAuths = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            stats.approvedCount = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            stats.totalApprovedAmount = row[3] != null ? toBigDecimal(row[3]) : BigDecimal.ZERO;
 
-            if (pa.getStatus() == PreAuthStatus.APPROVED) {
-                stats.approvedCount++;
-                stats.totalApprovedAmount = stats.totalApprovedAmount.add(
-                        pa.getApprovedAmount() != null ? pa.getApprovedAmount() : BigDecimal.ZERO);
-            }
+            providerStatsMap.put(providerId, stats);
         }
 
         // Fetch provider details and build summaries
@@ -314,6 +280,16 @@ public class PreAuthDashboardService {
     }
 
     // ==================== HELPER METHODS ====================
+
+    /**
+     * Safely convert a numeric object (e.g., from SUM JPQL) to BigDecimal
+     */
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal) return (BigDecimal) value;
+        if (value instanceof Number) return BigDecimal.valueOf(((Number) value).doubleValue());
+        return new BigDecimal(value.toString());
+    }
 
     /**
      * Convert PreAuthorization to summary DTO
