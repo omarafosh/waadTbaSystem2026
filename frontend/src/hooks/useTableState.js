@@ -1,14 +1,14 @@
 /**
  * useTableState - Custom Hook for Generic Table State Management
- * 
+ *
  * Manages all table state including:
  * - Pagination (page, pageSize)
  * - Sorting (orderBy, orderDirection)
  * - Filtering (column filters)
  * - Row selection (optional)
- * 
+ *
  * Can be used with any table component for consistent state management.
- * 
+ *
  * @example
  * const tableState = useTableState({
  *   initialPageSize: 10,
@@ -16,7 +16,7 @@
  * });
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 /**
@@ -69,27 +69,33 @@ export const useTableState = (config = {}) => {
     return initialPageSize;
   }, [searchParams, initialPageSize, storageKey, allowedPageSizesStr]);
 
-  const setPage = useCallback((newPage) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (newPage > 0) {
-        newParams.set('page', newPage.toString());
-      } else {
-        newParams.delete('page');
-      }
-      return newParams;
-    });
-  }, [setSearchParams]);
+  const setPage = useCallback(
+    (newPage) => {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        if (newPage > 0) {
+          newParams.set('page', newPage.toString());
+        } else {
+          newParams.delete('page');
+        }
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
 
-  const setPageSize = useCallback((newPageSize) => {
-    localStorage.setItem(storageKey, newPageSize.toString());
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.set('size', newPageSize.toString());
-      newParams.delete('page'); // Reset to first page
-      return newParams;
-    });
-  }, [setSearchParams, storageKey]);
+  const setPageSize = useCallback(
+    (newPageSize) => {
+      localStorage.setItem(storageKey, newPageSize.toString());
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set('size', newPageSize.toString());
+        newParams.delete('page'); // Reset to first page
+        return newParams;
+      });
+    },
+    [setSearchParams, storageKey]
+  );
 
   // ========================================
   // SORTING STATE (Synced with URL)
@@ -110,31 +116,34 @@ export const useTableState = (config = {}) => {
     return [];
   }, [searchParams, defaultSortField, defaultSortDirection]);
 
-  const setSorting = useCallback((updater) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
+  const setSorting = useCallback(
+    (updater) => {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
 
-      // Calculate new sorting value based on updater
-      const currentSortParam = newParams.get('sort');
-      let currentSort = [];
-      if (currentSortParam) {
-        const [id, dir] = currentSortParam.split(',');
-        currentSort = [{ id, desc: dir === 'desc' }];
-      } else if (defaultSort) {
-        currentSort = [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
-      }
+        // Calculate new sorting value based on updater
+        const currentSortParam = newParams.get('sort');
+        let currentSort = [];
+        if (currentSortParam) {
+          const [id, dir] = currentSortParam.split(',');
+          currentSort = [{ id, desc: dir === 'desc' }];
+        } else if (defaultSort) {
+          currentSort = [{ id: defaultSort.field, desc: defaultSort.direction === 'desc' }];
+        }
 
-      const nextSorting = typeof updater === 'function' ? updater(currentSort) : updater;
+        const nextSorting = typeof updater === 'function' ? updater(currentSort) : updater;
 
-      if (nextSorting && nextSorting.length > 0) {
-        const { id, desc } = nextSorting[0];
-        newParams.set('sort', `${id},${desc ? 'desc' : 'asc'}`);
-      } else {
-        newParams.delete('sort');
-      }
-      return newParams;
-    });
-  }, [setSearchParams, defaultSort]);
+        if (nextSorting && nextSorting.length > 0) {
+          const { id, desc } = nextSorting[0];
+          newParams.set('sort', `${id},${desc ? 'desc' : 'asc'}`);
+        } else {
+          newParams.delete('sort');
+        }
+        return newParams;
+      });
+    },
+    [setSearchParams, defaultSort]
+  );
 
   // ========================================
   // FILTERING STATE (Local State Only - Can be enhanced later)
@@ -142,18 +151,21 @@ export const useTableState = (config = {}) => {
 
   const [columnFilters, setColumnFilters] = useState(initialFilters);
 
-  const handleFilterChange = useCallback((columnId, value) => {
-    setColumnFilters((prev) => {
-      // ... logic same as before
-      if (value === '' || value === null || value === undefined) {
-        const newFilters = { ...prev };
-        delete newFilters[columnId];
-        return newFilters;
-      }
-      return { ...prev, [columnId]: value };
-    });
-    setPage(0);
-  }, [setPage]);
+  const handleFilterChange = useCallback(
+    (columnId, value) => {
+      setColumnFilters((prev) => {
+        // ... logic same as before
+        if (value === '' || value === null || value === undefined) {
+          const newFilters = { ...prev };
+          delete newFilters[columnId];
+          return newFilters;
+        }
+        return { ...prev, [columnId]: value };
+      });
+      setPage(0);
+    },
+    [setPage]
+  );
 
   const handleClearFilters = useCallback(() => {
     setColumnFilters({});
@@ -183,7 +195,7 @@ export const useTableState = (config = {}) => {
     setRowSelection({});
 
     // Clear URL Params for state
-    setSearchParams(prev => {
+    setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev);
       newParams.delete('page');
       newParams.delete('size');
@@ -208,33 +220,56 @@ export const useTableState = (config = {}) => {
   // RETURN STATE AND CONTROLS
   // ========================================
 
-  return {
-    // Pagination
-    page,
-    pageSize,
-    setPage: setPage,
-    setPageSize: setPageSize,
+  // ⚡ Bolt: Memoize the return object to provide a stable reference.
+  // This prevents unnecessary full-table re-renders in consumers
+  // (like GenericDataTable) when parent components re-render.
+  return useMemo(
+    () => ({
+      // Pagination
+      page,
+      pageSize,
+      setPage: setPage,
+      setPageSize: setPageSize,
 
-    // Sorting
-    sorting,
-    setSorting: setSorting,
+      // Sorting
+      sorting,
+      setSorting: setSorting,
 
-    // Filtering
-    columnFilters,
-    setColumnFilters,
-    setFilter: handleFilterChange,
-    clearFilters: handleClearFilters,
-    hasActiveFilters,
+      // Filtering
+      columnFilters,
+      setColumnFilters,
+      setFilter: handleFilterChange,
+      clearFilters: handleClearFilters,
+      hasActiveFilters,
 
-    // Row Selection
-    rowSelection,
-    setRowSelection: handleRowSelectionChange,
-    clearSelection: handleClearSelection,
-    selectedRowCount,
+      // Row Selection
+      rowSelection,
+      setRowSelection: handleRowSelectionChange,
+      clearSelection: handleClearSelection,
+      selectedRowCount,
 
-    // Reset
-    resetState: resetTableState
-  };
+      // Reset
+      resetState: resetTableState
+    }),
+    [
+      page,
+      pageSize,
+      setPage,
+      setPageSize,
+      sorting,
+      setSorting,
+      columnFilters,
+      setColumnFilters,
+      handleFilterChange,
+      handleClearFilters,
+      hasActiveFilters,
+      rowSelection,
+      handleRowSelectionChange,
+      handleClearSelection,
+      selectedRowCount,
+      resetTableState
+    ]
+  );
 };
 
 export default useTableState;
