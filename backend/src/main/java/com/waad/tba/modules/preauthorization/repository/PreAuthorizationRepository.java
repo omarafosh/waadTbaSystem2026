@@ -221,6 +221,46 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     List<Object[]> sumAmountsByStatus();
 
     /**
+     * Get overall statistics for all active pre-authorizations
+     */
+    @Query("SELECT " +
+           "COUNT(pa), " +
+           "SUM(pa.contractPrice), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.PENDING THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.REJECTED THEN 1 ELSE 0 END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true")
+    Object[] getOverallStatistics();
+
+    /**
+     * Get trend statistics grouped by date
+     */
+    @Query("SELECT pa.requestDate, COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.REJECTED THEN 1 ELSE 0 END), " +
+           "SUM(pa.contractPrice), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true " +
+           "AND pa.requestDate IS NOT NULL " +
+           "AND pa.requestDate >= :startDate " +
+           "GROUP BY pa.requestDate")
+    List<Object[]> getTrendStatistics(@Param("startDate") LocalDate startDate);
+
+    /**
+     * Get provider statistics (top providers by volume)
+     */
+    @Query("SELECT pa.providerId, COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true " +
+           "GROUP BY pa.providerId")
+    List<Object[]> getProviderStatistics();
+
+    /**
      * Get statistics for date range
      * CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
      */
