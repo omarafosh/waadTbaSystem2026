@@ -100,46 +100,49 @@ export default function ProviderEligibilityCheck() {
     return new Intl.NumberFormat('ar-LY', {
       style: 'currency',
       currency: 'LYD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 2
     }).format(amount);
   };
 
-  const checkEligibility = useCallback(async (query) => {
-    if (!query || !query.trim()) {
-      setError('الرجاء إدخال رقم البطاقة أو مسح الباركود');
-      return;
-    }
-    setResult(null);
-    setError(null);
-    setVisitError(null);
-    setSelectedMember(null);
-    setLoading(true);
-    setPage(0);
-    try {
-      const cleanQuery = query.trim();
-      const response = await providerApi.checkEligibility({
-        barcode: cleanQuery,
-        encounterType: selectedVisitType
-      });
-      setResult(response);
-
-      // Smart Auto-Select Logic
-      // 1. If exact barcode match found in family members, select them
-      const exactMatch = response.familyMembers?.find(m => m.barcode === cleanQuery || m.cardNumber === cleanQuery);
-
-      if (exactMatch && exactMatch.eligible) {
-        setSelectedMember(exactMatch);
-      } else if (response.familyMembers?.length === 1 && response.familyMembers[0].eligible) {
-        // 2. If only one member exists (and no specific barcode match needed/found), select them
-        setSelectedMember(response.familyMembers[0]);
+  const checkEligibility = useCallback(
+    async (query) => {
+      if (!query || !query.trim()) {
+        setError('الرجاء إدخال رقم البطاقة أو مسح الباركود');
+        return;
       }
-    } catch (err) {
-      console.error('Check failed:', err);
-      setError(err.parsedError?.message || err.message || 'حدث خطأ أثناء التحقق');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedVisitType]); // Added selectedVisitType to dependency
+      setResult(null);
+      setError(null);
+      setVisitError(null);
+      setSelectedMember(null);
+      setLoading(true);
+      setPage(0);
+      try {
+        const cleanQuery = query.trim();
+        const response = await providerApi.checkEligibility({
+          barcode: cleanQuery,
+          encounterType: selectedVisitType
+        });
+        setResult(response);
+
+        // Smart Auto-Select Logic
+        // 1. If exact barcode match found in family members, select them
+        const exactMatch = response.familyMembers?.find((m) => m.barcode === cleanQuery || m.cardNumber === cleanQuery);
+
+        if (exactMatch && exactMatch.eligible) {
+          setSelectedMember(exactMatch);
+        } else if (response.familyMembers?.length === 1 && response.familyMembers[0].eligible) {
+          // 2. If only one member exists (and no specific barcode match needed/found), select them
+          setSelectedMember(response.familyMembers[0]);
+        }
+      } catch (err) {
+        console.error('Check failed:', err);
+        setError(err.parsedError?.message || err.message || 'حدث خطأ أثناء التحقق');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedVisitType]
+  ); // Added selectedVisitType to dependency
 
   const handleSubmit = () => checkEligibility(searchValue);
   const handleKeyPress = (e) => e.key === 'Enter' && searchValue.trim() && handleSubmit();
@@ -167,7 +170,7 @@ export default function ProviderEligibilityCheck() {
           setSearchValue(decodedText);
           checkEligibility(decodedText);
         },
-        () => { }
+        () => {}
       );
     } catch (err) {
       setScanning(false);
@@ -176,7 +179,7 @@ export default function ProviderEligibilityCheck() {
 
   const stopQrScanner = async () => {
     if (html5QrCodeRef.current) {
-      await html5QrCodeRef.current.stop().catch(() => { });
+      await html5QrCodeRef.current.stop().catch(() => {});
       html5QrCodeRef.current = null;
     }
     setScanning(false);
@@ -191,7 +194,7 @@ export default function ProviderEligibilityCheck() {
     // Fetch allowed employers
     const fetchEmployers = async () => {
       // Only fetch if user is a provider
-      const isProvider = user?.role === 'PROVIDER' || user?.roles?.some(r => r.name === 'PROVIDER');
+      const isProvider = user?.role === 'PROVIDER' || user?.roles?.some((r) => r.name === 'PROVIDER');
       if (!isProvider) return;
 
       try {
@@ -203,34 +206,39 @@ export default function ProviderEligibilityCheck() {
     };
     fetchEmployers();
 
-    return () => { if (html5QrCodeRef.current) html5QrCodeRef.current.stop().catch(() => { }); };
+    return () => {
+      if (html5QrCodeRef.current) html5QrCodeRef.current.stop().catch(() => {});
+    };
   }, []);
 
   return (
-    <Box sx={{
-      width: '100%',
-      // Use flex grow instead of fixed calc height to allow scrolling if needed, but preferably fit
-      height: '100%',
-      minHeight: 'calc(100vh - 120px)', // Account for Header + ContextBar
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-      mx: 'auto',
-      mx: 'auto',
-      p: 3, // Keep padding
-      pt: 1 // Reduce top padding explicitly to move content up
-    }}>
-
+    <Box
+      sx={{
+        width: '100%',
+        // Use flex grow instead of fixed calc height to allow scrolling if needed, but preferably fit
+        height: '100%',
+        minHeight: 'calc(100vh - 120px)', // Account for Header + ContextBar
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        mx: 'auto',
+        p: 3, // Keep padding
+        pt: 1 // Reduce top padding explicitly to move content up
+      }}
+    >
       {/* Main Layout Body - Flex Row to ensure full width usage */}
       <Stack direction="row" spacing={3} sx={{ flexGrow: 1, overflow: 'hidden' }}>
-
         {/* 1. RIGHT COLUMN: Control & Scanner (Fixed Width) */}
         <Box sx={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
           <Stack spacing={2} sx={{ height: '100%' }}>
             {/* Header for Control Panel */}
             <Box sx={{ mb: 1 }}>
-              <Typography variant="h5" fontWeight="700" color="primary">التحقق من الأهلية</Typography>
-              <Typography variant="body2" color="text.secondary">قم بمسح البطاقة أو إدخال الرقم</Typography>
+              <Typography variant="h5" fontWeight="700" color="primary">
+                التحقق من الأهلية
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                قم بمسح البطاقة أو إدخال الرقم
+              </Typography>
             </Box>
 
             <MainCard
@@ -239,7 +247,16 @@ export default function ProviderEligibilityCheck() {
             >
               <Stack spacing={2} sx={{ flexGrow: 1 }}>
                 {/* QR Section */}
-                <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), border: '1px dashed', borderColor: 'primary.main', textAlign: 'center' }}>
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                    border: '1px dashed',
+                    borderColor: 'primary.main',
+                    textAlign: 'center'
+                  }}
+                >
                   <QrIcon color="primary" sx={{ fontSize: 40, mb: 1, opacity: 0.8 }} />
                   <Button
                     variant="contained"
@@ -252,7 +269,11 @@ export default function ProviderEligibilityCheck() {
                   </Button>
                 </Box>
 
-                <Divider><Typography variant="caption" color="text.secondary">أو البحث اليدوي</Typography></Divider>
+                <Divider>
+                  <Typography variant="caption" color="text.secondary">
+                    أو البحث اليدوي
+                  </Typography>
+                </Divider>
 
                 {/* Manual Section */}
                 <Box sx={{ flexGrow: 1 }}>
@@ -306,14 +327,7 @@ export default function ProviderEligibilityCheck() {
                 )}
 
                 {result && (
-                  <Button
-                    color="error"
-                    variant="text"
-                    startIcon={<RefreshIcon />}
-                    onClick={handleReset}
-                    fullWidth
-                    sx={{ mt: 1 }}
-                  >
+                  <Button color="error" variant="text" startIcon={<RefreshIcon />} onClick={handleReset} fullWidth sx={{ mt: 1 }}>
                     إنهاء الجلسة / بحث جديد
                   </Button>
                 )}
@@ -326,7 +340,6 @@ export default function ProviderEligibilityCheck() {
         <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
           {result ? (
             <Stack spacing={2} sx={{ height: '100%' }}>
-
               {/* Top Row: Info & Stats */}
               <Box sx={{ flexShrink: 0, display: 'flex', gap: 2 }}>
                 {/* Status Card (Matches Table Width) */}
@@ -381,20 +394,23 @@ export default function ProviderEligibilityCheck() {
                       </Stack>
                     </Stack>
 
-                    <Box sx={{
-                      width: 80, height: 80,
-                      flexShrink: 0,
-                      borderRadius: '50%',
-                      bgcolor: result.eligible ? 'success.main' : 'error.main',
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: 4,
-                      border: '4px solid',
-                      borderColor: 'background.paper',
-                      zIndex: 2
-                    }}>
+                    <Box
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        flexShrink: 0,
+                        borderRadius: '50%',
+                        bgcolor: result.eligible ? 'success.main' : 'error.main',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 4,
+                        border: '4px solid',
+                        borderColor: 'background.paper',
+                        zIndex: 2
+                      }}
+                    >
                       {result.eligible ? <CheckIcon sx={{ fontSize: 48 }} /> : <CancelIcon sx={{ fontSize: 48 }} />}
                     </Box>
                   </Paper>
@@ -402,7 +418,10 @@ export default function ProviderEligibilityCheck() {
 
                 {/* Financial Stats (Matches Sidebar Width) */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <MainCard contentSX={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }} sx={{ height: '100%', boxShadow: theme.customShadows?.z1 }}>
+                  <MainCard
+                    contentSX={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }}
+                    sx={{ height: '100%', boxShadow: theme.customShadows?.z1 }}
+                  >
                     <Stack direction="row" sx={{ width: '100%' }} spacing={0} divider={<Divider orientation="vertical" flexItem />}>
                       {[
                         { label: 'الحد السنوي', value: result.principalAnnualLimit, color: 'primary', icon: <WalletIcon /> },
@@ -411,7 +430,9 @@ export default function ProviderEligibilityCheck() {
                       ].map((stat, idx) => (
                         <Box key={idx} sx={{ flex: 1, px: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary" fontWeight="700" display="block">{stat.label}</Typography>
+                            <Typography variant="caption" color="text.secondary" fontWeight="700" display="block">
+                              {stat.label}
+                            </Typography>
                             <Typography variant="h6" fontWeight="900" color={`${stat.color}.main`} sx={{ lineHeight: 1 }}>
                               {formatCurrency(stat.value)}
                             </Typography>
@@ -429,12 +450,22 @@ export default function ProviderEligibilityCheck() {
                 <MainCard
                   title={
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="subtitle1" fontWeight="700">قائمة المستفيدين (العائلة)</Typography>
+                      <Typography variant="subtitle1" fontWeight="700">
+                        قائمة المستفيدين (العائلة)
+                      </Typography>
                       <Chip label={`${result.familyMembers.length}`} color="primary" size="small" />
                     </Stack>
                   }
                   contentSX={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
-                  sx={{ flex: 2, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, overflow: 'hidden', boxShadow: theme.customShadows?.z1 }}
+                  sx={{
+                    flex: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    boxShadow: theme.customShadows?.z1
+                  }}
                 >
                   <TableContainer sx={{ flexGrow: 1, overflow: 'auto' }}>
                     <Table stickyHeader size="medium">
@@ -443,54 +474,64 @@ export default function ProviderEligibilityCheck() {
                           <TableCell width="40%">الاسم</TableCell>
                           <TableCell width="20%">الصلة</TableCell>
                           <TableCell width="25%">المستهلك</TableCell>
-                          <TableCell width="15%" align="center">الحالة</TableCell>
+                          <TableCell width="15%" align="center">
+                            الحالة
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {result.familyMembers
-                          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                          .map((member) => (
-                            <TableRow
-                              key={member.memberId}
-                              hover
-                              selected={selectedMember?.memberId === member.memberId}
-                              onClick={() => member.eligible && setSelectedMember(member)}
-                              sx={{ cursor: member.eligible ? 'pointer' : 'default' }}
-                            >
-                              <TableCell>
-                                <Typography variant="body2" fontWeight="700">{member.fullName}</Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={
-                                    member.relationship === 'SELF' ? 'مشترك أساسي' :
-                                      member.relationship === 'WIFE' ? 'زوجة' :
-                                        member.relationship === 'HUSBAND' ? 'زوج' :
-                                          member.relationship === 'SON' ? 'ابن' :
-                                            member.relationship === 'DAUGHTER' ? 'ابنة' :
-                                              member.relationship || 'مشترك أساسي'
-                                  }
-                                  size="small"
-                                  variant={member.relationship === 'SELF' ? 'filled' : 'outlined'}
-                                  color={member.relationship === 'SELF' ? 'primary' : 'default'}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" color="warning.dark" fontWeight="700">
-                                  {formatCurrency(member.usedAmount)}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Box
-                                  sx={{
-                                    width: 12, height: 12, borderRadius: '50%', mx: 'auto',
-                                    bgcolor: member.eligible ? 'success.main' : 'error.main',
-                                    boxShadow: 1
-                                  }}
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                        {result.familyMembers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((member) => (
+                          <TableRow
+                            key={member.memberId}
+                            hover
+                            selected={selectedMember?.memberId === member.memberId}
+                            onClick={() => member.eligible && setSelectedMember(member)}
+                            sx={{ cursor: member.eligible ? 'pointer' : 'default' }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="700">
+                                {member.fullName}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={
+                                  member.relationship === 'SELF'
+                                    ? 'مشترك أساسي'
+                                    : member.relationship === 'WIFE'
+                                      ? 'زوجة'
+                                      : member.relationship === 'HUSBAND'
+                                        ? 'زوج'
+                                        : member.relationship === 'SON'
+                                          ? 'ابن'
+                                          : member.relationship === 'DAUGHTER'
+                                            ? 'ابنة'
+                                            : member.relationship || 'مشترك أساسي'
+                                }
+                                size="small"
+                                variant={member.relationship === 'SELF' ? 'filled' : 'outlined'}
+                                color={member.relationship === 'SELF' ? 'primary' : 'default'}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="warning.dark" fontWeight="700">
+                                {formatCurrency(member.usedAmount)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Box
+                                sx={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: '50%',
+                                  mx: 'auto',
+                                  bgcolor: member.eligible ? 'success.main' : 'error.main',
+                                  boxShadow: 1
+                                }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
@@ -501,7 +542,10 @@ export default function ProviderEligibilityCheck() {
                     rowsPerPageOptions={[5, 10]}
                     page={page}
                     onPageChange={(e, p) => setPage(p)}
-                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPage(parseInt(e.target.value, 10));
+                      setPage(0);
+                    }}
                     labelRowsPerPage="صفوف:"
                   />
                 </MainCard>
@@ -528,37 +572,48 @@ export default function ProviderEligibilityCheck() {
                     <Stack spacing={3} justifyContent="center" sx={{ height: '100%' }}>
                       <Box sx={{ textAlign: 'center' }}>
                         {/* Beneficiary Photo Verification Area */}
-                        <Paper elevation={0} variant="outlined" sx={{
-                          width: 120,
-                          height: 120,
-                          borderRadius: '50%', // Circle shape
-                          bgcolor: 'grey.50',
-                          mx: 'auto',
-                          mb: 2,
-                          overflow: 'hidden',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '2px solid',
-                          borderColor: 'divider'
-                        }}>
+                        <Paper
+                          elevation={0}
+                          variant="outlined"
+                          sx={{
+                            width: 120,
+                            height: 120,
+                            borderRadius: '50%', // Circle shape
+                            bgcolor: 'grey.50',
+                            mx: 'auto',
+                            mb: 2,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '2px solid',
+                            borderColor: 'divider'
+                          }}
+                        >
                           <Stack alignItems="center" spacing={1} sx={{ color: 'text.disabled' }}>
                             <PersonIcon sx={{ fontSize: 60 }} />
                           </Stack>
                         </Paper>
 
-                        <Typography variant="caption" color="primary" fontWeight="bold">المنتفع المحدد</Typography>
-                        <Typography variant="h6" fontWeight="800" gutterBottom sx={{ lineHeight: 1.3 }}>{selectedMember.fullName}</Typography>
-                        <Typography variant="body2" color="text.secondary">{selectedMember.nationalId || 'ID: ---'}</Typography>
+                        <Typography variant="caption" color="primary" fontWeight="bold">
+                          المنتفع المحدد
+                        </Typography>
+                        <Typography variant="h6" fontWeight="800" gutterBottom sx={{ lineHeight: 1.3 }}>
+                          {selectedMember.fullName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedMember.nationalId || 'ID: ---'}
+                        </Typography>
                       </Box>
 
                       <Divider flexItem />
 
                       <Box sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
                         <Stack spacing={2}>
-
                           {visitError && (
-                            <Alert severity="error" sx={{ fontSize: '0.75rem' }}>{visitError}</Alert>
+                            <Alert severity="error" sx={{ fontSize: '0.75rem' }}>
+                              {visitError}
+                            </Alert>
                           )}
 
                           <Button
@@ -577,9 +632,15 @@ export default function ProviderEligibilityCheck() {
                               setRegisteringVisit(true);
                               setVisitError(null);
                               try {
-                                const res = await providerApi.registerVisit({ memberId: selectedMember.memberId, eligibilityCheckId: result.eligibilityCheckId, visitType: selectedVisitType });
+                                const res = await providerApi.registerVisit({
+                                  memberId: selectedMember.memberId,
+                                  eligibilityCheckId: result.eligibilityCheckId,
+                                  visitType: selectedVisitType
+                                });
                                 if (res.success) {
-                                  navigate('/provider/visits', { state: { successMessage: `تم تأكيد الزيارة لـ ${selectedMember.fullName}` } });
+                                  navigate('/provider/visits', {
+                                    state: { successMessage: `تم تأكيد الزيارة لـ ${selectedMember.fullName}` }
+                                  });
                                 } else {
                                   setVisitError(res.message || 'فشل تسجيل الزيارة');
                                 }
@@ -601,30 +662,39 @@ export default function ProviderEligibilityCheck() {
                   ) : (
                     <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ height: '100%', opacity: 0.5 }}>
                       <CardIcon fontSize="large" color="disabled" />
-                      <Typography variant="body2" textAlign="center">اختر منتفع من القائمة<br />لتفعيل خيارات تسجيل الزيارة</Typography>
+                      <Typography variant="body2" textAlign="center">
+                        اختر منتفع من القائمة
+                        <br />
+                        لتفعيل خيارات تسجيل الزيارة
+                      </Typography>
                     </Stack>
                   )}
                 </Paper>
               </Box>
-
             </Stack>
           ) : (
-            <Box sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px dashed',
-              borderColor: 'divider',
-              borderRadius: 2,
-              bgcolor: 'background.neutral',
-              gap: 2,
-              opacity: 0.7
-            }}>
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                bgcolor: 'background.neutral',
+                gap: 2,
+                opacity: 0.7
+              }}
+            >
               <HospitalIcon sx={{ fontSize: 80, color: 'text.disabled', opacity: 0.2 }} />
-              <Typography variant="h4" color="text.secondary" fontWeight="700">بانتظار التحقق</Typography>
-              <Typography variant="body1" color="text.secondary">استخدم وحدة التحكم للبدء</Typography>
+              <Typography variant="h4" color="text.secondary" fontWeight="700">
+                بانتظار التحقق
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                استخدم وحدة التحكم للبدء
+              </Typography>
             </Box>
           )}
         </Box>
@@ -632,10 +702,21 @@ export default function ProviderEligibilityCheck() {
 
       {/* QR Scanner Dialog */}
       <Dialog open={scannerOpen} onClose={handleCloseScannerDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>ماسح الباركود الذكي<IconButton onClick={handleCloseScannerDialog} sx={{ position: 'absolute', right: 16, top: 16 }}><CloseIcon /></IconButton></DialogTitle>
-        <DialogContent sx={{ p: 1 }}><Box id="qr-reader-provider" sx={{ width: '100%', '& video': { width: '100%', borderRadius: 16 } }} /></DialogContent>
-        <DialogActions sx={{ p: 2 }}><Button onClick={handleCloseScannerDialog} py={1} px={3} color="inherit">إغلاق</Button></DialogActions>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          ماسح الباركود الذكي
+          <IconButton onClick={handleCloseScannerDialog} sx={{ position: 'absolute', right: 16, top: 16 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 1 }}>
+          <Box id="qr-reader-provider" sx={{ width: '100%', '& video': { width: '100%', borderRadius: 16 } }} />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseScannerDialog} py={1} px={3} color="inherit">
+            إغلاق
+          </Button>
+        </DialogActions>
       </Dialog>
-    </Box >
+    </Box>
   );
 }
