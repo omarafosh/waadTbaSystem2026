@@ -1,0 +1,3 @@
+## 2026-03-07 - [Backend Query Optimization] Avoid in-memory full-table filtering
+**Learning:** Found an architectural bottleneck where Spring Data `repository.findAll().stream().filter(...)` was used to filter records (like PreAuthorizations) in the service layer. This reads the entire database table into application memory on every check, causing massive performance and memory overhead (O(N) memory load + potential N+1 query effects).
+**Action:** Always push data filtering logic to the database layer by writing targeted JPQL `@Query` methods instead of relying on Java Streams on full collections.
