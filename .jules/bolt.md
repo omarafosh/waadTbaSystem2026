@@ -1,0 +1,3 @@
+## 2024-05-18 - Missing batch retrieval in ProviderContractService
+**Learning:** The `ProviderContractService` only provides `getEffectivePrice(Long, String, LocalDate)`, which forces N+1 query patterns when processing claims with multiple lines. Although I optimized `MedicalService` retrieval by batching, `providerContractService.getEffectivePrice` remains a bottleneck that requires architectural changes (batch methods) to resolve completely.
+**Action:** Be aware that certain N+1 queries in this codebase might be unavoidable without expanding service-layer APIs. When optimizing mappers, always check if the downstream services offer batch retrieval methods before assuming full loop optimization is possible.
