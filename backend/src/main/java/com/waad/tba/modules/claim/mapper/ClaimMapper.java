@@ -133,6 +133,17 @@ public class ClaimMapper {
             throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Claims MUST have at least one line");
         }
         
+        // ⚡ BOLT OPTIMIZATION: Prevent N+1 query by batch fetching MedicalService entities
+        List<Long> medicalServiceIds = dto.getLines().stream()
+                .map(ClaimLineDto::getMedicalServiceId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        java.util.Map<Long, MedicalService> medicalServiceMap = medicalServiceRepository.findAllById(medicalServiceIds)
+                .stream()
+                .collect(Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+
         BigDecimal totalRequestedAmount = BigDecimal.ZERO;
         List<ClaimLine> lines = new ArrayList<>();
         List<String> servicesRequiringPA = new ArrayList<>(); // Track services that need PA
@@ -143,9 +154,11 @@ public class ClaimMapper {
                 throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Each line MUST reference a MedicalService");
             }
             
-            // Fetch MedicalService
-            MedicalService medicalService = medicalServiceRepository.findById(lineDto.getMedicalServiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId()));
+            // ⚡ BOLT OPTIMIZATION: O(1) in-memory lookup instead of DB fetch
+            MedicalService medicalService = medicalServiceMap.get(lineDto.getMedicalServiceId());
+            if (medicalService == null) {
+                throw new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId());
+            }
             
             // Get contract price from ProviderContractService
             EffectivePriceResponseDto priceResponse = providerContractService.getEffectivePrice(
