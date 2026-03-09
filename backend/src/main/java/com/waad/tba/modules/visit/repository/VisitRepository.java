@@ -22,15 +22,25 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     @Query("SELECT v FROM Visit v WHERE v.member.employerOrganization.id = :employerId")
     List<Visit> findByMemberEmployerId(@Param("employerId") Long employerId);
     
+    // ⚡ Bolt Optimization: explicit countQuery prevents an expensive unoptimized fetch join during count phase
     // PHASE 5.B: Paginated employer filtering with FETCH JOIN for member
-    @Query("SELECT v FROM Visit v " +
+    @Query(value = "SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
-           "WHERE v.member.employerOrganization.id = :employerId")
+           "WHERE v.member.employerOrganization.id = :employerId",
+           countQuery = "SELECT COUNT(v) FROM Visit v WHERE v.member.employerOrganization.id = :employerId")
     Page<Visit> findByMemberEmployerId(@Param("employerId") Long employerId, Pageable pageable);
     
+    // ⚡ Bolt Optimization: explicit countQuery removes FETCH to speed up pagination total count retrieval
     // PHASE 5.B: Search with employer filtering - FETCH JOIN for member
-    @Query("SELECT v FROM Visit v " +
+    @Query(value = "SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "WHERE v.member.employerOrganization.id = :employerId AND (" +
+           "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :q, '%')))",
+           countQuery = "SELECT COUNT(v) FROM Visit v " +
+           "LEFT JOIN v.member m " +
            "WHERE v.member.employerOrganization.id = :employerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
@@ -65,9 +75,16 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<Visit> searchByProviderId(@Param("query") String query, @Param("providerId") Long providerId);
 
+    // ⚡ Bolt Optimization: explicit countQuery removes FETCH to speed up pagination total count retrieval
     // PHASE 5.B: Search paginated with FETCH JOIN for member
-    @Query("SELECT v FROM Visit v " +
+    @Query(value = "SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "WHERE LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :q, '%'))",
+           countQuery = "SELECT COUNT(v) FROM Visit v " +
+           "LEFT JOIN v.member m " +
            "WHERE LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
@@ -79,14 +96,24 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.providerId = :providerId")
     List<Visit> findByProviderId(@Param("providerId") Long providerId);
 
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.providerId = :providerId")
+    // ⚡ Bolt Optimization: explicit countQuery prevents an expensive unoptimized fetch join during count phase
+    @Query(value = "SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.providerId = :providerId",
+           countQuery = "SELECT COUNT(v) FROM Visit v WHERE v.providerId = :providerId")
     Page<Visit> findByProviderId(@Param("providerId") Long providerId, Pageable pageable);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PROVIDER DATA ISOLATION (2026-01-16): Search with provider filtering
     // ═══════════════════════════════════════════════════════════════════════════
-    @Query("SELECT v FROM Visit v " +
+    // ⚡ Bolt Optimization: explicit countQuery removes FETCH to speed up pagination total count retrieval
+    @Query(value = "SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "WHERE v.providerId = :providerId AND (" +
+           "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :q, '%')))",
+           countQuery = "SELECT COUNT(v) FROM Visit v " +
+           "LEFT JOIN v.member m " +
            "WHERE v.providerId = :providerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
