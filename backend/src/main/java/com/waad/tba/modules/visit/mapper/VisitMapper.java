@@ -46,7 +46,12 @@ public class VisitMapper {
         
         // Get provider name
         String providerName = null;
-        if (entity.getProviderId() != null) {
+        if (entity.getProvider() != null) {
+            // Optimized: Use the entity's read-only @ManyToOne relationship directly
+            // which avoids the N+1 query problem by using the LEFT JOIN FETCH from the repository.
+            providerName = entity.getProvider().getName();
+        } else if (entity.getProviderId() != null) {
+            // Fallback just in case it wasn't fetched
             Provider provider = providerRepository.findById(entity.getProviderId()).orElse(null);
             if (provider != null) {
                 providerName = provider.getName();
