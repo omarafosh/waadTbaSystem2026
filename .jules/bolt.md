@@ -1,0 +1,3 @@
+## 2026-03-10 - [Optimize ClaimMapper MedicalService fetching]
+**Learning:** `ClaimMapper.toEntity` iterates over `ClaimLineDto`s to build `ClaimLine`s and resolve contract pricing. It previously fetched the associated `MedicalService` individually inside the loop (`medicalServiceRepository.findById()`), leading to an N+1 query bottleneck for claims with many lines.
+**Action:** When mapping collections of child DTOs to entities, extract all foreign keys, batch-fetch the required reference entities pre-loop (e.g. `repository.findAllById`), and map them to an in-memory dictionary for O(1) lookups inside the mapping loop.
