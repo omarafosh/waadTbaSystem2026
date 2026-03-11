@@ -846,10 +846,92 @@ public class BenefitPolicyCoverageService {
             return result;
         }
         
-        for (Long serviceId : serviceIds) {
-            // Using existing single-item method (could be optimized with "IN" query later)
-            result.put(serviceId, getEffectiveCoveragePercent(member, serviceId, encounterType));
+        BenefitPolicy policy = member.getBenefitPolicy();
+        if (policy == null) {
+            for (Long serviceId : serviceIds) {
+                result.put(serviceId, 0);
+            }
+            return result;
         }
+
+        // Optimize: Batch fetch all medical services
+        List<MedicalService> services = serviceRepository.findAllById(serviceIds);
+        java.util.Map<Long, MedicalService> serviceMap = services.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        MedicalService::getId,
+                        java.util.function.Function.identity(),
+                        (existing, replacement) -> existing
+                ));
+
+        // Extract distinct category IDs
+        List<Long> categoryIds = services.stream()
+                .map(MedicalService::getCategoryId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+
+        // Ensure categoryIds is not empty for the query (or just pass empty list if DB handles it, but better safe)
+        if (categoryIds.isEmpty()) {
+             // add a dummy ID to prevent SQL syntax errors in IN clause if hibernate fails to optimize
+             categoryIds.add(-1L);
+        }
+
+        // Optimize: Batch fetch applicable rules
+        List<BenefitPolicyRule> applicableRules = ruleRepository.findApplicableRulesForServices(
+                policy.getId(), serviceIds, categoryIds, encounterType);
+
+        // Map rules for fast lookup
+        // We need to resolve the BEST rule for each service just like the canonical method
+        for (Long serviceId : serviceIds) {
+            MedicalService service = serviceMap.get(serviceId);
+            if (service == null) {
+                result.put(serviceId, 0);
+                continue;
+            }
+
+            Long categoryId = service.getCategoryId();
+
+            // Find best rule manually from the fetched list
+            // Order of precedence matches canonical logic:
+            // 1. Direct service match + exact encounter type
+            // 2. Direct service match + null encounter type
+            // 3. Category match + exact encounter type
+            // 4. Category match + null encounter type
+            BenefitPolicyRule bestRule = null;
+            int bestScore = 5; // Lower is better, 5 means none found
+
+            for (BenefitPolicyRule rule : applicableRules) {
+                int score = 5;
+                if (rule.getMedicalService() != null && rule.getMedicalService().getId().equals(serviceId)) {
+                    if (encounterType == rule.getEncounterType()) {
+                        score = 0;
+                    } else if (rule.getEncounterType() == null) {
+                        score = 1;
+                    }
+                } else if (rule.getMedicalCategory() != null && rule.getMedicalCategory().getId().equals(categoryId) && rule.getMedicalService() == null) {
+                    if (encounterType == rule.getEncounterType()) {
+                        score = 2;
+                    } else if (rule.getEncounterType() == null) {
+                        score = 3;
+                    }
+                }
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestRule = rule;
+                }
+            }
+
+            if (bestRule != null) {
+                result.put(serviceId, bestRule.getEffectiveCoveragePercent());
+            } else {
+                // Fallback to POLICY_DEFAULT
+                result.put(serviceId, policy.getDefaultCoveragePercent() != null
+                    ? policy.getDefaultCoveragePercent()
+                    : SYSTEM_DEFAULT_COVERAGE_PERCENT);
+            }
+        }
+
         return result;
     }
 
