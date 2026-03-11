@@ -831,6 +831,7 @@ public class BenefitPolicyCoverageService {
 
     /**
      * Batch get coverage percentages for multiple services.
+     * Optimized to use an IN query to avoid N+1 query bottlenecks.
      * 
      * @param member The member
      * @param serviceIds List of service IDs
@@ -846,10 +847,89 @@ public class BenefitPolicyCoverageService {
             return result;
         }
         
-        for (Long serviceId : serviceIds) {
-            // Using existing single-item method (could be optimized with "IN" query later)
-            result.put(serviceId, getEffectiveCoveragePercent(member, serviceId, encounterType));
+        BenefitPolicy policy = member.getBenefitPolicy();
+        if (policy == null) {
+            for (Long serviceId : serviceIds) {
+                result.put(serviceId, 0);
+            }
+            return result;
         }
+
+        // 1. Fetch MedicalServices and map categories
+        List<MedicalService> services = serviceRepository.findAllById(serviceIds);
+        java.util.Map<Long, MedicalService> serviceMap = services.stream()
+            .collect(java.util.stream.Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+
+        List<Long> categoryIds = services.stream()
+            .map(MedicalService::getCategoryId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .collect(java.util.stream.Collectors.toList());
+
+        // Handle empty lists for the query
+        if (categoryIds.isEmpty()) {
+            categoryIds.add(-1L);
+        }
+
+        List<Long> queryServiceIds = serviceIds.isEmpty() ? java.util.Collections.singletonList(-1L) : serviceIds;
+
+        // 2. Fetch all matching rules for the given policy, services, and categories
+        List<BenefitPolicyRule> applicableRules = ruleRepository.findApplicableRulesForServices(
+            policy.getId(), queryServiceIds, categoryIds, encounterType);
+
+        // 3. Process each service to resolve its specific coverage
+        for (Long serviceId : serviceIds) {
+            MedicalService service = serviceMap.get(serviceId);
+            if (service == null) {
+                result.put(serviceId, 0);
+                continue;
+            }
+
+            Long categoryId = service.getCategoryId();
+
+            // Find best rule among fetched rules manually to mimic logic of findBestRuleForService
+            Optional<BenefitPolicyRule> bestRuleOpt = applicableRules.stream()
+                .filter(r -> (r.getMedicalService() != null && r.getMedicalService().getId().equals(serviceId)) ||
+                             (r.getMedicalCategory() != null && r.getMedicalCategory().getId().equals(categoryId) && r.getMedicalService() == null))
+                .min((r1, r2) -> {
+                    int score1 = 4;
+                    if (r1.getMedicalService() != null && r1.getMedicalService().getId().equals(serviceId) && java.util.Objects.equals(r1.getEncounterType(), encounterType)) score1 = 0;
+                    else if (r1.getMedicalService() != null && r1.getMedicalService().getId().equals(serviceId) && r1.getEncounterType() == null) score1 = 1;
+                    else if (r1.getMedicalCategory() != null && r1.getMedicalCategory().getId().equals(categoryId) && java.util.Objects.equals(r1.getEncounterType(), encounterType)) score1 = 2;
+                    else if (r1.getMedicalCategory() != null && r1.getMedicalCategory().getId().equals(categoryId) && r1.getEncounterType() == null) score1 = 3;
+
+                    int score2 = 4;
+                    if (r2.getMedicalService() != null && r2.getMedicalService().getId().equals(serviceId) && java.util.Objects.equals(r2.getEncounterType(), encounterType)) score2 = 0;
+                    else if (r2.getMedicalService() != null && r2.getMedicalService().getId().equals(serviceId) && r2.getEncounterType() == null) score2 = 1;
+                    else if (r2.getMedicalCategory() != null && r2.getMedicalCategory().getId().equals(categoryId) && java.util.Objects.equals(r2.getEncounterType(), encounterType)) score2 = 2;
+                    else if (r2.getMedicalCategory() != null && r2.getMedicalCategory().getId().equals(categoryId) && r2.getEncounterType() == null) score2 = 3;
+
+                    return Integer.compare(score1, score2);
+                });
+
+            ResolvedCoverage coverage = null;
+            if (bestRuleOpt.isPresent()) {
+                BenefitPolicyRule rule = bestRuleOpt.get();
+                CoverageSource source = rule.isCategoryRule() ? CoverageSource.CATEGORY_RULE : CoverageSource.SERVICE_RULE;
+                coverage = ResolvedCoverage.fromRule(rule, source);
+            } else {
+                coverage = ResolvedCoverage.builder()
+                    .covered(true)
+                    .coveragePercent(policy.getDefaultCoveragePercent() != null
+                        ? policy.getDefaultCoveragePercent()
+                        : SYSTEM_DEFAULT_COVERAGE_PERCENT)
+                    .requiresPreApproval(DEFAULT_REQUIRES_PA)
+                    .source(CoverageSource.POLICY_DEFAULT)
+                    .build();
+            }
+
+            if (coverage == null || !coverage.isCovered()) {
+                result.put(serviceId, 0);
+            } else {
+                result.put(serviceId, coverage.getCoveragePercent());
+            }
+        }
+
         return result;
     }
 
