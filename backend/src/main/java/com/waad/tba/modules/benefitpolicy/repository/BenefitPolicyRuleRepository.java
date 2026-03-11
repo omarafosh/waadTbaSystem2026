@@ -153,6 +153,26 @@ public interface BenefitPolicyRuleRepository extends JpaRepository<BenefitPolicy
             @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType);
 
     /**
+     * Find best rules for multiple services within a policy using an IN clause.
+     * Order rules appropriately in java code or through a clever result mapping.
+     */
+    @Query("""
+        SELECT r FROM BenefitPolicyRule r
+        WHERE r.benefitPolicy.id = :policyId
+          AND r.active = true
+          AND (
+              r.medicalService.id IN :serviceIds
+              OR (r.medicalCategory.id IN :categoryIds AND r.medicalService IS NULL)
+          )
+          AND (r.encounterType = :encounterType OR r.encounterType IS NULL)
+        """)
+    List<BenefitPolicyRule> findApplicableRulesForServices(
+            @Param("policyId") Long policyId,
+            @Param("serviceIds") List<Long> serviceIds,
+            @Param("categoryIds") List<Long> categoryIds,
+            @Param("encounterType") com.waad.tba.modules.visit.entity.VisitType encounterType);
+
+    /**
      * Find active category rule for a policy
      */
     @Query("""
