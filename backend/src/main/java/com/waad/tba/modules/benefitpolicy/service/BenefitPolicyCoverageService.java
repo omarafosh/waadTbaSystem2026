@@ -845,11 +845,81 @@ public class BenefitPolicyCoverageService {
         if (serviceIds == null || serviceIds.isEmpty()) {
             return result;
         }
-        
-        for (Long serviceId : serviceIds) {
-            // Using existing single-item method (could be optimized with "IN" query later)
-            result.put(serviceId, getEffectiveCoveragePercent(member, serviceId, encounterType));
+
+        BenefitPolicy policy = member.getBenefitPolicy();
+        if (policy == null) {
+            for (Long serviceId : serviceIds) {
+                result.put(serviceId, 0);
+            }
+            return result;
         }
+
+        // Batch fetch services to avoid N+1 queries
+        List<MedicalService> services = serviceRepository.findAllById(serviceIds);
+
+        // Extract category IDs
+        List<Long> categoryIds = new java.util.ArrayList<>();
+        for (MedicalService service : services) {
+            if (service.getCategoryId() != null) {
+                categoryIds.add(service.getCategoryId());
+            }
+        }
+
+        // Prevent JPA syntax error for empty IN clauses
+        List<Long> safeServiceIds = serviceIds.isEmpty() ? List.of(-1L) : serviceIds;
+        List<Long> safeCategoryIds = categoryIds.isEmpty() ? List.of(-1L) : categoryIds;
+
+        // Batch fetch rules
+        List<BenefitPolicyRule> rules = ruleRepository.findApplicableRulesForServicesAndCategories(
+                policy.getId(), safeServiceIds, safeCategoryIds, encounterType);
+
+        // Pre-compute rule maps for faster lookup
+        // We replicate the logic of findApplicableRulesForService here
+        for (MedicalService service : services) {
+            Long serviceId = service.getId();
+            Long categoryId = service.getCategoryId();
+
+            BenefitPolicyRule bestRule = null;
+            int bestPriority = Integer.MAX_VALUE;
+
+            for (BenefitPolicyRule rule : rules) {
+                boolean matchesService = rule.getMedicalService() != null && rule.getMedicalService().getId().equals(serviceId);
+                boolean matchesCategory = rule.getMedicalCategory() != null && rule.getMedicalService() == null && categoryId != null && rule.getMedicalCategory().getId().equals(categoryId);
+
+                if (matchesService || matchesCategory) {
+                    boolean exactEncounterMatch = rule.getEncounterType() == encounterType;
+                    boolean nullEncounterMatch = rule.getEncounterType() == null;
+
+                    int priority = 4;
+                    if (matchesService && exactEncounterMatch) priority = 0;
+                    else if (matchesService && nullEncounterMatch) priority = 1;
+                    else if (matchesCategory && exactEncounterMatch) priority = 2;
+                    else if (matchesCategory && nullEncounterMatch) priority = 3;
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestRule = rule;
+                    }
+                }
+            }
+
+            if (bestRule != null) {
+                result.put(serviceId, bestRule.getEffectiveCoveragePercent());
+            } else {
+                int defaultCoverage = policy.getDefaultCoveragePercent() != null
+                    ? policy.getDefaultCoveragePercent()
+                    : SYSTEM_DEFAULT_COVERAGE_PERCENT;
+                result.put(serviceId, defaultCoverage);
+            }
+        }
+        
+        // Ensure all requested service IDs are in the result (e.g., if a service ID was not found in the DB)
+        for (Long serviceId : serviceIds) {
+            if (!result.containsKey(serviceId)) {
+                result.put(serviceId, 0); // Not found -> 0 coverage
+            }
+        }
+
         return result;
     }
 
