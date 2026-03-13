@@ -62,27 +62,35 @@ public class PreAuthDashboardService {
     public OverallStats getOverallStats() {
         log.info("[DASHBOARD] Calculating overall statistics");
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
+        // ⚡ Bolt: Replace O(N) memory load with O(1) database aggregation
+        List<Object[]> results = preAuthRepository.getDashboardAggregations();
 
-        long totalCount = all.size();
-        long pendingCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.PENDING).count();
-        long approvedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED).count();
-        long rejectedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.REJECTED).count();
+        long totalCount = 0;
+        long pendingCount = 0;
+        long approvedCount = 0;
+        long rejectedCount = 0;
 
-        // CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
-        BigDecimal totalRequested = all.stream()
-                .map(PreAuthorization::getContractPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalRequested = BigDecimal.ZERO;
+        BigDecimal totalApproved = BigDecimal.ZERO;
 
-        BigDecimal totalApproved = all.stream()
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .map(PreAuthorization::getApprovedAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (Object[] row : results) {
+            PreAuthStatus status = (PreAuthStatus) row[0];
+            BigDecimal contractPrice = (BigDecimal) row[1];
+            BigDecimal approvedAmount = (BigDecimal) row[2];
+            Long count = ((Number) row[3]).longValue();
+
+            totalCount += count;
+            totalRequested = totalRequested.add(contractPrice != null ? contractPrice : BigDecimal.ZERO);
+
+            if (status == PreAuthStatus.PENDING) {
+                pendingCount += count;
+            } else if (status == PreAuthStatus.APPROVED) {
+                approvedCount += count;
+                totalApproved = totalApproved.add(approvedAmount != null ? approvedAmount : BigDecimal.ZERO);
+            } else if (status == PreAuthStatus.REJECTED) {
+                rejectedCount += count;
+            }
+        }
 
         BigDecimal avgApproved = approvedCount > 0
                 ? totalApproved.divide(BigDecimal.valueOf(approvedCount), 2, RoundingMode.HALF_UP)
@@ -116,15 +124,18 @@ public class PreAuthDashboardService {
     public StatusDistribution getStatusDistribution() {
         log.info("[DASHBOARD] Calculating status distribution");
 
-        List<Object[]> results = preAuthRepository.sumAmountsByStatus();
+        // ⚡ Bolt: Read from unified dashboard aggregation query
+        List<Object[]> results = preAuthRepository.getDashboardAggregations();
         Map<PreAuthStatus, StatusData> statusMap = new HashMap<>();
 
         for (Object[] row : results) {
             PreAuthStatus status = (PreAuthStatus) row[0];
-            BigDecimal amount = (BigDecimal) row[1];
-            Long count = (Long) row[2];
+            // row[1] is contractPrice (requested amount)
+            BigDecimal approvedAmount = (BigDecimal) row[2];
+            Long count = ((Number) row[3]).longValue();
 
-            statusMap.put(status, new StatusData(count, amount != null ? amount : BigDecimal.ZERO));
+            // StatusDistribution specifically expects the approved/processed amount per status
+            statusMap.put(status, new StatusData(count, approvedAmount != null ? approvedAmount : BigDecimal.ZERO));
         }
 
         return StatusDistribution.builder()

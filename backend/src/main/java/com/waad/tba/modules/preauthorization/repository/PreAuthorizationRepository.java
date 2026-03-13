@@ -212,13 +212,14 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     List<Object[]> countByStatus();
 
     /**
-     * Sum approved amounts by status
+     * Get aggregated metrics grouped by status (replaces O(N) memory filtering)
+     * Returns: status, SUM(contractPrice), SUM(approvedAmount), COUNT(pa)
      */
-    @Query("SELECT pa.status, SUM(pa.approvedAmount), COUNT(pa) " +
+    @Query("SELECT pa.status, SUM(pa.contractPrice), SUM(pa.approvedAmount), COUNT(pa) " +
            "FROM PreAuthorization pa " +
            "WHERE pa.active = true " +
            "GROUP BY pa.status")
-    List<Object[]> sumAmountsByStatus();
+    List<Object[]> getDashboardAggregations();
 
     /**
      * Get statistics for date range
