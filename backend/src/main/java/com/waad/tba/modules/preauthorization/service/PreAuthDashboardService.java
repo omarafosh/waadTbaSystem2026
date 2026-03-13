@@ -62,27 +62,28 @@ public class PreAuthDashboardService {
     public OverallStats getOverallStats() {
         log.info("[DASHBOARD] Calculating overall statistics");
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
+        List<Object[]> statsList = preAuthRepository.getOverallDashboardStats();
+        Object[] row = (statsList != null && !statsList.isEmpty()) ? statsList.get(0) : null;
 
-        long totalCount = all.size();
-        long pendingCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.PENDING).count();
-        long approvedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED).count();
-        long rejectedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.REJECTED).count();
+        long totalCount = 0L;
+        long pendingCount = 0L;
+        long approvedCount = 0L;
+        long rejectedCount = 0L;
+        BigDecimal totalRequested = BigDecimal.ZERO;
+        BigDecimal totalApproved = BigDecimal.ZERO;
 
-        // CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
-        BigDecimal totalRequested = all.stream()
-                .map(PreAuthorization::getContractPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (row != null && row.length >= 6) {
+            totalCount = row[0] != null ? ((Number) row[0]).longValue() : 0L;
+            pendingCount = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            approvedCount = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            rejectedCount = row[3] != null ? ((Number) row[3]).longValue() : 0L;
 
-        BigDecimal totalApproved = all.stream()
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .map(PreAuthorization::getApprovedAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Safely cast BigDecimal, handling potential Double/Number returns from SUM
+            totalRequested = row[4] != null ?
+                    (row[4] instanceof BigDecimal ? (BigDecimal) row[4] : new BigDecimal(((Number) row[4]).doubleValue())) : BigDecimal.ZERO;
+            totalApproved = row[5] != null ?
+                    (row[5] instanceof BigDecimal ? (BigDecimal) row[5] : new BigDecimal(((Number) row[5]).doubleValue())) : BigDecimal.ZERO;
+        }
 
         BigDecimal avgApproved = approvedCount > 0
                 ? totalApproved.divide(BigDecimal.valueOf(approvedCount), 2, RoundingMode.HALF_UP)
