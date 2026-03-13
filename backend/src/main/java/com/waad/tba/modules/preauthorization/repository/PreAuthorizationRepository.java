@@ -238,6 +238,20 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
             @Param("endDate") LocalDate endDate
     );
 
+    /**
+     * Get overall statistics for dashboard
+     */
+    @Query("SELECT " +
+           "COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization$PreAuthStatus.PENDING THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization$PreAuthStatus.APPROVED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization$PreAuthStatus.REJECTED THEN 1 ELSE 0 END), " +
+           "SUM(pa.contractPrice), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization$PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true")
+    List<Object[]> getOverallDashboardStats();
+
     // ==================== Priority Queries ====================
 
     /**
