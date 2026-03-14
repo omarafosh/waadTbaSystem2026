@@ -164,6 +164,10 @@ public class VisitMapper {
         
         return Visit.builder()
                 .member(member)
+                // ⚡ Bolt Performance Optimization:
+                // Populate the denormalized employerOrganization field to enable safe use of the
+                // idx_visits_employer_id database index for direct employer lookups without JOINs.
+                .employerOrganization(member != null ? member.getEmployerOrganization() : null)
                 .providerId(dto.getProviderId())
                 .visitDate(dto.getVisitDate())
                 .doctorName(dto.getDoctorName())
@@ -181,6 +185,12 @@ public class VisitMapper {
         if (dto == null) return;
         
         entity.setMember(member);
+
+        // ⚡ Bolt Performance Optimization:
+        // Populate the denormalized employerOrganization field to enable safe use of the
+        // idx_visits_employer_id database index for direct employer lookups without JOINs.
+        entity.setEmployerOrganization(member != null ? member.getEmployerOrganization() : null);
+
         entity.setProviderId(dto.getProviderId());
         entity.setVisitDate(dto.getVisitDate());
         entity.setDoctorName(dto.getDoctorName());
