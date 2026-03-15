@@ -175,6 +175,8 @@ public class PreAuthDashboardService {
 
     /**
      * Get trend data (daily aggregation for last N days)
+     * ⚡ BOLT OPTIMIZATION: Uses DB-level aggregation (getTrendStatsByDateAndStatus)
+     * instead of loading all PreAuthorizations into memory and filtering/summing via streams.
      */
     @Transactional(readOnly = true)
     public List<TrendData> getTrends(int days) {
@@ -183,12 +185,7 @@ public class PreAuthDashboardService {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(days);
 
-        List<PreAuthorization> allInRange = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .filter(pa -> pa.getRequestDate() != null)
-                .filter(pa -> !pa.getRequestDate().isBefore(startDate))
-                .collect(Collectors.toList());
+        List<Object[]> results = preAuthRepository.getTrendStatsByDateAndStatus(startDate);
 
         Map<LocalDate, TrendData> trendMap = new HashMap<>();
 
@@ -206,25 +203,24 @@ public class PreAuthDashboardService {
         }
 
         // Aggregate data by date
-        for (PreAuthorization pa : allInRange) {
-            LocalDate date = pa.getRequestDate();
+        for (Object[] row : results) {
+            LocalDate date = (LocalDate) row[0];
+            PreAuthStatus status = (PreAuthStatus) row[1];
+            Long count = (Long) row[2];
+            BigDecimal contractPrice = (BigDecimal) row[3];
+            BigDecimal approvedAmount = (BigDecimal) row[4];
+
             TrendData trend = trendMap.get(date);
-
             if (trend != null) {
-                trend.setCreated(trend.getCreated() + 1);
+                trend.setCreated(trend.getCreated() + count);
+                trend.setTotalAmount(trend.getTotalAmount().add(contractPrice != null ? contractPrice : BigDecimal.ZERO));
 
-                if (pa.getStatus() == PreAuthStatus.APPROVED) {
-                    trend.setApproved(trend.getApproved() + 1);
-                    trend.setApprovedAmount(trend.getApprovedAmount().add(
-                            pa.getApprovedAmount() != null ? pa.getApprovedAmount() : BigDecimal.ZERO));
+                if (status == PreAuthStatus.APPROVED) {
+                    trend.setApproved(trend.getApproved() + count);
+                    trend.setApprovedAmount(trend.getApprovedAmount().add(approvedAmount != null ? approvedAmount : BigDecimal.ZERO));
+                } else if (status == PreAuthStatus.REJECTED) {
+                    trend.setRejected(trend.getRejected() + count);
                 }
-
-                if (pa.getStatus() == PreAuthStatus.REJECTED) {
-                    trend.setRejected(trend.getRejected() + 1);
-                }
-
-                trend.setTotalAmount(trend.getTotalAmount().add(
-                        pa.getContractPrice() != null ? pa.getContractPrice() : BigDecimal.ZERO));
             }
         }
 
@@ -235,60 +231,46 @@ public class PreAuthDashboardService {
 
     /**
      * Get top providers by volume
+     * ⚡ BOLT OPTIMIZATION: Uses DB-level aggregation with PageRequest (findTopProviderStats)
+     * instead of loading all active PreAuthorizations into memory and building maps manually.
      */
     @Transactional(readOnly = true)
     public List<ProviderSummary> getTopProviders(int limit) {
         log.info("[DASHBOARD] Fetching top {} providers by volume", limit);
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
+        List<Object[]> results = preAuthRepository.findTopProviderStats(PageRequest.of(0, limit));
 
-        Map<Long, ProviderStats> providerStatsMap = new HashMap<>();
-
-        for (PreAuthorization pa : all) {
-            Long providerId = pa.getProviderId();
-            ProviderStats stats = providerStatsMap.computeIfAbsent(providerId, k -> new ProviderStats());
-
-            stats.totalPreAuths++;
-
-            if (pa.getStatus() == PreAuthStatus.APPROVED) {
-                stats.approvedCount++;
-                stats.totalApprovedAmount = stats.totalApprovedAmount.add(
-                        pa.getApprovedAmount() != null ? pa.getApprovedAmount() : BigDecimal.ZERO);
-            }
-        }
-
-        // Fetch provider details and build summaries
         List<ProviderSummary> summaries = new ArrayList<>();
 
-        for (Map.Entry<Long, ProviderStats> entry : providerStatsMap.entrySet()) {
-            Long providerId = entry.getKey();
-            ProviderStats stats = entry.getValue();
+        for (Object[] row : results) {
+            Long providerId = (Long) row[0];
+            Long totalPreAuths = (Long) row[1];
+            Long approvedCount = (Long) row[2];
+            BigDecimal totalApprovedAmount = (BigDecimal) row[3];
+
+            if (totalPreAuths == null) totalPreAuths = 0L;
+            if (approvedCount == null) approvedCount = 0L;
+            if (totalApprovedAmount == null) totalApprovedAmount = BigDecimal.ZERO;
 
             Provider provider = providerRepository.findById(providerId).orElse(null);
             if (provider == null) continue;
 
-            double approvalRate = stats.totalPreAuths > 0
-                    ? (stats.approvedCount * 100.0 / stats.totalPreAuths)
+            double approvalRate = totalPreAuths > 0
+                    ? (approvedCount * 100.0 / totalPreAuths)
                     : 0.0;
 
             summaries.add(ProviderSummary.builder()
                     .providerId(providerId)
                     .providerName(provider.getName())
                     .licenseNumber(provider.getLicenseNumber())
-                    .totalPreAuths(stats.totalPreAuths)
-                    .approvedCount(stats.approvedCount)
-                    .totalApprovedAmount(stats.totalApprovedAmount)
+                    .totalPreAuths(totalPreAuths)
+                    .approvedCount(approvedCount)
+                    .totalApprovedAmount(totalApprovedAmount)
                     .approvalRate(Math.round(approvalRate * 100.0) / 100.0)
                     .build());
         }
 
-        return summaries.stream()
-                .sorted(Comparator.comparing(ProviderSummary::getTotalPreAuths).reversed())
-                .limit(limit)
-                .collect(Collectors.toList());
+        return summaries;
     }
 
     /**

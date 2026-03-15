@@ -221,6 +221,31 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     List<Object[]> sumAmountsByStatus();
 
     /**
+     * ⚡ BOLT OPTIMIZATION: Get trend data aggregated by date and status
+     * Replaces O(N) memory load of all PreAuthorizations with a single DB aggregation
+     */
+    @Query("SELECT pa.requestDate, pa.status, COUNT(pa), SUM(pa.contractPrice), SUM(pa.approvedAmount) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true " +
+           "AND pa.requestDate >= :startDate " +
+           "GROUP BY pa.requestDate, pa.status")
+    List<Object[]> getTrendStatsByDateAndStatus(@Param("startDate") LocalDate startDate);
+
+    /**
+     * ⚡ BOLT OPTIMIZATION: Get top provider volumes aggregated at the DB level
+     * Replaces an O(N) memory loop that loaded all records to perform counts and sums
+     */
+    @Query("SELECT pa.providerId, " +
+           "COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN 1L ELSE 0L END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true " +
+           "GROUP BY pa.providerId " +
+           "ORDER BY COUNT(pa) DESC")
+    List<Object[]> findTopProviderStats(Pageable pageable);
+
+    /**
      * Get statistics for date range
      * CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
      */
