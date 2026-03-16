@@ -41,11 +41,11 @@ public class ProviderAllowedEmployer {
     @Column(name = "updated_by")
     private String updatedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY) // BOLT: Switched to LAZY to prevent N+1 queries during Provider loading. Uses Organization @BatchSize(25) for efficient proxy fetching.
     @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
 
-    @ManyToOne(fetch = FetchType.EAGER) // Eager because we usually need names
+    @ManyToOne(fetch = FetchType.LAZY) // BOLT: Switched to LAZY to prevent N+1 queries during Provider loading. Uses Organization @BatchSize(25) for efficient proxy fetching.
     @JoinColumn(name = "employer_id", nullable = false)
     private Organization employer;
 
