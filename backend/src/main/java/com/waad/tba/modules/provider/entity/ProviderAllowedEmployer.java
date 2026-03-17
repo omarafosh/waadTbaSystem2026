@@ -45,7 +45,7 @@ public class ProviderAllowedEmployer {
     @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
 
-    @ManyToOne(fetch = FetchType.EAGER) // Eager because we usually need names
+    @ManyToOne(fetch = FetchType.LAZY) // Lazy to prevent N+1 query bottlenecks during Provider fetches. Organization relies on @BatchSize for efficient batch loading when names are needed.
     @JoinColumn(name = "employer_id", nullable = false)
     private Organization employer;
 
