@@ -1,0 +1,3 @@
+## 2026-03-18 - VisitMapper N+1 Query Fix
+**Learning:** `VisitMapper` resolved provider lookups directly via `providerRepository.findById()` which caused N+1 issues when `VisitService` methods like `getAll` or `getPaginated` mapped large datasets. We cannot just add the `@ManyToOne` entity without fetching it in queries.
+**Action:** Replaced repository lookups with a read-only `@ManyToOne` mapping on `providerId` using `@NotFound(action = NotFoundAction.IGNORE)` and `insertable = false, updatable = false` in `Visit`. Updated all JPQL queries in `VisitRepository` to eagerly fetch `provider` using `LEFT JOIN FETCH v.provider p`, and updated `VisitMapper` to read from the mapped entity if present to resolve the bottleneck.
