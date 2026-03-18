@@ -15,7 +15,7 @@ import com.waad.tba.modules.visit.entity.VisitStatus;
 @Repository
 public interface VisitRepository extends JpaRepository<Visit, Long> {
     
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.member.id = :memberId")
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE v.member.id = :memberId")
     List<Visit> findByMemberId(@Param("memberId") Long memberId);
     
     // Data-level filtering method for explicit employer filtering
@@ -25,12 +25,14 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     // PHASE 5.B: Paginated employer filtering with FETCH JOIN for member
     @Query("SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "LEFT JOIN FETCH v.provider p " +
            "WHERE v.member.employerOrganization.id = :employerId")
     Page<Visit> findByMemberEmployerId(@Param("employerId") Long employerId, Pageable pageable);
     
     // PHASE 5.B: Search with employer filtering - FETCH JOIN for member
     @Query("SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "LEFT JOIN FETCH v.provider p " +
            "WHERE v.member.employerOrganization.id = :employerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
@@ -42,14 +44,14 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     @Query("SELECT COUNT(v) FROM Visit v WHERE v.member.employerOrganization.id = :employerId")
     long countByMemberEmployerId(@Param("employerId") Long employerId);
     
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE " +
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE " +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Visit> search(@Param("query") String query);
 
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE " +
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE " +
            "v.member.employerOrganization.id = :employerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
@@ -57,7 +59,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
            "LOWER(m.fullName) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<Visit> searchByMemberEmployerId(@Param("query") String query, @Param("employerId") Long employerId);
 
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE " +
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE " +
            "v.providerId = :providerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
@@ -68,6 +70,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     // PHASE 5.B: Search paginated with FETCH JOIN for member
     @Query("SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "LEFT JOIN FETCH v.provider p " +
            "WHERE LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.diagnosis) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
@@ -76,10 +79,10 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
 
     // PROVIDER filtering - visits by provider ID (providerId is Long field, not relation)
     // Optimized with FETCH JOIN
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.providerId = :providerId")
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE v.providerId = :providerId")
     List<Visit> findByProviderId(@Param("providerId") Long providerId);
 
-    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m WHERE v.providerId = :providerId")
+    @Query("SELECT v FROM Visit v LEFT JOIN FETCH v.member m LEFT JOIN FETCH v.provider p WHERE v.providerId = :providerId")
     Page<Visit> findByProviderId(@Param("providerId") Long providerId, Pageable pageable);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -87,6 +90,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     // ═══════════════════════════════════════════════════════════════════════════
     @Query("SELECT v FROM Visit v " +
            "LEFT JOIN FETCH v.member m " +
+           "LEFT JOIN FETCH v.provider p " +
            "WHERE v.providerId = :providerId AND (" +
            "LOWER(v.doctorName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(v.specialty) LIKE LOWER(CONCAT('%', :q, '%')) OR " +

@@ -46,7 +46,9 @@ public class VisitMapper {
         
         // Get provider name
         String providerName = null;
-        if (entity.getProviderId() != null) {
+        if (entity.getProvider() != null) {
+            providerName = entity.getProvider().getName();
+        } else if (entity.getProviderId() != null) {
             Provider provider = providerRepository.findById(entity.getProviderId()).orElse(null);
             if (provider != null) {
                 providerName = provider.getName();
