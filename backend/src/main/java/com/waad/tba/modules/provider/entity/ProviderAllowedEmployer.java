@@ -45,7 +45,9 @@ public class ProviderAllowedEmployer {
     @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
 
-    @ManyToOne(fetch = FetchType.EAGER) // Eager because we usually need names
+    // ⚡ Bolt: Changed to LAZY to prevent N+1 query bottlenecks during Provider fetches.
+    // Eager loading here caused massive performance degradation.
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employer_id", nullable = false)
     private Organization employer;
 
