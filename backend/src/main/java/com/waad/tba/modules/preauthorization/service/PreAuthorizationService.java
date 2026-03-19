@@ -31,7 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service for PreAuthorization business logic
@@ -489,6 +493,55 @@ public class PreAuthorizationService {
     }
 
     /**
+     * Helper method to map a page of PreAuthorizations to DTOs using batch fetching
+     * Resolves the N+1 queries during mapped pagination list endpoints.
+     */
+    private Page<PreAuthorizationResponseDto> mapPageToResponseDtoLightBatch(Page<PreAuthorization> preAuthPage) {
+        if (!preAuthPage.hasContent()) {
+            return preAuthPage.map(pa -> null);
+        }
+
+        List<PreAuthorization> preAuths = preAuthPage.getContent();
+
+        // 1. Extract IDs for batch fetching
+        Set<Long> memberIds = preAuths.stream()
+                .map(PreAuthorization::getMemberId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+
+        Set<Long> providerIds = preAuths.stream()
+                .map(PreAuthorization::getProviderId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+
+        Set<String> serviceCodes = preAuths.stream()
+                .map(PreAuthorization::getServiceCode)
+                .filter(code -> code != null && !code.isEmpty())
+                .collect(Collectors.toSet());
+
+        // 2. Batch fetch entities
+        Map<Long, Member> membersMap = memberRepository.findAllById(memberIds).stream()
+                .collect(Collectors.toMap(Member::getId, java.util.function.Function.identity()));
+
+        Map<Long, Provider> providersMap = providerRepository.findAllById(providerIds).stream()
+                .collect(Collectors.toMap(Provider::getId, java.util.function.Function.identity()));
+
+        Map<String, MedicalService> servicesMap = medicalServiceRepository.findByCodeIn(List.copyOf(serviceCodes)).stream()
+                .collect(Collectors.toMap(MedicalService::getCode, java.util.function.Function.identity()));
+
+        // 3. Map to DTOs using pre-fetched Maps (O(1) lookup)
+        return preAuthPage.map(pa -> {
+            Member member = membersMap.get(pa.getMemberId());
+            Provider provider = providersMap.get(pa.getProviderId());
+            MedicalService service = pa.getMedicalService();
+            if (service == null && pa.getServiceCode() != null) {
+                service = servicesMap.get(pa.getServiceCode());
+            }
+            return mapToResponseDto(pa, member, provider, service);
+        });
+    }
+
+    /**
      * Get all pre-authorizations (paginated)
      */
     @Transactional(readOnly = true)
@@ -500,19 +553,17 @@ public class PreAuthorizationService {
             providerContextGuard.validateProviderBinding(currentUser);
             Long providerId = currentUser.getProviderId();
             log.info("🔒 Filtering pre-authorizations for provider: {}", providerId);
-            return preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable));
         }
         
         if (authorizationService.isEmployerAdmin(currentUser)) {
             Long employerId = authorizationService.getEmployerFilterForUser(currentUser);
             log.info("🔒 Filtering pre-authorizations for employer: {}", employerId);
-            return preAuthorizationRepository.findByMemberEmployerOrganizationIdAndActiveTrue(employerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByMemberEmployerOrganizationIdAndActiveTrue(employerId, pageable));
         }
 
         log.info("[PRE-AUTH] Fetching all active pre-authorizations for admin");
-        return preAuthorizationRepository.findByActiveTrue(pageable).map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByActiveTrue(pageable));
     }
 
     /**
@@ -528,7 +579,7 @@ public class PreAuthorizationService {
         }
         
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByMemberIdAndActiveTrue(memberId, pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
@@ -544,7 +595,7 @@ public class PreAuthorizationService {
         }
         
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
@@ -558,12 +609,10 @@ public class PreAuthorizationService {
         if (authorizationService.isProvider(currentUser)) {
             providerContextGuard.validateProviderBinding(currentUser);
             Long providerId = currentUser.getProviderId();
-            return preAuthorizationRepository.findByProviderIdAndStatusAndActiveTrue(providerId, status, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByProviderIdAndStatusAndActiveTrue(providerId, status, pageable));
         }
         
-        return preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable)
-                .map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable));
     }
 
     /**
@@ -586,7 +635,7 @@ public class PreAuthorizationService {
         log.info("[SERVICE] Fetching pending pre-authorizations for inbox (PENDING + UNDER_REVIEW)");
         
         User currentUser = authorizationService.getCurrentUser();
-        List<PreAuthStatus> inboxStatuses = List.of(PreAuthStatus.PENDING, PreAuthStatus.UNDER_REVIEW);
+        List<PreAuthStatus> inboxStatuses = Arrays.asList(PreAuthStatus.PENDING, PreAuthStatus.UNDER_REVIEW);
         
         // PROVIDER sees only THEIR pending requests
         if (authorizationService.isProvider(currentUser)) {
@@ -597,8 +646,7 @@ public class PreAuthorizationService {
             // This requires a repository method: findByStatusInAndProviderIdAndActiveTrue
             // For now, we'll implement a custom query in repository if needed, or filter here.
             // Let's assume we need to add findByStatusInAndProviderIdAndActiveTrue to repository.
-            return preAuthorizationRepository.findByStatusInAndProviderIdAndActiveTrue(inboxStatuses, providerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByStatusInAndProviderIdAndActiveTrue(inboxStatuses, providerId, pageable));
         }
 
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusIn(
@@ -607,7 +655,7 @@ public class PreAuthorizationService {
         );
         
         log.info("[SERVICE] Found {} pre-authorizations in inbox", preAuths.getTotalElements());
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
