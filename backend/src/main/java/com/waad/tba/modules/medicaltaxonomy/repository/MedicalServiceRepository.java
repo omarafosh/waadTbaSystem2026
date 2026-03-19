@@ -38,6 +38,11 @@ public interface MedicalServiceRepository extends JpaRepository<MedicalService, 
     Optional<MedicalService> findByCode(String code);
 
     /**
+     * Find by list of codes
+     */
+    List<MedicalService> findByCodeIn(List<String> codes);
+
+    /**
      * Find service by exact name (for duplicate checking during import)
      */
     Optional<MedicalService> findByName(String name);
