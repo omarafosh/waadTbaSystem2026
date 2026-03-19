@@ -75,6 +75,8 @@ public class Provider {
      * (Without a formal contract for each)
      */
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    // ⚡ Bolt: Added @BatchSize to prevent N+1 queries when loading this collection
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private List<ProviderAllowedEmployer> allowedEmployers = new ArrayList<>();
     @Column(name = "allow_all_employers", nullable = false)
@@ -93,6 +95,8 @@ public class Provider {
     private String updatedBy;
 
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    // ⚡ Bolt: Added @BatchSize to prevent N+1 queries when loading this collection
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private List<ProviderContract> contracts = new ArrayList<>();
 

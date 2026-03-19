@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+// ⚡ Bolt: Batch fetching prevents N+1 queries when proxied Organization entities are accessed (e.g., from ManyToOne fields)
+@org.hibernate.annotations.BatchSize(size = 25)
 public class Organization {
 
     @Id
