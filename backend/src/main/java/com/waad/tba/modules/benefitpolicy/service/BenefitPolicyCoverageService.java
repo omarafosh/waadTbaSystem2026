@@ -854,6 +854,31 @@ public class BenefitPolicyCoverageService {
     }
 
     /**
+     * Batch get coverage info for multiple services.
+     *
+     * @param member The member
+     * @param serviceIds List of service IDs
+     * @param encounterType The visit/encounter type
+     * @return Map of ServiceId -> CoverageInfo
+     */
+    public java.util.Map<Long, CoverageInfo> batchGetCoverageForServices(
+            Member member,
+            List<Long> serviceIds,
+            com.waad.tba.modules.visit.entity.VisitType encounterType) {
+        java.util.Map<Long, CoverageInfo> result = new java.util.HashMap<>();
+        if (serviceIds == null || serviceIds.isEmpty()) {
+            return result;
+        }
+
+        for (Long serviceId : serviceIds) {
+            // Reusing single-item method for now
+            getCoverageForService(member, serviceId, encounterType)
+                    .ifPresent(coverageInfo -> result.put(serviceId, coverageInfo));
+        }
+        return result;
+    }
+
+    /**
      * Resolved coverage result from the canonical algorithm
      */
     @Data

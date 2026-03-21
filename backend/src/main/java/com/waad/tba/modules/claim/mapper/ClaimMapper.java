@@ -132,7 +132,27 @@ public class ClaimMapper {
         if (dto.getLines() == null || dto.getLines().isEmpty()) {
             throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Claims MUST have at least one line");
         }
+
+        // --- PRE-FETCHING (BATCHING) LOGIC TO PREVENT N+1 QUERIES ---
+        List<Long> medicalServiceIds = dto.getLines().stream()
+                .map(ClaimLineDto::getMedicalServiceId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
         
+        // Batch fetch medical services
+        java.util.Map<Long, MedicalService> medicalServiceMap = medicalServiceRepository.findAllById(medicalServiceIds).stream()
+                .collect(Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+
+        // Batch fetch effective prices
+        java.util.Map<String, EffectivePriceResponseDto> effectivePricesMap = providerContractService.batchGetEffectivePrices(
+                providerId, new ArrayList<>(medicalServiceMap.values()), serviceDate);
+
+        // Batch fetch coverage info
+        java.util.Map<Long, BenefitPolicyCoverageService.CoverageInfo> coverageInfoMap = benefitPolicyCoverageService.batchGetCoverageForServices(
+                visit.getMember(), medicalServiceIds, visit.getVisitType());
+        // -----------------------------------------------------------
+
         BigDecimal totalRequestedAmount = BigDecimal.ZERO;
         List<ClaimLine> lines = new ArrayList<>();
         List<String> servicesRequiringPA = new ArrayList<>(); // Track services that need PA
@@ -143,15 +163,16 @@ public class ClaimMapper {
                 throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Each line MUST reference a MedicalService");
             }
             
-            // Fetch MedicalService
-            MedicalService medicalService = medicalServiceRepository.findById(lineDto.getMedicalServiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId()));
+            // Fetch MedicalService from pre-fetched map
+            MedicalService medicalService = medicalServiceMap.get(lineDto.getMedicalServiceId());
+            if (medicalService == null) {
+                 throw new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId());
+            }
             
-            // Get contract price from ProviderContractService
-            EffectivePriceResponseDto priceResponse = providerContractService.getEffectivePrice(
-                    providerId, medicalService.getCode(), serviceDate);
+            // Get contract price from pre-fetched map
+            EffectivePriceResponseDto priceResponse = effectivePricesMap.get(medicalService.getCode());
             
-            if (!priceResponse.isHasContract() || priceResponse.getContractPrice() == null) {
+            if (priceResponse == null || !priceResponse.isHasContract() || priceResponse.getContractPrice() == null) {
                 throw new IllegalArgumentException(
                         "ARCHITECTURAL VIOLATION: No contract price found for service " + 
                         medicalService.getCode() + " with provider " + providerId + 
@@ -161,9 +182,9 @@ public class ClaimMapper {
             // ═══════════════════════════════════════════════════════════════════════════
             // NEW: Get coverage info from BenefitPolicyRule (includes requiresPA + coverage %)
             // ═══════════════════════════════════════════════════════════════════════════
-            var coverageInfoOpt = benefitPolicyCoverageService.getCoverageForService(member, medicalService.getId(), visit.getVisitType());
-            boolean requiresPA = coverageInfoOpt.map(c -> c.isRequiresPreApproval()).orElse(false);
-            Integer coveragePercentSnapshot = coverageInfoOpt.map(c -> c.getCoveragePercent()).orElse(null);
+            BenefitPolicyCoverageService.CoverageInfo coverageInfo = coverageInfoMap.get(medicalService.getId());
+            Integer coveragePercentSnapshot = coverageInfo != null ? coverageInfo.getCoveragePercent() : null;
+            boolean requiresPA = coverageInfo != null && coverageInfo.isRequiresPreApproval();
             Integer patientCopayPercentSnapshot = coveragePercentSnapshot != null ? (100 - coveragePercentSnapshot) : null;
             
             if (requiresPA) {
