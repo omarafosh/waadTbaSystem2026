@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -254,6 +255,98 @@ public class ProviderContractService {
     @Transactional(readOnly = true)
     public long countActiveContracts(Long providerId) {
         return contractRepository.countByProviderIdAndStatusAndActiveTrue(providerId, ContractStatus.ACTIVE);
+    }
+
+    /**
+     * Get effective prices for a list of services on a specific date in batch to avoid N+1 queries.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, EffectivePriceResponseDto> getEffectivePrices(Long providerId, List<String> serviceCodes, LocalDate date) {
+        log.info("Resolving effective prices in batch: provider={}, services count={}, date={}", providerId, serviceCodes.size(), date);
+
+        if (date == null) date = LocalDate.now();
+
+        Provider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found: " + providerId));
+
+        // Find active contract
+        ProviderContract contract = contractRepository.findActiveContractByProvider(providerId)
+                .orElse(null);
+
+        Map<String, EffectivePriceResponseDto> responseMap = new java.util.HashMap<>();
+
+        List<MedicalService> services = medicalServiceRepository.findByCodes(serviceCodes);
+        if (services.isEmpty()) {
+            return responseMap; // Empty list provided or no matches
+        }
+
+        Map<String, MedicalService> serviceMap = services.stream()
+                .collect(Collectors.toMap(MedicalService::getCode, java.util.function.Function.identity()));
+
+        if (contract == null) {
+            // No contract, build default response for all services
+            for (String code : serviceCodes) {
+                MedicalService svc = serviceMap.get(code);
+                if (svc != null) {
+                    responseMap.put(code, EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(code)
+                        .serviceName(svc.getName())
+                        .hasContract(false)
+                        .message("No active contract found for provider")
+                        .build());
+                }
+            }
+            return responseMap;
+        }
+
+        // Fetch pricing items in batch
+        List<Long> serviceIds = services.stream().map(MedicalService::getId).collect(Collectors.toList());
+        List<ProviderContractPricingItemResponseDto> pricingItems = pricingItemService.findEffectivePricingInBatch(providerId, serviceIds, date);
+
+        Map<Long, ProviderContractPricingItemResponseDto> pricingMap = pricingItems.stream()
+                .collect(Collectors.toMap(
+                    item -> item.getMedicalService() != null ? item.getMedicalService().getId() : null,
+                    java.util.function.Function.identity()
+                ));
+
+        for (String code : serviceCodes) {
+            MedicalService svc = serviceMap.get(code);
+            if (svc == null) continue;
+
+            ProviderContractPricingItemResponseDto pricingItem = pricingMap.get(svc.getId());
+
+            if (pricingItem == null) {
+                responseMap.put(code, EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(code)
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .hasContract(false)
+                        .message("Service not found in provider contract")
+                        .build());
+            } else {
+                responseMap.put(code, EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(code)
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .contractPrice(pricingItem.getContractPrice())
+                        .basePrice(pricingItem.getBasePrice())
+                        .currency(contract.getCurrency())
+                        .effectiveDate(date)
+                        .effectiveFrom(pricingItem.getEffectiveFrom())
+                        .effectiveTo(pricingItem.getEffectiveTo())
+                        .hasContract(true)
+                        .message("Price resolved from contract")
+                        .build());
+            }
+        }
+
+        return responseMap;
     }
 
     /**
