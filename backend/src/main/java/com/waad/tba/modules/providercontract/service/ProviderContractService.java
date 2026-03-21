@@ -319,6 +319,83 @@ public class ProviderContractService {
     }
 
     /**
+     * Batch get effective prices for multiple services on a specific date (CANONICAL)
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, EffectivePriceResponseDto> batchGetEffectivePrices(Long providerId, List<MedicalService> services, LocalDate date) {
+        log.info("Resolving batch effective prices: provider={}, services count={}, date={}", providerId, services.size(), date);
+
+        if (date == null) date = LocalDate.now();
+        final LocalDate finalDate = date;
+
+        java.util.Map<String, EffectivePriceResponseDto> result = new java.util.HashMap<>();
+        if (services == null || services.isEmpty()) {
+            return result;
+        }
+
+        Provider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found: " + providerId));
+
+        // Find active contract
+        ProviderContract contract = contractRepository.findActiveContractByProvider(providerId)
+                .orElse(null);
+
+        if (contract == null) {
+            for (MedicalService svc : services) {
+                result.put(svc.getCode(), EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(svc.getCode())
+                        .serviceName(svc.getName())
+                        .hasContract(false)
+                        .message("No active contract found for provider")
+                        .build());
+            }
+            return result;
+        }
+
+        List<Long> serviceIds = services.stream().map(MedicalService::getId).collect(Collectors.toList());
+
+        // Batch fetch pricing items
+        List<ProviderContractPricingItemResponseDto> pricingItems = pricingItemService.batchFindEffectivePricing(providerId, serviceIds, finalDate);
+        java.util.Map<Long, ProviderContractPricingItemResponseDto> pricingMap = pricingItems.stream()
+                .collect(Collectors.toMap(p -> p.getMedicalService().getId(), java.util.function.Function.identity()));
+
+        for (MedicalService svc : services) {
+            ProviderContractPricingItemResponseDto pricingItem = pricingMap.get(svc.getId());
+            if (pricingItem == null) {
+                result.put(svc.getCode(), EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(svc.getCode())
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .hasContract(false)
+                        .message("Service not found in provider contract")
+                        .build());
+            } else {
+                result.put(svc.getCode(), EffectivePriceResponseDto.builder()
+                        .providerId(providerId)
+                        .providerName(provider.getName())
+                        .serviceCode(svc.getCode())
+                        .serviceName(svc.getName())
+                        .contractId(contract.getId())
+                        .contractPrice(pricingItem.getContractPrice())
+                        .basePrice(pricingItem.getBasePrice())
+                        .currency(contract.getCurrency())
+                        .effectiveDate(finalDate)
+                        .effectiveFrom(pricingItem.getEffectiveFrom())
+                        .effectiveTo(pricingItem.getEffectiveTo())
+                        .hasContract(true)
+                        .message("Price resolved from contract")
+                        .build());
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Get services requiring pre-approval for a member from provider's active contract.
      */
     @Transactional(readOnly = true)

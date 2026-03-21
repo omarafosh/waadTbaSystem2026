@@ -149,6 +149,23 @@ public class ProviderContractPricingItemService {
     }
 
     /**
+     * Get effective pricing for multiple provider/service combinations
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderContractPricingItemResponseDto> batchFindEffectivePricing(Long providerId, List<Long> serviceIds, java.time.LocalDate date) {
+        log.debug("Finding effective pricing in batch for provider: {}, services count: {}, date: {}", providerId, serviceIds.size(), date);
+
+        if (serviceIds == null || serviceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return pricingRepository.findEffectivePricingIn(providerId, serviceIds, date)
+                .stream()
+                .map(ProviderContractPricingItemResponseDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Get contract pricing statistics
      */
     @Transactional(readOnly = true)
