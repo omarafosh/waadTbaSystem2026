@@ -138,20 +138,35 @@ public class ClaimMapper {
         List<String> servicesRequiringPA = new ArrayList<>(); // Track services that need PA
         Member member = visit.getMember();
         
+        // ⚡ BOLT OPTIMIZATION: Resolve N+1 query for MedicalService lookups
+        List<Long> medicalServiceIds = dto.getLines().stream()
+                .map(ClaimLineDto::getMedicalServiceId)
+                .collect(Collectors.toList());
+
+        java.util.Map<Long, MedicalService> medicalServiceMap = medicalServiceRepository.findAllById(medicalServiceIds).stream()
+                .collect(Collectors.toMap(MedicalService::getId, java.util.function.Function.identity()));
+
+        // ⚡ BOLT OPTIMIZATION: Fetch prices in batch to prevent N+1 query loop
+        List<String> serviceCodes = medicalServiceMap.values().stream()
+                .map(MedicalService::getCode)
+                .collect(Collectors.toList());
+        java.util.Map<String, EffectivePriceResponseDto> batchPrices = providerContractService.getEffectivePrices(providerId, serviceCodes, serviceDate);
+
         for (ClaimLineDto lineDto : dto.getLines()) {
             if (lineDto.getMedicalServiceId() == null) {
                 throw new IllegalArgumentException("ARCHITECTURAL VIOLATION: Each line MUST reference a MedicalService");
             }
             
-            // Fetch MedicalService
-            MedicalService medicalService = medicalServiceRepository.findById(lineDto.getMedicalServiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId()));
+            // Fetch MedicalService from batch map
+            MedicalService medicalService = medicalServiceMap.get(lineDto.getMedicalServiceId());
+            if (medicalService == null) {
+                throw new IllegalArgumentException("MedicalService not found with id: " + lineDto.getMedicalServiceId());
+            }
             
-            // Get contract price from ProviderContractService
-            EffectivePriceResponseDto priceResponse = providerContractService.getEffectivePrice(
-                    providerId, medicalService.getCode(), serviceDate);
+            // Get contract price from batch map
+            EffectivePriceResponseDto priceResponse = batchPrices.get(medicalService.getCode());
             
-            if (!priceResponse.isHasContract() || priceResponse.getContractPrice() == null) {
+            if (priceResponse == null || !priceResponse.isHasContract() || priceResponse.getContractPrice() == null) {
                 throw new IllegalArgumentException(
                         "ARCHITECTURAL VIOLATION: No contract price found for service " + 
                         medicalService.getCode() + " with provider " + providerId + 

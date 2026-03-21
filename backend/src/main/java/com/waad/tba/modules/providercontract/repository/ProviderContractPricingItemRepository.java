@@ -119,6 +119,24 @@ public interface ProviderContractPricingItemRepository extends JpaRepository<Pro
             @Param("date") LocalDate date);
 
     /**
+     * Find effective pricing for a list of services at a provider on a specific date
+     */
+    @Query("SELECT p FROM ProviderContractPricingItem p " +
+           "WHERE p.contract.provider.id = :providerId " +
+           "AND p.medicalService.id IN :serviceIds " +
+           "AND p.active = true " +
+           "AND p.contract.active = true " +
+           "AND p.contract.status = 'ACTIVE' " +
+           "AND p.contract.startDate <= :date " +
+           "AND (p.contract.endDate IS NULL OR p.contract.endDate >= :date) " +
+           "AND (p.effectiveFrom IS NULL OR p.effectiveFrom <= :date) " +
+           "AND (p.effectiveTo IS NULL OR p.effectiveTo >= :date)")
+    List<ProviderContractPricingItem> findEffectivePricingInBatch(
+            @Param("providerId") Long providerId,
+            @Param("serviceIds") List<Long> serviceIds,
+            @Param("date") LocalDate date);
+
+    /**
      * Find effective pricing for a service at a provider (today)
      */
     default Optional<ProviderContractPricingItem> findEffectivePricingToday(Long providerId, Long serviceId) {
