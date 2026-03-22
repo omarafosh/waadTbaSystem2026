@@ -23,6 +23,7 @@ import com.waad.tba.common.service.ArchitecturalGuardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Service for PreAuthorization business logic
@@ -500,19 +504,21 @@ public class PreAuthorizationService {
             providerContextGuard.validateProviderBinding(currentUser);
             Long providerId = currentUser.getProviderId();
             log.info("🔒 Filtering pre-authorizations for provider: {}", providerId);
-            return preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(
+                    preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable)
+            );
         }
         
         if (authorizationService.isEmployerAdmin(currentUser)) {
             Long employerId = authorizationService.getEmployerFilterForUser(currentUser);
             log.info("🔒 Filtering pre-authorizations for employer: {}", employerId);
-            return preAuthorizationRepository.findByMemberEmployerOrganizationIdAndActiveTrue(employerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(
+                    preAuthorizationRepository.findByMemberEmployerOrganizationIdAndActiveTrue(employerId, pageable)
+            );
         }
 
         log.info("[PRE-AUTH] Fetching all active pre-authorizations for admin");
-        return preAuthorizationRepository.findByActiveTrue(pageable).map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuthorizationRepository.findByActiveTrue(pageable));
     }
 
     /**
@@ -528,7 +534,7 @@ public class PreAuthorizationService {
         }
         
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByMemberIdAndActiveTrue(memberId, pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
@@ -544,7 +550,7 @@ public class PreAuthorizationService {
         }
         
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByProviderIdAndActiveTrue(providerId, pageable);
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
@@ -558,12 +564,14 @@ public class PreAuthorizationService {
         if (authorizationService.isProvider(currentUser)) {
             providerContextGuard.validateProviderBinding(currentUser);
             Long providerId = currentUser.getProviderId();
-            return preAuthorizationRepository.findByProviderIdAndStatusAndActiveTrue(providerId, status, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(
+                    preAuthorizationRepository.findByProviderIdAndStatusAndActiveTrue(providerId, status, pageable)
+            );
         }
         
-        return preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable)
-                .map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(
+                preAuthorizationRepository.findByStatusAndActiveTrue(status, pageable)
+        );
     }
 
     /**
@@ -597,8 +605,9 @@ public class PreAuthorizationService {
             // This requires a repository method: findByStatusInAndProviderIdAndActiveTrue
             // For now, we'll implement a custom query in repository if needed, or filter here.
             // Let's assume we need to add findByStatusInAndProviderIdAndActiveTrue to repository.
-            return preAuthorizationRepository.findByStatusInAndProviderIdAndActiveTrue(inboxStatuses, providerId, pageable)
-                    .map(this::mapToResponseDtoLight);
+            return mapPageToResponseDtoLightBatch(
+                    preAuthorizationRepository.findByStatusInAndProviderIdAndActiveTrue(inboxStatuses, providerId, pageable)
+            );
         }
 
         Page<PreAuthorization> preAuths = preAuthorizationRepository.findByStatusIn(
@@ -607,7 +616,7 @@ public class PreAuthorizationService {
         );
         
         log.info("[SERVICE] Found {} pre-authorizations in inbox", preAuths.getTotalElements());
-        return preAuths.map(this::mapToResponseDtoLight);
+        return mapPageToResponseDtoLightBatch(preAuths);
     }
 
     /**
@@ -849,18 +858,62 @@ public class PreAuthorizationService {
      * Map to response DTO (lightweight - for lists)
      * Fetches member, provider and service info for complete display
      */
-    private PreAuthorizationResponseDto mapToResponseDtoLight(PreAuthorization preAuth) {
-        // Fetch related entities for complete display
-        Member member = memberRepository.findById(preAuth.getMemberId()).orElse(null);
-        Provider provider = providerRepository.findById(preAuth.getProviderId()).orElse(null);
-        MedicalService service = preAuth.getMedicalService();
-        
-        // Fallback: try to find service by code if not loaded
-        if (service == null && preAuth.getServiceCode() != null) {
-            service = medicalServiceRepository.findByCode(preAuth.getServiceCode()).orElse(null);
+    /**
+     * Batch process PreAuthorizations into light DTOs to avoid N+1 queries.
+     * Extracts IDs and fetches related Member, Provider, and missing MedicalService entities in bulk.
+     * ⚡ Bolt Optimization: Resolves N+1 issues when returning paginated lists.
+     */
+    private Page<PreAuthorizationResponseDto> mapPageToResponseDtoLightBatch(Page<PreAuthorization> page) {
+        if (page.isEmpty()) {
+            return new PageImpl<>(List.of(), page.getPageable(), page.getTotalElements());
         }
-        
-        return mapToResponseDto(preAuth, member, provider, service);
+
+        // 1. Collect IDs
+        List<Long> memberIds = page.stream()
+                .map(PreAuthorization::getMemberId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        List<Long> providerIds = page.stream()
+                .map(PreAuthorization::getProviderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        List<String> missingServiceCodes = page.stream()
+                .filter(pa -> pa.getMedicalService() == null && pa.getServiceCode() != null)
+                .map(PreAuthorization::getServiceCode)
+                .distinct()
+                .toList();
+
+        // 2. Batch Fetch Data
+        Map<Long, Member> memberMap = memberIds.isEmpty() ? Map.of() :
+                memberRepository.findAllById(memberIds).stream()
+                        .collect(Collectors.toMap(Member::getId, m -> m));
+
+        Map<Long, Provider> providerMap = providerIds.isEmpty() ? Map.of() :
+                providerRepository.findAllById(providerIds).stream()
+                        .collect(Collectors.toMap(Provider::getId, p -> p));
+
+        Map<String, MedicalService> serviceMap = missingServiceCodes.isEmpty() ? Map.of() :
+                medicalServiceRepository.findByCodes(missingServiceCodes).stream()
+                        .collect(Collectors.toMap(MedicalService::getCode, s -> s));
+
+        // 3. Map to DTOs using in-memory lookups
+        List<PreAuthorizationResponseDto> dtos = page.stream().map(pa -> {
+            Member member = pa.getMemberId() != null ? memberMap.get(pa.getMemberId()) : null;
+            Provider provider = pa.getProviderId() != null ? providerMap.get(pa.getProviderId()) : null;
+
+            MedicalService service = pa.getMedicalService();
+            if (service == null && pa.getServiceCode() != null) {
+                service = serviceMap.get(pa.getServiceCode());
+            }
+
+            return mapToResponseDto(pa, member, provider, service);
+        }).toList();
+
+        return new PageImpl<>(dtos, page.getPageable(), page.getTotalElements());
     }
 
     /**
