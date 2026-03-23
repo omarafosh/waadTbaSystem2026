@@ -1,0 +1,3 @@
+## 2024-03-23 - Resolve N+1 issue for Organization references
+**Learning:** Blindly changing `FetchType.EAGER` to `FetchType.LAZY` on relationships like `ProviderAllowedEmployer.employer` to solve N+1 queries can be dangerous if the application explicitly relies on that data being loaded (e.g., `// Eager because we usually need names`), leading to potential `LazyInitializationException` crashes during DTO mapping.
+**Action:** Reverted the `FetchType.LAZY` change and instead applied a safer optimization: adding `@org.hibernate.annotations.BatchSize(size = 25)` directly to the `Organization` class. This allows the system to efficiently batch-load referenced organizations across the application without altering the fetching semantics or risking crashes.
