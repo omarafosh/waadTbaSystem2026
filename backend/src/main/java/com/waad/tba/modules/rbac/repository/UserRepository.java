@@ -26,4 +26,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    List<User> findByRolesContaining(com.waad.tba.modules.rbac.entity.Role role);
+    long countByRolesContaining(com.waad.tba.modules.rbac.entity.Role role);
 }
