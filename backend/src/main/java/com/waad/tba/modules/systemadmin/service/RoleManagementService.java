@@ -304,10 +304,9 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt: Replaced O(N) in-memory filtering (userRepository.findAll().stream()...)
+        // with a targeted O(1) database-level query to prevent full-table loads into memory.
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
