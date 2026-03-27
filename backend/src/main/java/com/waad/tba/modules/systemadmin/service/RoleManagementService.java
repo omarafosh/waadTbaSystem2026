@@ -301,13 +301,13 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt: Removed inefficient in-memory O(N) filtering of all users
+        // to a direct database fetch of only required usernames using a JOIN.
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +315,13 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        // ⚡ Bolt: Replaced inefficient in-memory full-table scan counting
+        // (findAll().stream().filter().count()) with a direct database-level query.
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
