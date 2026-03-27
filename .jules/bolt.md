@@ -1,0 +1,3 @@
+## 2026-03-27 - [RoleManagementService User Filtering Optimization]
+**Learning:** Found an in-memory filtering anti-pattern where `userRepository.findAll().stream()` was used to count and retrieve users with a specific role. This is a severe O(N) memory bottleneck.
+**Action:** Replaced it with direct database-level Spring Data JPA derived queries (`countByRolesId`) and JPQL queries (`findUsernamesByRolesId`) in `UserRepository`. Ensure to always push data filtering to the database instead of loading full tables into memory.
