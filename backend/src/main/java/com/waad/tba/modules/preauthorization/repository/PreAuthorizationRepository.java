@@ -266,6 +266,23 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
            "OR LOWER(pa.notes) LIKE LOWER(CONCAT('%', :query, '%')))")
     Page<PreAuthorization> search(@Param("query") String query, Pageable pageable);
 
+    // ==================== Validity Check Queries ====================
+
+    /**
+     * Find active, approved pre-authorizations for a specific member and service
+     * Used by checkValidity to prevent N+1 queries / full table scans
+     */
+    @Query("SELECT pa FROM PreAuthorization pa WHERE pa.active = true " +
+           "AND pa.memberId = :memberId " +
+           "AND pa.serviceCode = :serviceCode " +
+           "AND pa.status = :status " +
+           "ORDER BY pa.createdAt DESC")
+    List<PreAuthorization> findValidPreAuthsForMemberAndService(
+            @Param("memberId") Long memberId,
+            @Param("serviceCode") String serviceCode,
+            @Param("status") PreAuthStatus status
+    );
+
     // ==================== Find by Visit (NEW FLOW 2026-01-13) ====================
 
     /**
