@@ -1,0 +1,3 @@
+## 2026-01-26 - [Database Query Optimization in PreAuthorizationService]
+**Learning:** [The codebase previously relied on a full-table fetch `findAll().stream().filter(...)` in `PreAuthorizationService.checkValidity()`. This is an N+1 and O(N) memory anti-pattern when validating pre-authorizations for members and specific services, as it loads every pre-authorization in the system to memory.]
+**Action:** [Replaced the in-memory filtering with a targeted database-level JPQL query `findValidPreAuthsForMemberAndService` in `PreAuthorizationRepository`. This pushes the projection, filtering, and sorting directly to the database.]
