@@ -1,0 +1,3 @@
+## 2026-03-29 - [PreAuthorizationService Check Validity In-Memory Filtering Bottleneck]
+**Learning:** `PreAuthorizationService.checkValidity()` was using `preAuthorizationRepository.findAll().stream().filter(...)` to find valid pre-authorizations for a specific member and service, causing an O(N) whole-table memory load and filtering bottleneck which degrades performance over time as the `PreAuthorization` table grows.
+**Action:** Always verify if business logic fetching subsets of data uses derived Spring Data JPA `@Query` methods to push the filtering and sorting down to the database layer (e.g. `findValidPreAuthsForMemberAndService`) instead of relying on `findAll().stream()`.
