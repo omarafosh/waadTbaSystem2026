@@ -55,7 +55,10 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
         log.debug("Finding all users");
-        return userRepository.findAll().stream()
+        // ⚡ Bolt Performance Optimization:
+        // Replaced repository.findAll() with a targeted custom query to fetch related
+        // roles and permitted organizations upfront, resolving N+1 queries.
+        return userRepository.findAllWithAssociations().stream()
                 .map(userMapper::toResponseDto)
                 .collect(Collectors.toList());
     }

@@ -31,7 +31,10 @@ public class RoleService {
     @Transactional(readOnly = true)
     public List<RoleResponseDto> findAll() {
         log.debug("Finding all roles");
-        return roleRepository.findAll().stream()
+        // ⚡ Bolt Performance Optimization:
+        // Use custom JPQL query to eagerly fetch permissions and prevent
+        // N+1 lazy loading issues during DTO mapping.
+        return roleRepository.findAllWithPermissions().stream()
                 .map(roleMapper::toResponseDto)
                 .collect(Collectors.toList());
     }

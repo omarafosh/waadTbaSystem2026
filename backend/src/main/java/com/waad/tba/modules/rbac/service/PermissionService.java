@@ -27,6 +27,8 @@ public class PermissionService {
     @Transactional(readOnly = true)
     public List<PermissionResponseDto> findAll() {
         log.debug("Finding all permissions");
+        // No relationships to fetch for Permission, but we can return it directly.
+        // We'll keep the stream.map because Permission has no N+1 concerns.
         return permissionRepository.findAll().stream()
                 .map(permissionMapper::toResponseDto)
                 .collect(Collectors.toList());
