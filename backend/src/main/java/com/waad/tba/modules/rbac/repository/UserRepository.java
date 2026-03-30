@@ -26,4 +26,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    /**
+     * ⚡ Bolt Performance Optimization:
+     * Resolves N+1 queries when mapping all users to DTOs.
+     * Uses LEFT JOIN FETCH to eagerly load roles and permitted organizations in a single query.
+     */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles LEFT JOIN FETCH u.permittedOrganizations")
+    List<User> findAllWithAssociations();
 }
