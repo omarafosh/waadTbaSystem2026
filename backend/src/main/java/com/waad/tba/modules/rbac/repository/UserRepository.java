@@ -26,4 +26,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    long countByRolesId(Long roleId);
+
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@org.springframework.data.repository.query.Param("roleId") Long roleId);
 }
