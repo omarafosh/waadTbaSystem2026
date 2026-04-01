@@ -1,0 +1,3 @@
+## 2026-04-01 - [Avoid in-memory Stream Filtering for Database Lookups]
+**Learning:** Checking pre-authorization validity in `PreAuthorizationService` using `repository.findAll().stream().filter(...)` fetches the entire table into application memory before filtering. This is a severe O(N) performance anti-pattern and OOM risk.
+**Action:** Always create targeted JPQL derived queries (e.g., `findValidPreAuthsForMemberAndService`) that perform conditional filtering directly at the database level instead of pulling all records to the Java side.
