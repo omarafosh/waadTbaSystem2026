@@ -62,27 +62,24 @@ public class PreAuthDashboardService {
     public OverallStats getOverallStats() {
         log.info("[DASHBOARD] Calculating overall statistics");
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
+        List<Object[]> statsResult = preAuthRepository.getOverallDashboardStats();
 
-        long totalCount = all.size();
-        long pendingCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.PENDING).count();
-        long approvedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED).count();
-        long rejectedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.REJECTED).count();
+        long totalCount = 0L;
+        long pendingCount = 0L;
+        long approvedCount = 0L;
+        long rejectedCount = 0L;
+        BigDecimal totalRequested = BigDecimal.ZERO;
+        BigDecimal totalApproved = BigDecimal.ZERO;
 
-        // CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
-        BigDecimal totalRequested = all.stream()
-                .map(PreAuthorization::getContractPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalApproved = all.stream()
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .map(PreAuthorization::getApprovedAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (statsResult != null && !statsResult.isEmpty()) {
+            Object[] row = statsResult.get(0);
+            totalCount = row[0] != null ? ((Number) row[0]).longValue() : 0L;
+            pendingCount = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            approvedCount = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            rejectedCount = row[3] != null ? ((Number) row[3]).longValue() : 0L;
+            totalRequested = row[4] != null ? (BigDecimal) row[4] : BigDecimal.ZERO;
+            totalApproved = row[5] != null ? (BigDecimal) row[5] : BigDecimal.ZERO;
+        }
 
         BigDecimal avgApproved = approvedCount > 0
                 ? totalApproved.divide(BigDecimal.valueOf(approvedCount), 2, RoundingMode.HALF_UP)

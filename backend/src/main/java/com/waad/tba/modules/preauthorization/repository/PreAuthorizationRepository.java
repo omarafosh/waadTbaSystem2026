@@ -204,6 +204,20 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     // ==================== Statistics ====================
 
     /**
+     * Get overall statistics for dashboard
+     */
+    @Query("SELECT " +
+           "COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.PENDING THEN 1L ELSE 0L END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN 1L ELSE 0L END), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.REJECTED THEN 1L ELSE 0L END), " +
+           "SUM(pa.contractPrice), " +
+           "SUM(CASE WHEN pa.status = com.waad.tba.modules.preauthorization.entity.PreAuthorization.PreAuthStatus.APPROVED THEN pa.approvedAmount ELSE NULL END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true")
+    List<Object[]> getOverallDashboardStats();
+
+    /**
      * Count pre-authorizations by status
      */
     @Query("SELECT pa.status, COUNT(pa) FROM PreAuthorization pa " +
