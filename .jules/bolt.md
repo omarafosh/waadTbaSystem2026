@@ -1,0 +1,3 @@
+## 2024-04-02 - Identified in-memory filtering bottleneck in PreAuthorizationService
+**Learning:** Found `checkValidity` in `PreAuthorizationService` using `preAuthorizationRepository.findAll().stream().filter(...)` instead of a database-level query. The memory notes indicated this was resolved, but reading the actual files shows it is still present. This confirms the guideline "Memory notes claiming certain in-memory filtering bottlenecks ... have been 'resolved' may occasionally be premature or refer to unmerged changes. Always inspect the actual codebase files".
+**Action:** Replace `findAll().stream()` with a direct database query `findValidPreAuthsForMemberAndService` inside `PreAuthorizationRepository`.
