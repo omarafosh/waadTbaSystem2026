@@ -1,0 +1,3 @@
+## 2024-05-24 - [PreAuthorizationService Bottleneck]
+**Learning:** Found a full-table scan anti-pattern in `PreAuthorizationService.checkValidity()`. The method used `findAll().stream().filter(...)` to filter valid pre-authorizations by member ID, service code, active status, approval status, and expiry date. This approach pulls all pre-authorizations into memory, severely degrading performance as the table grows.
+**Action:** Created a targeted `@Query` in `PreAuthorizationRepository` (`findValidPreAuthsForMemberAndService`) to push filtering to the database level, using indexed columns (memberId, serviceCode) and specific parameter conditions, thereby eliminating the O(N) memory load.
