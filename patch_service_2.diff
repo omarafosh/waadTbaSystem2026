@@ -1,0 +1,70 @@
+--- backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
++++ backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
+@@ -21,6 +21,8 @@
+ import java.util.HashSet;
+ import java.util.List;
+ import java.util.Set;
++import java.util.Map;
++import java.util.HashMap;
+ import java.util.stream.Collectors;
+
+ @Service
+@@ -54,10 +56,18 @@
+     @Transactional(readOnly = true)
+     public List<RoleViewDto> getAllRoles() {
+         log.info("Fetching all roles");
++
++        List<Object[]> userCounts = userRepository.countUsersGroupedByRole();
++        Map<Long, Long> roleUserCounts = new HashMap<>();
++        for (Object[] row : userCounts) {
++            Long rId = (Long) row[0];
++            Long count = (Long) row[1];
++            roleUserCounts.put(rId, count);
++        }
++
+         return roleRepository.findAll().stream()
+-                .map(this::toViewDto)
++                .map(role -> toViewDtoWithCount(role, roleUserCounts.getOrDefault(role.getId(), 0L)))
+                 .collect(Collectors.toList());
+     }
+
+     /**
+@@ -87,10 +97,18 @@
+     @Transactional(readOnly = true)
+     public List<RoleViewDto> searchRoles(String query) {
+         log.info("Searching roles with query: {}", query);
++
++        List<Object[]> userCounts = userRepository.countUsersGroupedByRole();
++        Map<Long, Long> roleUserCounts = new HashMap<>();
++        for (Object[] row : userCounts) {
++            Long rId = (Long) row[0];
++            Long count = (Long) row[1];
++            roleUserCounts.put(rId, count);
++        }
++
+         return roleRepository.searchRoles(query).stream()
+-                .map(this::toViewDto)
++                .map(role -> toViewDtoWithCount(role, roleUserCounts.getOrDefault(role.getId(), 0L)))
+                 .collect(Collectors.toList());
+     }
+
+     /**
+@@ -345,4 +363,16 @@
+                 .updatedAt(role.getUpdatedAt())
+                 .build();
+     }
++
++    private RoleViewDto toViewDtoWithCount(Role role, long userCount) {
++        return RoleViewDto.builder()
++                .id(role.getId())
++                .name(role.getName())
++                .description(role.getDescription())
++                .permissions(role.getPermissions().stream()
++                        .map(Permission::getName)
++                        .collect(Collectors.toList()))
++                .userCount((int) userCount)
++                .createdAt(role.getCreatedAt())
++                .updatedAt(role.getUpdatedAt())
++                .build();
++    }
+ }

@@ -1,0 +1,21 @@
+--- backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
++++ backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
+@@ -345,4 +345,18 @@
+                 .updatedAt(role.getUpdatedAt())
+                 .build();
+     }
++
++    private RoleViewDto toViewDtoWithCount(Role role, long userCount) {
++        return RoleViewDto.builder()
++                .id(role.getId())
++                .name(role.getName())
++                .description(role.getDescription())
++                .permissions(role.getPermissions().stream()
++                        .map(Permission::getName)
++                        .collect(Collectors.toList()))
++                .userCount((int) userCount)
++                .createdAt(role.getCreatedAt())
++                .updatedAt(role.getUpdatedAt())
++                .build();
++    }
+ }

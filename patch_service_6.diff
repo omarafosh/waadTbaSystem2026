@@ -1,0 +1,20 @@
+--- backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
++++ backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
+@@ -87,8 +87,16 @@
+     @Transactional(readOnly = true)
+     public List<RoleViewDto> searchRoles(String query) {
+         log.info("Searching roles with query: {}", query);
++
++        List<Object[]> userCounts = userRepository.countUsersGroupedByRole();
++        Map<Long, Long> roleUserCounts = new HashMap<>();
++        for (Object[] row : userCounts) {
++            Long rId = (Long) row[0];
++            Long count = (Long) row[1];
++            roleUserCounts.put(rId, count);
++        }
++
+         return roleRepository.searchRoles(query).stream()
+-                .map(this::toViewDto)
++                .map(role -> toViewDtoWithCount(role, roleUserCounts.getOrDefault(role.getId(), 0L)))
+                 .collect(Collectors.toList());
+     }
