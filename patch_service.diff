@@ -1,0 +1,25 @@
+--- backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
++++ backend/src/main/java/com/waad/tba/modules/systemadmin/service/RoleManagementService.java
+@@ -304,10 +304,7 @@
+         Role role = roleRepository.findById(roleId)
+                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+
+-        return userRepository.findAll().stream()
+-                .filter(user -> user.getRoles().contains(role))
+-                .map(User::getUsername)
+-                .collect(Collectors.toList());
++        return userRepository.findUsernamesByRolesId(roleId);
+     }
+
+     /**
+@@ -318,9 +315,7 @@
+         Role role = roleRepository.findById(roleId)
+                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+
+-        return userRepository.findAll().stream()
+-                .filter(user -> user.getRoles().contains(role))
+-                .count();
++        return userRepository.countByRolesId(roleId);
+     }
+
+     // Helper methods
