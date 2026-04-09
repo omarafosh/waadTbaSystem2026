@@ -1,14 +1,5 @@
 package com.waad.tba.modules.systemadmin.service;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.waad.tba.common.exception.ResourceNotFoundException;
 import com.waad.tba.modules.rbac.entity.Permission;
 import com.waad.tba.modules.rbac.entity.Role;
 import com.waad.tba.modules.rbac.entity.User;
@@ -18,28 +9,27 @@ import com.waad.tba.modules.rbac.repository.UserRepository;
 import com.waad.tba.modules.systemadmin.dto.RoleCreateDto;
 import com.waad.tba.modules.systemadmin.dto.RoleUpdateDto;
 import com.waad.tba.modules.systemadmin.dto.RoleViewDto;
+import com.waad.tba.common.exception.ResourceNotFoundException;
 import com.waad.tba.security.rbac.RbacGuardService;
 import com.waad.tba.security.rbac.SuperAdminOnly;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Role Management Service
- * Phase 2 - System Administration
- * 
- * Manages role CRUD operations and permission assignments (SUPER_ADMIN only)
- * 
- * SECURITY HARDENING (2026-01-13):
- * - All write operations require SUPER_ADMIN
- * - Protected system roles cannot be deleted
- * - SUPER_ADMIN role permissions cannot be modified
- * 
- * @version 2.0 - RBAC Hardening
+ * Service for managing roles and their permissions in the System Admin module.
+ * Only accessible to SUPER_ADMIN users.
  */
 @Service
-@Slf4j
 @RequiredArgsConstructor
+@Slf4j
 public class RoleManagementService {
 
     private final RoleRepository roleRepository;
@@ -54,8 +44,19 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
+
+        // Pre-fetch all user counts grouped by role ID to avoid N+1 queries during DTO mapping
+        Map<Long, Long> userCountByRoleId = userRepository.countUsersGroupedByRole().stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
         return roleRepository.findAll().stream()
-                .map(this::toViewDto)
+                .map(role -> {
+                    long count = userCountByRoleId.getOrDefault(role.getId(), 0L);
+                    return toViewDtoWithCount(role, (int) count);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -87,8 +88,19 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> searchRoles(String query) {
         log.info("Searching roles with query: {}", query);
+
+        // Pre-fetch all user counts grouped by role ID to avoid N+1 queries during DTO mapping
+        Map<Long, Long> userCountByRoleId = userRepository.countUsersGroupedByRole().stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
         return roleRepository.searchRoles(query).stream()
-                .map(this::toViewDto)
+                .map(role -> {
+                    long count = userCountByRoleId.getOrDefault(role.getId(), 0L);
+                    return toViewDtoWithCount(role, (int) count);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -301,13 +313,11 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +325,11 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
@@ -335,6 +344,10 @@ public class RoleManagementService {
     }
 
     private RoleViewDto toViewDto(Role role) {
+        return toViewDtoWithCount(role, (int) countUsersWithRole(role.getId()));
+    }
+
+    private RoleViewDto toViewDtoWithCount(Role role, int userCount) {
         return RoleViewDto.builder()
                 .id(role.getId())
                 .name(role.getName())
@@ -342,7 +355,7 @@ public class RoleManagementService {
                 .permissions(role.getPermissions().stream()
                         .map(Permission::getName)
                         .collect(Collectors.toList()))
-                .userCount((int) countUsersWithRole(role.getId()))
+                .userCount(userCount)
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
