@@ -1,0 +1,3 @@
+## 2026-04-10 - [Resolved N+1 Query in UserService]
+**Learning:** An N+1 query problem was discovered in `UserService.findAll()`, which fetched all users without their roles, causing `UserMapper` to trigger additional lazy loads for each user's roles.
+**Action:** Always use a targeted repository method with `LEFT JOIN FETCH` (e.g., `findAllWithRoles()`) to eagerly fetch related entities used in DTO mapping, and avoid the anti-pattern of relying on `findAll()` with lazy relationships. Also, verified that there are no dedicated unit tests for UserService, relying strictly on `mvn clean package` for compilation checks.

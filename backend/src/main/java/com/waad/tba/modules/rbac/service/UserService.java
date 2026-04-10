@@ -55,7 +55,8 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
         log.debug("Finding all users");
-        return userRepository.findAll().stream()
+        // Performance optimization: Uses findAllWithRoles() (LEFT JOIN FETCH) instead of findAll() to prevent N+1 queries when mapping roles
+        return userRepository.findAllWithRoles().stream()
                 .map(userMapper::toResponseDto)
                 .collect(Collectors.toList());
     }
