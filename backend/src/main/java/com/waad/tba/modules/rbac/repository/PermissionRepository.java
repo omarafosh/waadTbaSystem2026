@@ -13,6 +13,9 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
     Optional<Permission> findByName(String name);
     Boolean existsByName(String name);
     
+    @Query("SELECT p.name FROM Permission p")
+    List<String> findAllNames();
+
     @Query("SELECT p FROM Permission p WHERE " +
            "LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%'))")
