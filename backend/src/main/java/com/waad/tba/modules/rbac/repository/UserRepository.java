@@ -3,6 +3,7 @@ package com.waad.tba.modules.rbac.repository;
 import com.waad.tba.modules.rbac.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,11 +20,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
            "LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))")
-    List<User> searchUsers(String query);
+    List<User> searchUsers(@Param("query") String query);
     
     Optional<User> findByUsernameOrEmail(String username, String email);
     List<User> findByProviderId(Long providerId);
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    // BOLT PERFORMANCE OPTIMIZATION
+    // Replaces O(N) memory load (findAll().stream().filter(...).count())
+    // with a targeted database query.
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    long countByRolesId(@Param("roleId") Long roleId);
+
+    // BOLT PERFORMANCE OPTIMIZATION
+    // Replaces O(N) memory load (findAll().stream().filter(...).map(...))
+    // with a targeted database query to fetch only the required strings directly.
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@Param("roleId") Long roleId);
 }
