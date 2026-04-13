@@ -1,0 +1,3 @@
+## 2024-04-13 - [DTO Mapping Bottleneck: N+1 and In-Memory Filtering]
+**Learning:** The previous codebase design frequently used `repository.findAll().stream()` during DTO mapping for aggregations (like counting users per role or retrieving user fields). This loads the entire table into memory and causes massive O(N) memory consumption and N+1 queries. We discovered that `RoleManagementService` still suffered from this issue in several places.
+**Action:** Replaced in-memory filtering with targeted Spring Data JPA `@Query` projections (e.g. `countByRolesName`, `countUsersGroupedByRoleIds`) and explicit parameterized DB grouping/filtering, passing the results via an in-memory Map for O(1) lookups during DTO conversion.

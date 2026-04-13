@@ -3,6 +3,7 @@ package com.waad.tba.modules.rbac.repository;
 import com.waad.tba.modules.rbac.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,6 +11,11 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    interface UserCountByRole {
+        Long getRoleId();
+        Long getUserCount();
+    }
     Optional<User> findByUsername(String username);
     Optional<User> findByEmail(String email);
     Boolean existsByUsername(String username);
@@ -26,4 +32,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    long countByRolesId(Long roleId);
+
+    long countByRolesName(String roleName);
+
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@Param("roleId") Long roleId);
+
+    @Query("SELECT r.id as roleId, COUNT(u.id) as userCount FROM User u JOIN u.roles r WHERE r.id IN :roleIds GROUP BY r.id")
+    List<UserCountByRole> countUsersGroupedByRoleIds(@Param("roleIds") List<Long> roleIds);
 }
