@@ -1,0 +1,3 @@
+## 2026-04-15 - [Refactored RoleManagementService N+1 & Full-Table Scans]
+**Learning:** Found critical N+1 and full-table scan bottlenecks in `RoleManagementService` where `userRepository.findAll().stream()` was used inside loops to map user counts to roles. The relationship between User and Role is unidirectional from User, so JPQL queries joining users and roles must drive from the User entity (e.g., `SELECT r.id, COUNT(u) FROM User u JOIN u.roles r`).
+**Action:** Replaced O(N) memory operations with specific database-level JPQL queries (`countUsersGroupedByRoleIds`, `countByRolesId`, `findUsernamesByRolesId`). Mapped bulk counts to an in-memory dictionary for O(1) loop iteration when converting to DTOs.
