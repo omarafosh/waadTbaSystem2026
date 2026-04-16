@@ -28,4 +28,7 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
            "LOWER(r.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(r.description) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Role> searchRoles(String query);
+
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.permissions")
+    List<Role> findAllWithPermissions();
 }
