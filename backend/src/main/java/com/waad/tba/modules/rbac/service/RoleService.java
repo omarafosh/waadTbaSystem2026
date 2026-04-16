@@ -31,7 +31,7 @@ public class RoleService {
     @Transactional(readOnly = true)
     public List<RoleResponseDto> findAll() {
         log.debug("Finding all roles");
-        return roleRepository.findAll().stream()
+        return roleRepository.findAllWithPermissions().stream()
                 .map(roleMapper::toResponseDto)
                 .collect(Collectors.toList());
     }

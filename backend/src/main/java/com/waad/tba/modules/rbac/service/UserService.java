@@ -55,7 +55,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
         log.debug("Finding all users");
-        return userRepository.findAll().stream()
+        return userRepository.findAllWithRoles().stream()
                 .map(userMapper::toResponseDto)
                 .collect(Collectors.toList());
     }
