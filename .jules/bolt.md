@@ -1,0 +1,3 @@
+## 2026-04-16 - Prevent N+1 queries in User and Role retrieval
+**Learning:** In the RBAC module, iterating over entities (like `User` or `Role`) during DTO mapping can trigger N+1 query bottlenecks if eagerly-fetched relationships are not queried correctly. Using standard `findAll()` and `.stream()` relies on standard proxy loading.
+**Action:** When mapping lists of entities with collections like `permissions` or `roles`, introduce explicit `@Query("SELECT DISTINCT e FROM Entity e LEFT JOIN FETCH e.collection")` methods and utilize them in the `findAll()` methods to load relationships in a single optimized hit, avoiding N+1.
