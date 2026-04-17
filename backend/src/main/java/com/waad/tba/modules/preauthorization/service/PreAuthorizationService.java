@@ -697,23 +697,16 @@ public class PreAuthorizationService {
         log.info("[PRE-AUTH] Checking validity for member {} and service {}", memberId, serviceCode);
 
         // Find approved and valid pre-authorizations for this member and service
-        List<PreAuthorization> validPreAuths = preAuthorizationRepository.findAll().stream()
-                .filter(pa -> pa.getMemberId().equals(memberId))
-                .filter(pa -> pa.getServiceCode().equals(serviceCode))
-                .filter(pa -> pa.getActive())
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .filter(pa -> !pa.isExpired())
-                .toList();
+        List<PreAuthorization> validPreAuths = preAuthorizationRepository.findValidPreAuthorizationsByMemberAndService(
+                memberId, serviceCode, PreAuthStatus.APPROVED, LocalDate.now());
 
         if (validPreAuths.isEmpty()) {
             log.info("[PRE-AUTH] No valid pre-authorization found for member {} and service {}", memberId, serviceCode);
             return null;
         }
 
-        // Return the most recent valid one
-        PreAuthorization preAuth = validPreAuths.stream()
-                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
-                .orElse(validPreAuths.get(0));
+        // The query already sorts by createdAt DESC, so the first element is the most recent
+        PreAuthorization preAuth = validPreAuths.get(0);
 
         log.info("[PRE-AUTH] Found valid pre-authorization {} for member {} and service {}", 
                  preAuth.getReferenceNumber(), memberId, serviceCode);
