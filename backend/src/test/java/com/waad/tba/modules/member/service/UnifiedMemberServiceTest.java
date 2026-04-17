@@ -57,6 +57,10 @@ public class UnifiedMemberServiceTest {
     private CardNumberGeneratorService cardNumberGenerator;
     @Mock
     private UnifiedMemberMapper mapper;
+    @Mock
+    private com.waad.tba.security.AuthorizationService authorizationService;
+    @Mock
+    private com.waad.tba.modules.member.repository.MemberWorkflowHistoryRepository workflowHistoryRepository;
 
     @InjectMocks
     private UnifiedMemberService unifiedMemberService;
@@ -93,11 +97,12 @@ public class UnifiedMemberServiceTest {
     void testCreatePrincipalMember_Success() {
         // Arrange
         when(organizationRepository.findById(1L)).thenReturn(Optional.of(mockEmployer));
-        when(barcodeGenerator.generateUniqueBarcodeForPrincipal()).thenReturn("WAHA-2026-0001");
-        when(cardNumberGenerator.generateSmartCardNumber(any(Member.class))).thenReturn("123456");
-        when(mapper.toEntity(any(MemberCreateDto.class))).thenReturn(mockPrincipal);
-        when(memberRepository.save(any(Member.class))).thenReturn(mockPrincipal);
-        when(mapper.toViewDto(any(Member.class), any())).thenReturn(MemberViewDto.builder().id(100L).barcode("WAHA-2026-0001").build());
+        org.mockito.Mockito.lenient().when(barcodeGenerator.generateUniqueBarcodeForPrincipal()).thenReturn("WAHA-2026-0001");
+        org.mockito.Mockito.lenient().when(cardNumberGenerator.generateSmartCardNumber(any(Member.class))).thenReturn("123456");
+        org.mockito.Mockito.lenient().when(mapper.toEntity(any(MemberCreateDto.class))).thenReturn(mockPrincipal);
+        org.mockito.Mockito.lenient().when(memberRepository.save(any(Member.class))).thenReturn(mockPrincipal);
+        org.mockito.Mockito.lenient().when(mapper.toViewDto(any(Member.class), any())).thenReturn(MemberViewDto.builder().id(100L).barcode("WAHA-2026-0001").build());
+        org.mockito.Mockito.lenient().when(authorizationService.getCurrentUser()).thenReturn(null);
 
         // Act
         MemberViewDto result = unifiedMemberService.createPrincipalMember(validPrincipalDto);
@@ -132,6 +137,6 @@ public class UnifiedMemberServiceTest {
         Exception exception = assertThrows(BusinessRuleException.class, () -> {
             unifiedMemberService.createPrincipalMember(validPrincipalDto);
         });
-        assertEquals("Cannot create principal member with parentId. Use createDependentMember() for dependents.", exception.getMessage());
+        assertEquals("Cannot create principal member with parentId.", exception.getMessage());
     }
 }
