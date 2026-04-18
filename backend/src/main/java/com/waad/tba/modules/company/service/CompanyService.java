@@ -147,11 +147,7 @@ public class CompanyService {
         log.warn("No company marked as default. Falling back to first active company.");
 
         // Strategy 2: Get first active company
-        List<Company> companies = companyRepository.findAll();
-        Optional<Company> firstActive = companies.stream()
-                .filter(Company::getActive)
-                .findFirst();
-        
+        Optional<Company> firstActive = companyRepository.findFirstByActiveTrue();
         if (firstActive.isPresent()) {
             Company company = firstActive.get();
             log.warn("Using first active company as default: {} (ID: {}). " +
@@ -162,7 +158,7 @@ public class CompanyService {
         log.warn("No active companies found. Falling back to any company.");
 
         // Strategy 3: Get any company
-        Optional<Company> anyCompany = companies.stream().findFirst();
+        Optional<Company> anyCompany = companyRepository.findFirstByOrderByIdAsc();
         if (anyCompany.isPresent()) {
             Company company = anyCompany.get();
             log.warn("Using first available company as default: {} (ID: {}). " +
@@ -214,22 +210,10 @@ public class CompanyService {
      */
     @Transactional
     public CompanyDto updateDefaultCompany(CompanyDto companyDto) {
-        log.info("Updating default company");
-        
-        // Find the default company
         Company company = companyRepository.findByIsDefaultTrue()
-                .or(() -> {
-                    List<Company> companies = companyRepository.findAll();
-                    return companies.stream()
-                            .filter(Company::getActive)
-                            .findFirst();
-                })
-                .or(() -> {
-                    List<Company> companies = companyRepository.findAll();
-                    return companies.stream().findFirst();
-                })
+                .or(() -> companyRepository.findFirstByActiveTrue())
+                .or(() -> companyRepository.findFirstByOrderByIdAsc())
                 .orElse(null);
-        
         if (company == null) {
             // Create new company
             log.info("No company exists, creating new one");
