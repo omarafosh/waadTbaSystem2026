@@ -1,0 +1,3 @@
+## 2024-05-20 - [Database push-down in RoleManagementService]
+**Learning:** In Spring Boot, avoid using `repository.findAll().stream().filter(...)` for relationship counting or nested property extractions. This architecture triggers huge memory overhead and an O(N) full-table scan. For collections like `User` to `Role`, push the filtering into a `@Query` method in the repository to leverage the DB engine directly, as `userRepository.countByRolesId()` handles aggregation exponentially faster than Java Streams.
+**Action:** Always inspect the repository and service layers for `findAll().stream()` operations. When found in large-dataset tables (e.g., Users, Claims), immediately replace with a targeted JPQL Query or derived method using Spring Data JPA.
