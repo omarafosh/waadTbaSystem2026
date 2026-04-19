@@ -54,8 +54,17 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
+
+        // ⚡ Bolt: Performance optimization to batch fetch user counts per role and prevent N+1 query loops.
+        // Replaces O(N) full-table in-memory filtering with an O(1) bulk map lookup.
+        java.util.Map<Long, Long> roleUserCounts = userRepository.countUsersPerRoleId().stream()
+                .collect(Collectors.toMap(
+                        arr -> (Long) arr[0],
+                        arr -> (Long) arr[1]
+                ));
+
         return roleRepository.findAll().stream()
-                .map(this::toViewDto)
+                .map(role -> toViewDtoWithCount(role, roleUserCounts.getOrDefault(role.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
@@ -301,13 +310,12 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt: Performance optimization to replace full user entity fetching and in-memory map/filtering
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +323,11 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
-
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
+        // ⚡ Bolt: Performance optimization to replace full-table in-memory streaming with a targeted database COUNT
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
@@ -335,6 +342,10 @@ public class RoleManagementService {
     }
 
     private RoleViewDto toViewDto(Role role) {
+        return toViewDtoWithCount(role, countUsersWithRole(role.getId()));
+    }
+
+    private RoleViewDto toViewDtoWithCount(Role role, long userCount) {
         return RoleViewDto.builder()
                 .id(role.getId())
                 .name(role.getName())
@@ -342,7 +353,7 @@ public class RoleManagementService {
                 .permissions(role.getPermissions().stream()
                         .map(Permission::getName)
                         .collect(Collectors.toList()))
-                .userCount((int) countUsersWithRole(role.getId()))
+                .userCount((int) userCount)
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
