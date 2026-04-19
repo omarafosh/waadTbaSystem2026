@@ -1,0 +1,4 @@
+
+## 2024-04-19 - [Fix PreAuthorization Validity Check Full-Table Scan]
+**Learning:** Found an N+1 and full-table in-memory filtering bottleneck in `PreAuthorizationService.checkValidity()`. It previously called `findAll().stream()` to load every pre-authorization in the database, then performed filtering in memory by member, service, active status, approval status, and expiry date. This creates an O(N) memory and time bottleneck, proportional to the size of the database.
+**Action:** Replace `findAll().stream().filter(...)` constructs with targeted Spring Data JPA derived queries or explicit `@Query` annotations. The query `findValidPreAuthorizationsByMemberAndService` pushes the work of filtering, validating expiry dates, and ordering by timestamp down to the database level, ensuring efficient indexing, minimal memory footprint, and avoiding unneeded object allocations.
