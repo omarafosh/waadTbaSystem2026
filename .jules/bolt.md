@@ -1,0 +1,3 @@
+## 2026-04-20 - [Optimize RoleManagementService user lookups]
+**Learning:** Found full-table in-memory filtering performance bottlenecks in `RoleManagementService.getUsersWithRole` and `RoleManagementService.countUsersWithRole`. The methods `userRepository.findAll().stream().filter(...)` load all users into memory, which would crash with large datasets. The fix is pushing projection and aggregate counting directly to the database via targeted JPQL `@Query` methods (`countByRolesId` and `findUsernamesByRolesId`).
+**Action:** When comparing arrays or filtering lists based on relationship mappings in Spring JPA, avoid `findAll().stream()` loops. Add custom queries in repositories to optimize projection, reduce heap usage, and avoid O(N) operations.
