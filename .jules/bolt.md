@@ -1,0 +1,3 @@
+## 2026-04-20 - [Database Projection for Relationship Mapping]
+**Learning:** In Spring Boot JPA, mapping related entities or checking their counts using `repository.findAll().stream()` pulls entire tables into JVM memory, creating severe O(N) memory and compute bottlenecks that eventually crash the application.
+**Action:** Always replace `findAll().stream().filter(...)` with database-level aggregate and projection queries in the repository (e.g., `@Query` with `GROUP BY` or targeted derived queries like `countBy...`) to compute results at the database level and fetch only the strictly required data.
