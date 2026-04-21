@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -26,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName")
+    long countUsersByRoleName(@Param("roleName") String roleName);
 }
