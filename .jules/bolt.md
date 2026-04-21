@@ -1,0 +1,3 @@
+## 2026-04-21 - Resolving Full-Table Scan in PreAuthorizationService.checkValidity
+**Learning:** `PreAuthorizationService.checkValidity()` previously used `preAuthorizationRepository.findAll().stream().filter(...)` to find valid pre-authorizations for a member and service. This loaded the entire `PreAuthorization` table into memory on every validation call, which is a severe bottleneck for active endpoints.
+**Action:** Push all filtering (memberId, serviceCode, active=true, status='APPROVED', expiryDate) to the database layer via targeted JPQL queries in the repository. Additionally, when needing only the "most recent" record, use `ORDER BY createdAt DESC` in the query rather than sorting the entire result set in memory via `.max()`.
