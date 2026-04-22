@@ -1,0 +1,4 @@
+## 2026-04-22 - [RoleManagementService Optimization]
+**Learning:** Found O(N) full-table in-memory filter bottlenecks in `RoleManagementService` related to users: `getUsersWithRole` and `countUsersWithRole`. Both of these methods used `userRepository.findAll().stream().filter(...)` leading to unnecessary memory consumption when checking for users having a particular role. The `@ManyToMany` relationship between `User` and `Role` allows us to push this processing directly to the database via explicit JPQL queries in `UserRepository`.
+
+**Action:** Whenever iterating over `findAll().stream().filter(...)` for relationship counting or simple data projection (e.g., extracting usernames), refactor these to explicit database-level `@Query` operations (like `countByRolesId` and `findUsernamesByRolesId`) to prevent large-scale memory loading.
