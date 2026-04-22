@@ -4,9 +4,16 @@ import com.waad.tba.modules.rbac.dto.*;
 import com.waad.tba.modules.rbac.entity.User;
 import com.waad.tba.modules.provider.repository.ProviderRepository;
 import com.waad.tba.common.repository.OrganizationRepository;
+import com.waad.tba.modules.provider.entity.Provider;
+import com.waad.tba.common.entity.Organization;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Objects;
+import java.util.function.Function;
 
 @Component
 public class UserMapper {
@@ -24,6 +31,57 @@ public class UserMapper {
     public UserResponseDto toResponseDto(User user) {
         if (user == null) return null;
         
+        return toResponseDtoWithNames(
+            user,
+            user.getEmployerId() != null ?
+                organizationRepository.findById(user.getEmployerId())
+                    .map(Organization::getName).orElse(null) : null,
+            user.getProviderId() != null ?
+                providerRepository.findById(user.getProviderId())
+                    .map(Provider::getName).orElse(null) : null
+        );
+    }
+
+    /**
+     * ⚡ Bolt: Bulk processing of DTOs to avoid N+1 queries.
+     * Rather than executing an individual select for each User's Provider and Employer organization,
+     * this method extracts all distinct IDs, batch fetches the relationships into in-memory maps,
+     * and performs O(1) lookups during DTO generation.
+     */
+    public List<UserResponseDto> toResponseDtos(List<User> users) {
+        if (users == null) return null;
+
+        Set<Long> employerIds = users.stream()
+            .map(User::getEmployerId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        Set<Long> providerIds = users.stream()
+            .map(User::getProviderId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        Map<Long, Organization> employers = organizationRepository.findAllById(employerIds).stream()
+            .collect(Collectors.toMap(Organization::getId, Function.identity()));
+
+        Map<Long, Provider> providers = providerRepository.findAllById(providerIds).stream()
+            .collect(Collectors.toMap(Provider::getId, Function.identity()));
+
+        return users.stream().map(user -> {
+            String employerName = null;
+            if (user.getEmployerId() != null && employers.containsKey(user.getEmployerId())) {
+                employerName = employers.get(user.getEmployerId()).getName();
+            }
+
+            String providerName = null;
+            if (user.getProviderId() != null && providers.containsKey(user.getProviderId())) {
+                providerName = providers.get(user.getProviderId()).getName();
+            }
+            return toResponseDtoWithNames(user, employerName, providerName);
+        }).collect(Collectors.toList());
+    }
+
+    private UserResponseDto toResponseDtoWithNames(User user, String employerName, String providerName) {
         return UserResponseDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -37,14 +95,9 @@ public class UserMapper {
                            .collect(Collectors.toList()) : null)
                 // Employer/Provider associations
                 .employerId(user.getEmployerId())
-                .employerName(user.getEmployerId() != null ? 
-                    organizationRepository.findById(user.getEmployerId())
-                        .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null)
+                .employerName(employerName)
                 .providerId(user.getProviderId())
-                .providerName(user.getProviderId() != null ? 
-                    providerRepository.findById(user.getProviderId())
-                        .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null)
-
+                .providerName(providerName)
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
                 .permittedCompanies(user.getPermittedOrganizations() != null ?
