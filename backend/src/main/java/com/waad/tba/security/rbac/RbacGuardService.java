@@ -324,24 +324,21 @@ public class RbacGuardService {
      * @param newRoles The new roles being assigned (empty if deleting)
      */
     public void validateSuperAdminExists(Long userIdBeingModified, Set<String> newRoles) {
-        // Count current SUPER_ADMIN users
-        long superAdminCount = userRepository.findAll().stream()
-                .filter(user -> user.getRoles().stream()
-                        .anyMatch(role -> "SUPER_ADMIN".equals(role.getName())))
-                .count();
-        
-        // Check if this operation would remove the last SUPER_ADMIN
+                // Check if this operation would remove the last SUPER_ADMIN
         User targetUser = userRepository.findById(userIdBeingModified).orElse(null);
         if (targetUser != null) {
             boolean isSuperAdmin = targetUser.getRoles().stream()
                     .anyMatch(role -> "SUPER_ADMIN".equals(role.getName()));
             boolean willRemainSuperAdmin = newRoles != null && newRoles.contains("SUPER_ADMIN");
             
-            if (isSuperAdmin && !willRemainSuperAdmin && superAdminCount <= 1) {
-                log.error("🚨 CRITICAL: Attempted to remove the last SUPER_ADMIN from the system!");
-                throw new AccessDeniedException(
-                        "Cannot remove SUPER_ADMIN role from the last SUPER_ADMIN user. " +
-                        "The system must have at least one SUPER_ADMIN.");
+            if (isSuperAdmin && !willRemainSuperAdmin) {
+                long superAdminCount = userRepository.countByRoleName("SUPER_ADMIN");
+                if (superAdminCount <= 1) {
+                    log.error("🚨 CRITICAL: Attempted to remove the last SUPER_ADMIN from the system!");
+                    throw new AccessDeniedException(
+                            "Cannot remove SUPER_ADMIN role from the last SUPER_ADMIN user. " +
+                            "The system must have at least one SUPER_ADMIN.");
+                }
             }
         }
     }
