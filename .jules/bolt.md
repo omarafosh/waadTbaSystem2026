@@ -1,0 +1,3 @@
+## 2026-04-26 - [PreAuthorizationService In-Memory Filtering Bottleneck]
+**Learning:** The `PreAuthorizationService.checkValidity()` method suffered from a severe performance bottleneck by calling `preAuthorizationRepository.findAll().stream()` to fetch the entire table into application memory just to filter down to a specific member and service. This O(N) data transfer and memory overhead creates critical scaling issues.
+**Action:** When searching for specific active records (especially for authorization logic), always implement targeted database queries in the repository (e.g., `findValidPreAuthorizationsByMemberAndService`) to push filtering and sorting directly to the database level, avoiding full-table memory loads.
