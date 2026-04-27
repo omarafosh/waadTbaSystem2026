@@ -304,10 +304,10 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt Performance Optimization
+        // Replaced full table scan `findAll().stream()` with a targeted database query.
+        // Impact: Reduces memory footprint from O(N) to O(1) and eliminates massive network/db transfer overhead.
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -318,9 +318,10 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        // ⚡ Bolt Performance Optimization
+        // Replaced full table scan `findAll().stream()` with a targeted aggregate COUNT database query.
+        // Impact: Prevents loading hundreds of MBs of unused user entity objects just to retrieve an integer count.
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
