@@ -1,0 +1,3 @@
+## 2026-04-30 - [Performance bottleneck in RoleManagementService]
+**Learning:** For checking relationship counts or mapping sub-fields (like fetching usernames by a specific role), avoid fetching full entity lists with `findAll().stream().map(...)` or `.count()` as it causes unnecessary memory consumption. Instead, use targeted JPQL `@Query` methods (e.g., `countByRolesId`, `findUsernamesByRolesId`) to push projection and aggregate counting directly to the database.
+**Action:** Replace full-table in-memory operations with efficient database queries where applicable. I resolved `findAll().stream().filter(...).map(User::getUsername)` and `count()` in `RoleManagementService` (and similarly in `RbacGuardService`).
