@@ -304,10 +304,8 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt Optimization: Use targeted DB query instead of in-memory filter
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -318,9 +316,8 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        // ⚡ Bolt Optimization: Use targeted DB aggregate instead of in-memory filter
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
