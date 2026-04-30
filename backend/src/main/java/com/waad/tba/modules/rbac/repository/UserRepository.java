@@ -4,6 +4,7 @@ import com.waad.tba.modules.rbac.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,4 +27,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    // ⚡ Bolt Performance Optimization: Replace O(N) full-table in-memory filtering with targeted DB join
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@Param("roleId") Long roleId);
+
+    // ⚡ Bolt Performance Optimization: Replace O(N) full-table in-memory filtering with targeted DB aggregate
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    long countByRolesId(@Param("roleId") Long roleId);
+
+    // ⚡ Bolt Performance Optimization: Replace O(N) full-table in-memory filtering with targeted DB aggregate
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName")
+    long countByRolesName(@Param("roleName") String roleName);
 }
