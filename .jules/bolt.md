@@ -1,0 +1,3 @@
+## 2026-05-01 - [Resolved O(N) In-Memory Filtering Bottleneck in PreAuthorizationService]
+**Learning:** Found an `O(N)` whole-table data load in `PreAuthorizationService.checkValidity` where it called `preAuthorizationRepository.findAll().stream().filter(...)`. This pattern is highly problematic for large database tables, as it retrieves the entire table into Java memory before filtering.
+**Action:** Replaced `findAll().stream()` with a targeted JPQL query `findValidPreAuthorizationsByMemberAndService` using `@Query` inside `PreAuthorizationRepository`. Passed enum values safely as literal strings (or better, as `@Param` references). This pushes the heavy filtering directly to the database level.
