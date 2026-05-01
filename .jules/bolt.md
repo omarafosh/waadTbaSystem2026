@@ -1,0 +1,4 @@
+
+## 2026-05-01 - [Resolve Full-Table Scan Bottleneck in PreAuthorizationService]
+**Learning:** The `checkValidity` method in `PreAuthorizationService` was fetching all records into memory (`findAll().stream().filter(...)`) before applying filters. This is an extremely common but severe performance bottleneck as it causes O(N) memory load. Furthermore, filtering on specific enums or dynamically comparing dates in the application layer is highly inefficient.
+**Action:** Always replace `findAll().stream().filter(...)` logic in Spring Service classes with custom JPQL `@Query` methods to push down filtering and sorting logic directly to the database layer, drastically reducing memory footprint and network latency. When filtering by ENUM values, use parameterized named binding `:status` and pass them in from the service layer rather than fully-qualifying the enum classpath in the JPQL query.
