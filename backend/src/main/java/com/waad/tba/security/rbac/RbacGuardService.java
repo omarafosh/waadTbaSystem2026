@@ -324,11 +324,8 @@ public class RbacGuardService {
      * @param newRoles The new roles being assigned (empty if deleting)
      */
     public void validateSuperAdminExists(Long userIdBeingModified, Set<String> newRoles) {
-        // Count current SUPER_ADMIN users
-        long superAdminCount = userRepository.findAll().stream()
-                .filter(user -> user.getRoles().stream()
-                        .anyMatch(role -> "SUPER_ADMIN".equals(role.getName())))
-                .count();
+        // Count current SUPER_ADMIN users efficiently directly in DB
+        long superAdminCount = userRepository.countByRolesName("SUPER_ADMIN");
         
         // Check if this operation would remove the last SUPER_ADMIN
         User targetUser = userRepository.findById(userIdBeingModified).orElse(null);
