@@ -1,0 +1,3 @@
+## 2026-05-04 - Eliminate full-table in-memory filtering in hot path (JwtTokenProvider)
+**Learning:** Full entity materialization (`findAll()`) for single-field extraction (like permission names) in frequently hit paths (like JWT token generation) causes significant unnecessary memory overhead and garbage collection pressure, particularly when there are a large number of roles and permissions.
+**Action:** Always use targeted JPQL projections (e.g., `SELECT p.name FROM Permission p`) instead of `findAll().stream().map(...)` when only specific fields are needed, especially in high-traffic areas like authentication loops.

@@ -68,10 +68,8 @@ public class JwtTokenProvider {
         List<String> permissions;
         
         if (isSuperAdmin) {
-            // SUPER_ADMIN gets ALL permissions
-            permissions = permissionRepository.findAll().stream()
-                    .map(Permission::getName)
-                    .collect(Collectors.toList());
+            // SUPER_ADMIN gets ALL permissions (optimized: DB-level projection)
+            permissions = permissionRepository.findAllPermissionNames();
             
             log.info("🔓 SUPER_ADMIN JWT generated with ALL {} permissions (unrestricted access)", 
                     permissions.size());
