@@ -1,0 +1,3 @@
+## 2024-05-05 - Resolving In-Memory User Filtering Bottleneck in RoleManagementService
+**Learning:** The methods `getUsersWithRole` and `countUsersWithRole` were relying on `findAll().stream().filter(...)`, loading all users into application memory and creating a significant O(N) performance bottleneck. Given the unidirectional relationship from User to Role (Role doesn't map users), JPQL queries must drive from the User entity.
+**Action:** Replaced the in-memory filtering with targeted JPQL queries in `UserRepository` (`findUsernamesByRolesId` and `countByRolesId`). Always push filtering and aggregate counts to the database level to avoid memory saturation, especially for unbounded entity lists.
