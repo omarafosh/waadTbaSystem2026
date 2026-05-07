@@ -1,0 +1,3 @@
+## 2026-05-07 - Resolved O(N) In-Memory Full Table Scan in RoleManagementService
+**Learning:** In the RBAC module, `RoleManagementService` was fetching all users from the database into memory and filtering them via Java streams to count and extract usernames for a specific role. Because the `User` and `Role` relationship is unidirectional from the `User` side (i.e. `User` has `roles`), we must drive the queries from `User` to `Role`.
+**Action:** Replaced `findAll().stream().filter(...)` with targeted JPQL `@Query` methods (`countByRolesId` and `findUsernamesByRolesId`) in `UserRepository`, completely avoiding N+1 loops and O(N) memory allocations by pushing the workload directly to the database.
