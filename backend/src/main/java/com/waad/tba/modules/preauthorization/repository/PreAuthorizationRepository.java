@@ -174,6 +174,23 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     // ==================== Complex Queries ====================
 
     /**
+     * Find the most recent active and approved pre-authorization for a member and service.
+     */
+    @Query("SELECT pa FROM PreAuthorization pa WHERE pa.active = true " +
+           "AND pa.memberId = :memberId " +
+           "AND pa.serviceCode = :serviceCode " +
+           "AND pa.status = :status " +
+           "AND (pa.expiryDate IS NULL OR pa.expiryDate >= :currentDate) " +
+           "ORDER BY pa.createdAt DESC")
+    Page<PreAuthorization> findFirstValidPreAuth(
+            @Param("memberId") Long memberId,
+            @Param("serviceCode") String serviceCode,
+            @Param("status") PreAuthStatus status,
+            @Param("currentDate") LocalDate currentDate,
+            Pageable pageable
+    );
+
+    /**
      * Find valid pre-authorizations for member + provider + service
      */
     @Query("SELECT pa FROM PreAuthorization pa WHERE pa.active = true " +
