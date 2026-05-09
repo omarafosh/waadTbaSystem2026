@@ -24,6 +24,58 @@ public class UserMapper {
     public UserResponseDto toResponseDto(User user) {
         if (user == null) return null;
         
+        String employerName = user.getEmployerId() != null ?
+            organizationRepository.findById(user.getEmployerId())
+                .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null;
+
+        String providerName = user.getProviderId() != null ?
+            providerRepository.findById(user.getProviderId())
+                .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null;
+
+        return toResponseDtoWithNames(user, employerName, providerName);
+    }
+
+    public java.util.List<UserResponseDto> toResponseDtos(java.util.List<User> users) {
+        if (users == null || users.isEmpty()) return java.util.Collections.emptyList();
+
+        java.util.Set<Long> employerIds = users.stream()
+                .map(User::getEmployerId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        java.util.Set<Long> providerIds = users.stream()
+                .map(User::getProviderId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        java.util.Map<Long, String> employerNames = employerIds.isEmpty() ? java.util.Collections.emptyMap() :
+                organizationRepository.findAllById(employerIds).stream()
+                        .collect(Collectors.toMap(
+                                com.waad.tba.common.entity.Organization::getId,
+                                com.waad.tba.common.entity.Organization::getName,
+                                (a, b) -> a
+                        ));
+
+        java.util.Map<Long, String> providerNames = providerIds.isEmpty() ? java.util.Collections.emptyMap() :
+                providerRepository.findAllById(providerIds).stream()
+                        .collect(Collectors.toMap(
+                                com.waad.tba.modules.provider.entity.Provider::getId,
+                                com.waad.tba.modules.provider.entity.Provider::getName,
+                                (a, b) -> a
+                        ));
+
+        return users.stream()
+                .map(user -> toResponseDtoWithNames(
+                        user,
+                        user.getEmployerId() != null ? employerNames.get(user.getEmployerId()) : null,
+                        user.getProviderId() != null ? providerNames.get(user.getProviderId()) : null
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private UserResponseDto toResponseDtoWithNames(User user, String employerName, String providerName) {
+        if (user == null) return null;
+
         return UserResponseDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -37,13 +89,9 @@ public class UserMapper {
                            .collect(Collectors.toList()) : null)
                 // Employer/Provider associations
                 .employerId(user.getEmployerId())
-                .employerName(user.getEmployerId() != null ? 
-                    organizationRepository.findById(user.getEmployerId())
-                        .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null)
+                .employerName(employerName)
                 .providerId(user.getProviderId())
-                .providerName(user.getProviderId() != null ? 
-                    providerRepository.findById(user.getProviderId())
-                        .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null)
+                .providerName(providerName)
 
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
