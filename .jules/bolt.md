@@ -1,0 +1,3 @@
+## 2026-05-10 - Unresolved in-memory filtering in RoleManagementService
+**Learning:** Found an unresolved N+1/full-table filtering issue in `RoleManagementService.countUsersWithRole` and `getUsersWithRole` caused by missing JPQL queries in `UserRepository`. The memory note stated they were unresolved, but I had to manually implement `findUsernamesByRolesId` and `countByRolesId` to fix them. Always double check if required repository methods are present before assuming a memory note implies they exist.
+**Action:** Always implement the necessary repository JPQL methods when resolving in-memory filtering issues.
