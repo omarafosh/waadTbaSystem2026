@@ -1,0 +1,3 @@
+## 2026-05-11 - Database Projection for Entity Names
+**Learning:** Full-table in-memory filtering mapping bottlenecks occur when fetching entire entities just to extract single fields (like names). For example, `JwtTokenProvider` was fetching all `Permission` entities (`permissionRepository.findAll().stream().map(...)`) into memory just to get permission names.
+**Action:** Use JPQL targeted database projection queries (e.g., `@Query("SELECT p.name FROM Permission p") List<String> findAllPermissionNames();`) to push data extraction down to the database, significantly reducing memory consumption and Java-side processing time when generating tokens for Super Admins.
