@@ -1,0 +1,3 @@
+## 2026-05-12 - UnifiedMemberService Full-Table Scan Optimization
+**Learning:** Replaced an O(N) findAll().stream().filter(...) memory bottleneck in UnifiedMemberService with the targeted OrganizationRepository.findFirstByType() repository query, proving the importance of pushing database-level filtering to JPQL to preserve application memory during VIP fallback lookups.
+**Action:** When finding a single entity by an attribute without an explicit unique constraint or exact match query, always implement/use a findFirstBy... Spring Data repository method instead of loading the entire table to filter in memory.
