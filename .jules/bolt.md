@@ -1,0 +1,3 @@
+## 2024-05-14 - Replace O(N) full-table in-memory filtering with JPQL aggregations
+**Learning:** Avoid using `repository.findAll().stream().filter(...)` and `count()` or `map()` to calculate list sizes or project simple lists (like usernames) based on relationship IDs (e.g. Roles). In Spring Data, this causes severe memory bloat because it loads the entire table into the application space just to count or extract a string. Always use specific JPQL `@Query` methods to push the counting and string projection down to the database level (e.g. `COUNT(u)` or `u.username`).
+**Action:** Before writing any loop or stream that processes a full `findAll()`, check if the logic can be replaced by a custom JPQL query with aggregate functions (`COUNT`) or projections.
