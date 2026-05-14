@@ -1,0 +1,3 @@
+## 2026-05-14 - Replace stream filtering with DB query for getUsersWithRole and countUsersWithRole
+**Learning:** In RoleManagementService, the methods `getUsersWithRole` and `countUsersWithRole` were loading all users via `userRepository.findAll()` and filtering them in memory using streams (`findAll().stream().filter(user -> user.getRoles().contains(role))`). This represents an O(N) memory and compute bottleneck, loading every user into memory for a single role check.
+**Action:** Replaced the stream filtering with targeted JPQL queries in `UserRepository`: `findUsernamesByRolesId` and `countByRolesId`. Added `roleRepository.existsById(roleId)` checks to maintain the existing `ResourceNotFoundException` behavior while eliminating the full table scan.
