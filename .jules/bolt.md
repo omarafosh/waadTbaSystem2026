@@ -1,0 +1,3 @@
+## 2026-05-16 - PreAuthorizationService In-Memory Stream Bottleneck
+**Learning:** `PreAuthorizationService` was loading the entire `PreAuthorization` table via `findAll().stream()` to filter and sort pre-authorizations in memory using `java.util.stream.Stream`. This memory bottleneck worsens exponentially as the preauth table grows.
+**Action:** Resolved by creating a targeted JPQL repository query (`findValidPreAuthorizationsForMemberAndService`) taking advantage of database indexes to filter, sort (`ORDER BY createdAt DESC`), and limit (`PageRequest.of(0, 1)`) data cleanly, fetching exactly the single required row directly from the database instead.
