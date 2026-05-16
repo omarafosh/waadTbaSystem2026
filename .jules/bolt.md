@@ -1,0 +1,3 @@
+## 2024-05-16 - O(N) In-Memory Filtering in RoleManagementService
+**Learning:** `getUsersWithRole` and `countUsersWithRole` loaded the entire user table into memory via `userRepository.findAll().stream().filter(...)` just to check role assignments, creating a massive memory footprint and classic N+1 query triggers (as checking `user.getRoles().contains(...)` forces lazy loading of roles for every user).
+**Action:** Always replace `findAll().stream().filter()` on related entities with targeted JPQL queries (e.g., `SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId`) to push projection and filtering to the database level, and always keep initial `.findById` checks to preserve expected API exceptions (e.g., `ResourceNotFoundException`).
