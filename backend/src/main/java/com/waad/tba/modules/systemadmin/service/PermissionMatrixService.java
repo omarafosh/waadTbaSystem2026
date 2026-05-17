@@ -225,11 +225,16 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().add(permission);
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+        if (permissions.size() != permissionIds.size()) {
+            Set<Long> foundIds = permissions.stream().map(Permission::getId).collect(Collectors.toSet());
+            for (Long permissionId : permissionIds) {
+                if (!foundIds.contains(permissionId)) {
+                    throw new ResourceNotFoundException("Permission not found with ID: " + permissionId);
+                }
+            }
         }
+        role.getPermissions().addAll(permissions);
 
         roleRepository.save(role);
 
@@ -258,11 +263,16 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().remove(permission);
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+        if (permissions.size() != permissionIds.size()) {
+            Set<Long> foundIds = permissions.stream().map(Permission::getId).collect(Collectors.toSet());
+            for (Long permissionId : permissionIds) {
+                if (!foundIds.contains(permissionId)) {
+                    throw new ResourceNotFoundException("Permission not found with ID: " + permissionId);
+                }
+            }
         }
+        role.getPermissions().removeAll(permissions);
 
         roleRepository.save(role);
 

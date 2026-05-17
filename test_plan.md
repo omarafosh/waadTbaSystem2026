@@ -1,0 +1,1 @@
+There are no relevant tests for `RoleManagementService`, `UserRepository`, `RoleService`, or `PermissionMatrixService` based on memory notes and my previous investigation. I'll just skip to code review.
