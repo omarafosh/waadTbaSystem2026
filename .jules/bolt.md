@@ -1,0 +1,3 @@
+## 2026-05-19 - Resolved In-Memory Filtering Bottleneck in PreAuthorizationService
+**Learning:** `PreAuthorizationService.checkValidity()` was loading the entire `PreAuthorization` table into memory using `findAll().stream().filter(...)` to find a valid record for a given member and service. This O(N) memory load scales poorly and blocks the main thread.
+**Action:** Replaced the in-memory processing with a targeted database query in `PreAuthorizationRepository` (`findValidPreAuthorizationsForMemberAndService`) using `PageRequest.of(0, 1)` to fetch just the single most recent valid record directly, pushing the filtering logic down to the database level and significantly reducing memory bloat.

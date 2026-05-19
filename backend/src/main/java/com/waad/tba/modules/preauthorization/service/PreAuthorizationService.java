@@ -696,24 +696,20 @@ public class PreAuthorizationService {
     public PreAuthorizationResponseDto checkValidity(Long memberId, String serviceCode) {
         log.info("[PRE-AUTH] Checking validity for member {} and service {}", memberId, serviceCode);
 
-        // Find approved and valid pre-authorizations for this member and service
-        List<PreAuthorization> validPreAuths = preAuthorizationRepository.findAll().stream()
-                .filter(pa -> pa.getMemberId().equals(memberId))
-                .filter(pa -> pa.getServiceCode().equals(serviceCode))
-                .filter(pa -> pa.getActive())
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .filter(pa -> !pa.isExpired())
-                .toList();
+        // Fetch the single most recent valid pre-authorization directly from the database
+        Page<PreAuthorization> preAuthPage = preAuthorizationRepository.findValidPreAuthorizationsForMemberAndService(
+                memberId,
+                serviceCode,
+                LocalDate.now(),
+                org.springframework.data.domain.PageRequest.of(0, 1)
+        );
 
-        if (validPreAuths.isEmpty()) {
+        if (preAuthPage.isEmpty()) {
             log.info("[PRE-AUTH] No valid pre-authorization found for member {} and service {}", memberId, serviceCode);
             return null;
         }
 
-        // Return the most recent valid one
-        PreAuthorization preAuth = validPreAuths.stream()
-                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
-                .orElse(validPreAuths.get(0));
+        PreAuthorization preAuth = preAuthPage.getContent().get(0);
 
         log.info("[PRE-AUTH] Found valid pre-authorization {} for member {} and service {}", 
                  preAuth.getReferenceNumber(), memberId, serviceCode);
