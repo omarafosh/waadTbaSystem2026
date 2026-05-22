@@ -21,4 +21,14 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findByIsDefaultTrue();
     
     boolean existsByCode(String code);
+
+    /**
+     * Find the first active company
+     */
+    Optional<Company> findFirstByActiveTrue();
+
+    /**
+     * Find the first company, ordered by ID
+     */
+    Optional<Company> findFirstByOrderByIdAsc();
 }
