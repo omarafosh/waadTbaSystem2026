@@ -147,10 +147,8 @@ public class CompanyService {
         log.warn("No company marked as default. Falling back to first active company.");
 
         // Strategy 2: Get first active company
-        List<Company> companies = companyRepository.findAll();
-        Optional<Company> firstActive = companies.stream()
-                .filter(Company::getActive)
-                .findFirst();
+        // OPTIMIZATION: Replaced memory-intensive findAll().stream().filter(...) with optimized database query
+        Optional<Company> firstActive = companyRepository.findFirstByActiveTrue();
         
         if (firstActive.isPresent()) {
             Company company = firstActive.get();
@@ -162,7 +160,8 @@ public class CompanyService {
         log.warn("No active companies found. Falling back to any company.");
 
         // Strategy 3: Get any company
-        Optional<Company> anyCompany = companies.stream().findFirst();
+        // OPTIMIZATION: Replaced findAll().stream().findFirst() with findFirstByOrderByIdAsc()
+        Optional<Company> anyCompany = companyRepository.findFirstByOrderByIdAsc();
         if (anyCompany.isPresent()) {
             Company company = anyCompany.get();
             log.warn("Using first available company as default: {} (ID: {}). " +
@@ -217,17 +216,10 @@ public class CompanyService {
         log.info("Updating default company");
         
         // Find the default company
+        // OPTIMIZATION: Replaced memory-intensive findAll().stream() queries with database-level derived queries
         Company company = companyRepository.findByIsDefaultTrue()
-                .or(() -> {
-                    List<Company> companies = companyRepository.findAll();
-                    return companies.stream()
-                            .filter(Company::getActive)
-                            .findFirst();
-                })
-                .or(() -> {
-                    List<Company> companies = companyRepository.findAll();
-                    return companies.stream().findFirst();
-                })
+                .or(companyRepository::findFirstByActiveTrue)
+                .or(companyRepository::findFirstByOrderByIdAsc)
                 .orElse(null);
         
         if (company == null) {
