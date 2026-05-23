@@ -1,0 +1,3 @@
+## 2026-05-23 - Targeted DB Queries for Counting and Filtering Over In-Memory Stream Loading
+**Learning:** When retrieving relationship associations (like checking counts or fetching usernames associated with a specific role), using `findAll().stream().filter(...)` causes severe application memory bloat because it loads the entire `User` table (with potentially thousands of records) into memory, only to discard most of them.
+**Action:** Replace `findAll().stream()` logic with targeted JPQL repository methods (`@Query("SELECT COUNT(u) ...")` or `@Query("SELECT u.username ...")`) to push the filtering and counting directly to the SQL database. Always use `existsById` for initial entity validation to avoid fetching the full associated entity if it is not modified or used.
