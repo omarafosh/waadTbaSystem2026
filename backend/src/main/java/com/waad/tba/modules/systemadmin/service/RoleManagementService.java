@@ -301,13 +301,13 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        // ⚡ Bolt Optimization: Prevent O(N) full-table in-memory filtering by using DB projection
+        // Impact: Reduces DB I/O, network latency, and memory bloat from fetching all user rows.
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +315,13 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        // ⚡ Bolt Optimization: Prevent O(N) full-table in-memory counting by pushing count query to DB
+        // Impact: Executes instantly as a targeted SQL COUNT query instead of fetching and streaming all users.
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
