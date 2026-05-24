@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -112,10 +114,16 @@ public class RoleService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
+        // ⚡ Bolt Optimization: Batch fetch permissions to prevent N+1 query in loop
+        Map<Long, Permission> permissionMap = permissionRepository.findAllById(dto.getPermissionIds()).stream()
+                .collect(Collectors.toMap(Permission::getId, Function.identity()));
+
         Set<Permission> permissions = new HashSet<>();
         for (Long permissionId : dto.getPermissionIds()) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission", "id", permissionId));
+            Permission permission = permissionMap.get(permissionId);
+            if (permission == null) {
+                throw new ResourceNotFoundException("Permission", "id", permissionId);
+            }
             permissions.add(permission);
         }
 

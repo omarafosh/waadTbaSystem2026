@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -225,9 +226,15 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
+        // ⚡ Bolt Optimization: Batch fetch permissions to prevent N+1 query in loop
+        Map<Long, Permission> permissionMap = permissionRepository.findAllById(permissionIds).stream()
+                .collect(Collectors.toMap(Permission::getId, Function.identity()));
+
         for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
+            Permission permission = permissionMap.get(permissionId);
+            if (permission == null) {
+                throw new ResourceNotFoundException("Permission not found with ID: " + permissionId);
+            }
             role.getPermissions().add(permission);
         }
 
@@ -258,9 +265,15 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
+        // ⚡ Bolt Optimization: Batch fetch permissions to prevent N+1 query in loop
+        Map<Long, Permission> permissionMap = permissionRepository.findAllById(permissionIds).stream()
+                .collect(Collectors.toMap(Permission::getId, Function.identity()));
+
         for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
+            Permission permission = permissionMap.get(permissionId);
+            if (permission == null) {
+                throw new ResourceNotFoundException("Permission not found with ID: " + permissionId);
+            }
             role.getPermissions().remove(permission);
         }
 
