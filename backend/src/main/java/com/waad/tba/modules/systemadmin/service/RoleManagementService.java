@@ -301,13 +301,12 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        // Validate role exists
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +314,12 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        // Validate role exists
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
