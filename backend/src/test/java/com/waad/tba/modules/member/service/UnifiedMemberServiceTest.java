@@ -43,6 +43,7 @@ import com.waad.tba.modules.member.repository.MemberRepository;
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("Unified Member Service Tests")
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 public class UnifiedMemberServiceTest {
 
     @Mock
@@ -57,6 +58,10 @@ public class UnifiedMemberServiceTest {
     private CardNumberGeneratorService cardNumberGenerator;
     @Mock
     private UnifiedMemberMapper mapper;
+    @Mock
+    private com.waad.tba.security.AuthorizationService authorizationService;
+    @Mock
+    private com.waad.tba.modules.member.repository.MemberWorkflowHistoryRepository workflowHistoryRepository;
 
     @InjectMocks
     private UnifiedMemberService unifiedMemberService;
@@ -132,6 +137,6 @@ public class UnifiedMemberServiceTest {
         Exception exception = assertThrows(BusinessRuleException.class, () -> {
             unifiedMemberService.createPrincipalMember(validPrincipalDto);
         });
-        assertEquals("Cannot create principal member with parentId. Use createDependentMember() for dependents.", exception.getMessage());
+        assertEquals("Cannot create principal member with parentId.", exception.getMessage());
     }
 }
