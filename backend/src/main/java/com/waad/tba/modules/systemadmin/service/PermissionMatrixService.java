@@ -225,11 +225,17 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().add(permission);
+        List<Permission> foundPermissions = permissionRepository.findAllById(permissionIds);
+        if (foundPermissions.size() != permissionIds.size()) {
+            Set<Long> foundIds = foundPermissions.stream().map(Permission::getId).collect(Collectors.toSet());
+            for (Long id : permissionIds) {
+                if (!foundIds.contains(id)) {
+                    throw new ResourceNotFoundException("Permission not found with ID: " + id);
+                }
+            }
         }
+
+        role.getPermissions().addAll(foundPermissions);
 
         roleRepository.save(role);
 
@@ -258,11 +264,17 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().remove(permission);
+        List<Permission> foundPermissions = permissionRepository.findAllById(permissionIds);
+        if (foundPermissions.size() != permissionIds.size()) {
+            Set<Long> foundIds = foundPermissions.stream().map(Permission::getId).collect(Collectors.toSet());
+            for (Long id : permissionIds) {
+                if (!foundIds.contains(id)) {
+                    throw new ResourceNotFoundException("Permission not found with ID: " + id);
+                }
+            }
         }
+
+        role.getPermissions().removeAll(foundPermissions);
 
         roleRepository.save(role);
 
