@@ -1,0 +1,3 @@
+## 2026-05-28 - [N+1 fix via findAllById with exception preservation]
+**Learning:** When fixing N+1 queries by replacing iterative `findById` loops with `findAllById(ids)`, it is critical to handle missing records. `findAllById` silently ignores missing IDs, whereas the original loops often threw a `ResourceNotFoundException`. We must manually check `foundEntities.size() != requestedIds.size()` and iterate to find and throw the exact missing ID exception to maintain functional parity.
+**Action:** Next time I replace iterative `findById` with `findAllById`, always check if the original code throws an exception on missing records, and if so, implement the size check and set-difference logic to preserve the error handling.
