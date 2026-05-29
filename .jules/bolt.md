@@ -1,0 +1,3 @@
+## 2026-05-29 - [Resolve Full-Table Load in PreAuthorizationService checkValidity]
+**Learning:** Replaced a full-table data fetch (`findAll().stream().filter(...)`) in `PreAuthorizationService.checkValidity` with a targeted JPQL query. The original approach loaded all records into memory before applying filtering and sorting logic which is a classic N+1 adjacent memory bottleneck.
+**Action:** When searching for performance improvements, use `grep -rn "findAll().stream()"` as a starting point to locate memory-intensive filtering, and refactor them into custom database queries where appropriate.
