@@ -1,0 +1,3 @@
+## 2026-05-30 - Precise N+1 Validation with ResourceNotFoundException
+**Learning:** When resolving N+1 queries by replacing iterative `findById` loops with `findAllById(ids)`, using a simple `size()` check (e.g., `if (fetched.size() != ids.size()) throw new Exception(...)`) is excellent for validation but loses the specific context of *which* ID failed, making logs/responses opaque.
+**Action:** Always map the fetched IDs into a Set, stream the original `uniqueIds`, and use `.filter(id -> !fetchedIds.contains(id)).findFirst()` to correctly reconstruct the original `ResourceNotFoundException("Entity", "id", missingId)` error message when a bulk fetch comes up short.

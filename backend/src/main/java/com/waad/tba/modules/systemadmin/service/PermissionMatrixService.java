@@ -225,12 +225,23 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().add(permission);
+        Set<Long> uniqueIds = new HashSet<>(permissionIds);
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniqueIds);
+
+        if (fetchedPermissions.size() != uniqueIds.size()) {
+            Set<Long> fetchedIds = fetchedPermissions.stream()
+                    .map(Permission::getId)
+                    .collect(Collectors.toSet());
+
+            Long missingId = uniqueIds.stream()
+                    .filter(id -> !fetchedIds.contains(id))
+                    .findFirst()
+                    .orElse(-1L);
+
+            throw new ResourceNotFoundException("Permission", "id", missingId);
         }
 
+        role.getPermissions().addAll(fetchedPermissions);
         roleRepository.save(role);
 
         // Audit log
@@ -258,12 +269,23 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().remove(permission);
+        Set<Long> uniqueIds = new HashSet<>(permissionIds);
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniqueIds);
+
+        if (fetchedPermissions.size() != uniqueIds.size()) {
+            Set<Long> fetchedIds = fetchedPermissions.stream()
+                    .map(Permission::getId)
+                    .collect(Collectors.toSet());
+
+            Long missingId = uniqueIds.stream()
+                    .filter(id -> !fetchedIds.contains(id))
+                    .findFirst()
+                    .orElse(-1L);
+
+            throw new ResourceNotFoundException("Permission", "id", missingId);
         }
 
+        role.getPermissions().removeAll(fetchedPermissions);
         roleRepository.save(role);
 
         // Audit log
