@@ -1,0 +1,3 @@
+## 2026-05-30 - Fix PreAuthorization N+1 Bottleneck
+**Learning:** In `PreAuthorizationService.checkValidity`, filtering entities loaded via `findAll().stream()` causes a severe O(N) memory and performance bottleneck by performing a full table scan and loading everything into memory. Instead, always implement custom parameterized `@Query` methods in Spring Data JPA repositories.
+**Action:** Use derived or custom JPQL queries like `findValidPreAuthorizationsForMemberAndService` to push filtering (e.g. `memberId`, `serviceCode`, `status = :status`, `expiryDate`) directly to the database before loading results.
