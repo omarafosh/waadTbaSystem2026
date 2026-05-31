@@ -112,12 +112,15 @@ public class RoleService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
-        Set<Permission> permissions = new HashSet<>();
-        for (Long permissionId : dto.getPermissionIds()) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission", "id", permissionId));
-            permissions.add(permission);
+        // ⚡ Bolt: Fixed N+1 query by batch fetching permissions instead of inside loop
+        Set<Long> uniquePermissionIds = new HashSet<>(dto.getPermissionIds());
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniquePermissionIds);
+
+        if (fetchedPermissions.size() != uniquePermissionIds.size()) {
+            throw new ResourceNotFoundException("Permission", "id", "one or more IDs in " + uniquePermissionIds);
         }
+
+        Set<Permission> permissions = new HashSet<>(fetchedPermissions);
 
         role.setPermissions(permissions);
         Role updatedRole = roleRepository.save(role);
