@@ -225,11 +225,21 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().add(permission);
+        // N+1 Optimization: Batch fetch permissions to avoid iterative queries
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+
+        // Validation logic to mimic previous behavior where an invalid ID throws a 404
+        Set<Long> uniqueRequestedIds = new HashSet<>(permissionIds);
+        if (permissions.size() != uniqueRequestedIds.size()) {
+             // Identify missing ID for accurate exception message (using the first missing one)
+             for (Long id : uniqueRequestedIds) {
+                 if (permissions.stream().noneMatch(p -> p.getId().equals(id))) {
+                     throw new ResourceNotFoundException("Permission not found with ID: " + id);
+                 }
+             }
         }
+
+        role.getPermissions().addAll(permissions);
 
         roleRepository.save(role);
 
@@ -258,11 +268,21 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().remove(permission);
+        // N+1 Optimization: Batch fetch permissions to avoid iterative queries
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+
+        // Validation logic to mimic previous behavior where an invalid ID throws a 404
+        Set<Long> uniqueRequestedIds = new HashSet<>(permissionIds);
+        if (permissions.size() != uniqueRequestedIds.size()) {
+             // Identify missing ID for accurate exception message (using the first missing one)
+             for (Long id : uniqueRequestedIds) {
+                 if (permissions.stream().noneMatch(p -> p.getId().equals(id))) {
+                     throw new ResourceNotFoundException("Permission not found with ID: " + id);
+                 }
+             }
         }
+
+        role.getPermissions().removeAll(permissions);
 
         roleRepository.save(role);
 
