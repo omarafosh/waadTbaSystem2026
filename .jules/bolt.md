@@ -1,0 +1,3 @@
+## 2026-06-01 - RoleManagementService Performance Fix
+**Learning:** The memory context correctly identified that N+1 query bottlenecks and full-table in-memory filtering existed in `RoleManagementService`. `getAllRoles()`, `getUsersWithRole()`, and `countUsersWithRole()` were iterating over `userRepository.findAll()` and performing per-role counts, leading to significant memory and database performance degradation.
+**Action:** Implemented targeted JPQL methods in `UserRepository` (`findUsernamesByRoleId`, `countUsersByRoleId`, `countUsersByRoleIds`) and mapped them efficiently in the `RoleManagementService` avoiding O(N) operations and full table scans.

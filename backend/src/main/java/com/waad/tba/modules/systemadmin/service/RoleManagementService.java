@@ -2,6 +2,7 @@ package com.waad.tba.modules.systemadmin.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,8 +55,22 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
-        return roleRepository.findAll().stream()
-                .map(this::toViewDto)
+        List<Role> roles = roleRepository.findAll();
+
+        List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
+        List<Object[]> userCounts = userRepository.countUsersByRoleIds(roleIds);
+        Map<Long, Integer> userCountMap = userCounts.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Long) row[1]).intValue()
+                ));
+
+        return roles.stream()
+                .map(role -> {
+                    RoleViewDto dto = toViewDtoBase(role);
+                    dto.setUserCount(userCountMap.getOrDefault(role.getId(), 0));
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -304,10 +319,7 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRoleId(roleId);
     }
 
     /**
@@ -318,9 +330,7 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countUsersByRoleId(roleId);
     }
 
     // Helper methods
@@ -334,7 +344,7 @@ public class RoleManagementService {
         return permissions;
     }
 
-    private RoleViewDto toViewDto(Role role) {
+    private RoleViewDto toViewDtoBase(Role role) {
         return RoleViewDto.builder()
                 .id(role.getId())
                 .name(role.getName())
@@ -342,9 +352,14 @@ public class RoleManagementService {
                 .permissions(role.getPermissions().stream()
                         .map(Permission::getName)
                         .collect(Collectors.toList()))
-                .userCount((int) countUsersWithRole(role.getId()))
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
+    }
+
+    private RoleViewDto toViewDto(Role role) {
+        RoleViewDto dto = toViewDtoBase(role);
+        dto.setUserCount((int) countUsersWithRole(role.getId()));
+        return dto;
     }
 }
