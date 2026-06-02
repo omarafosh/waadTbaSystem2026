@@ -1,0 +1,3 @@
+## 2026-06-02 - RoleManagementService N+1 Memory Leak Optimization
+**Learning:** Found and resolved a massive memory leak bottleneck in `RoleManagementService` (`countUsersWithRole` and `getUsersWithRole`) where `userRepository.findAll().stream()` was used to load and filter the entire user table for each role operation. This is especially bad because `countUsersWithRole` is called iteratively inside `toViewDto()`.
+**Action:** Always push aggregation (`COUNT`) and targeted projections (e.g., `username`) to the database using JPQL `@Query` methods (`countUsersByRoleId`, `findUsernamesByRoleId`) instead of relying on in-memory stream filtering on `findAll()`.
