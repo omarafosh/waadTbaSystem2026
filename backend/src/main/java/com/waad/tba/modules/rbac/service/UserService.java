@@ -55,9 +55,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
         log.debug("Finding all users");
-        return userRepository.findAll().stream()
-                .map(userMapper::toResponseDto)
-                .collect(Collectors.toList());
+        return userMapper.toResponseDtos(userRepository.findAllWithRolesAndOrganizations());
     }
     
     public User getByUsername(String username) {
@@ -228,32 +226,27 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDto> search(String query) {
         log.debug("Searching users with query: {}", query);
-        return userRepository.searchUsers(query).stream()
-                .map(userMapper::toResponseDto)
-                .collect(Collectors.toList());
+        return userMapper.toResponseDtos(userRepository.searchUsers(query));
     }
 
     @Transactional(readOnly = true)
     public List<UserResponseDto> findByProviderId(Long providerId) {
         log.debug("Finding users by providerId: {}", providerId);
-        return userRepository.findByProviderId(providerId).stream()
-                .map(userMapper::toResponseDto)
-                .collect(Collectors.toList());
+        return userMapper.toResponseDtos(userRepository.findByProviderId(providerId));
     }
 
     @Transactional(readOnly = true)
     public List<UserResponseDto> findUnassignedProviders() {
         log.debug("Finding unassigned provider users");
-        return userRepository.findUnassignedProviders().stream()
-                .map(userMapper::toResponseDto)
-                .collect(Collectors.toList());
+        return userMapper.toResponseDtos(userRepository.findUnassignedProviders());
     }
 
     @Transactional(readOnly = true)
     public Page<UserResponseDto> findAllPaginated(Pageable pageable) {
         log.debug("Finding users with pagination");
-        return userRepository.findAll(pageable)
-                .map(userMapper::toResponseDto);
+        Page<User> usersPage = userRepository.findAll(pageable);
+        List<UserResponseDto> dtos = userMapper.toResponseDtos(usersPage.getContent());
+        return new org.springframework.data.domain.PageImpl<>(dtos, pageable, usersPage.getTotalElements());
     }
 
     @Transactional

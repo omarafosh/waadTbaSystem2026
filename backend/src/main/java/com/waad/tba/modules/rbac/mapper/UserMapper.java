@@ -23,7 +23,47 @@ public class UserMapper {
 
     public UserResponseDto toResponseDto(User user) {
         if (user == null) return null;
-        
+        String employerName = user.getEmployerId() != null ?
+            organizationRepository.findById(user.getEmployerId())
+                .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null;
+        String providerName = user.getProviderId() != null ?
+            providerRepository.findById(user.getProviderId())
+                .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null;
+
+        return buildResponseDto(user, employerName, providerName);
+    }
+
+    public java.util.List<UserResponseDto> toResponseDtos(Iterable<User> users) {
+        if (users == null) return java.util.Collections.emptyList();
+
+        java.util.Set<Long> employerIds = new java.util.HashSet<>();
+        java.util.Set<Long> providerIds = new java.util.HashSet<>();
+
+        for (User user : users) {
+            if (user.getEmployerId() != null) employerIds.add(user.getEmployerId());
+            if (user.getProviderId() != null) providerIds.add(user.getProviderId());
+        }
+
+        java.util.Map<Long, String> employerNames = new java.util.HashMap<>();
+        if (!employerIds.isEmpty()) {
+            organizationRepository.findAllById(employerIds).forEach(org -> employerNames.put(org.getId(), org.getName()));
+        }
+
+        java.util.Map<Long, String> providerNames = new java.util.HashMap<>();
+        if (!providerIds.isEmpty()) {
+            providerRepository.findAllById(providerIds).forEach(prov -> providerNames.put(prov.getId(), prov.getName()));
+        }
+
+        java.util.List<UserResponseDto> dtos = new java.util.ArrayList<>();
+        for (User user : users) {
+            dtos.add(buildResponseDto(user,
+                user.getEmployerId() != null ? employerNames.get(user.getEmployerId()) : null,
+                user.getProviderId() != null ? providerNames.get(user.getProviderId()) : null));
+        }
+        return dtos;
+    }
+
+    private UserResponseDto buildResponseDto(User user, String employerName, String providerName) {
         return UserResponseDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -37,14 +77,9 @@ public class UserMapper {
                            .collect(Collectors.toList()) : null)
                 // Employer/Provider associations
                 .employerId(user.getEmployerId())
-                .employerName(user.getEmployerId() != null ? 
-                    organizationRepository.findById(user.getEmployerId())
-                        .map(com.waad.tba.common.entity.Organization::getName).orElse(null) : null)
+                .employerName(employerName)
                 .providerId(user.getProviderId())
-                .providerName(user.getProviderId() != null ? 
-                    providerRepository.findById(user.getProviderId())
-                        .map(com.waad.tba.modules.provider.entity.Provider::getName).orElse(null) : null)
-
+                .providerName(providerName)
                 // Provider specific permissions
                 .allowAllCompanies(user.getAllowAllCompanies())
                 .permittedCompanies(user.getPermittedOrganizations() != null ?
