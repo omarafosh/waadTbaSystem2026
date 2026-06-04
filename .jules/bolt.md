@@ -1,0 +1,3 @@
+## 2026-06-04 - User DTO Mapping N+1 Resolved
+**Learning:** The previous bottleneck in `UserService.findAll()` wasn't in-memory filtering, but an N+1 mapping issue where `userMapper::toResponseDto` performed iterative `findById` lookups for `employerId` and `providerId`. Even though `findAllWithRolesAndOrganizations` fetched roles/orgs eagerly, mapping DTOs triggered repeated queries for provider and employer names.
+**Action:** Always inspect the Mapper classes used in `stream().map(...)` operations for nested database calls. Implement batch mapping methods (like `toResponseDtos(Iterable<User>)`) that preload all required references into memory Maps to achieve O(1) lookups during batch processing.

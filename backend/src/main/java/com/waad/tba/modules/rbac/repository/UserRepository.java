@@ -26,4 +26,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"roles", "permittedOrganizations"})
+    @Query("SELECT u FROM User u")
+    List<User> findAllWithRolesAndOrganizations();
 }
