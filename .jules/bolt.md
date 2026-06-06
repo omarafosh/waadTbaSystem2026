@@ -1,0 +1,4 @@
+
+## 2026-06-06 - Replacing N+1 Loops with Bulk Projection/Counts in RoleManagementService
+**Learning:** In RBAC scenarios where entities like `User` have unidirectional relationships mapped to `Role` (e.g. `User.roles`), Spring Data JPA methods like `roleRepository.findAll().stream().map(role -> userRepository.findAll().stream().filter(u -> u.getRoles().contains(role)).count())` suffer extreme full-table memory loading bottlenecks.
+**Action:** Replace iterative mapping and filtering loops with bulk JPQL queries (`SELECT r.id, COUNT(u) FROM User u JOIN u.roles r WHERE r.id IN :roleIds GROUP BY r.id`), collecting results into memory mapped HashMaps (`Map<Long, Long> countsMap`) for O(1) correlation in DTO loops. Be very careful with patching when multiple same-name helper methods exist to prevent duplicate declarations and build failures.
