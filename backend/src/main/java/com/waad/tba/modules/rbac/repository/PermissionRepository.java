@@ -17,4 +17,7 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
            "LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Permission> searchPermissions(String query);
+
+    @Query("SELECT p.name FROM Permission p")
+    List<String> findAllNames();
 }
