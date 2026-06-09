@@ -379,14 +379,9 @@ public class ProviderContractPricingItemService {
             throw new BusinessRuleException("Can only bulk delete pricing for DRAFT contracts");
         }
 
-        List<ProviderContractPricingItem> items = pricingRepository.findByContractIdAndActiveTrue(contractId);
-        int count = 0;
-
-        for (ProviderContractPricingItem item : items) {
-            item.setActive(false);
-            pricingRepository.save(item);
-            count++;
-        }
+        // ⚡ Bolt Optimization: Replaced O(N) iterative `.save()` loop with a single bulk update query
+        // This eliminates N+1 queries during bulk soft deletes.
+        int count = pricingRepository.softDeleteByContractId(contractId);
 
         log.info("Soft deleted {} pricing items for contract: {}", count, contractId);
         return count;
