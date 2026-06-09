@@ -62,8 +62,8 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
      * Find pre-authorizations by member and status
      */
     Page<PreAuthorization> findByMemberIdAndStatusAndActiveTrue(
-            Long memberId, 
-            PreAuthStatus status, 
+            Long memberId,
+            PreAuthStatus status,
             Pageable pageable
     );
 
@@ -88,8 +88,8 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
      * Find pre-authorizations by provider and status
      */
     Page<PreAuthorization> findByProviderIdAndStatusAndActiveTrue(
-            Long providerId, 
-            PreAuthStatus status, 
+            Long providerId,
+            PreAuthStatus status,
             Pageable pageable
     );
 
@@ -112,9 +112,9 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     /**
      * Find pre-authorizations by status list with pagination (for inbox views).
      * Mirrors ClaimRepository.findByStatusIn() pattern.
-     * 
+     *
      * CANONICAL: Includes full fetch joins to prevent N+1 queries
-     * 
+     *
      * @param statuses List of PreAuthStatus values to include
      * @param pageable Pagination information
      * @return Page of PreAuthorizations with related entities fetched
@@ -138,8 +138,8 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
            "AND pa.providerId = :providerId",
            countQuery = "SELECT COUNT(pa) FROM PreAuthorization pa WHERE pa.active = true AND pa.status IN :statuses AND pa.providerId = :providerId")
     Page<PreAuthorization> findByStatusInAndProviderIdAndActiveTrue(
-            @Param("statuses") List<PreAuthStatus> statuses, 
-            @Param("providerId") Long providerId, 
+            @Param("statuses") List<PreAuthStatus> statuses,
+            @Param("providerId") Long providerId,
             Pageable pageable
     );
 
@@ -189,22 +189,6 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
             @Param("serviceCode") String serviceCode,
             @Param("currentDate") LocalDate currentDate
     );
-
-    /**
-     * Find valid pre-authorizations for member + service
-     */
-    @Query("SELECT pa FROM PreAuthorization pa WHERE pa.active = true " +
-           "AND pa.memberId = :memberId " +
-           "AND pa.serviceCode = :serviceCode " +
-           "AND pa.status = 'APPROVED' " +
-           "AND (pa.expiryDate IS NULL OR pa.expiryDate >= :currentDate) " +
-           "ORDER BY pa.createdAt DESC")
-    List<PreAuthorization> findValidForMemberAndService(
-            @Param("memberId") Long memberId,
-            @Param("serviceCode") String serviceCode,
-            @Param("currentDate") LocalDate currentDate
-    );
-
 
     /**
      * Find pre-authorizations expiring within days
