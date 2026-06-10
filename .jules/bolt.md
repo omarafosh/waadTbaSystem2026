@@ -1,0 +1,3 @@
+## 2026-06-10 - [O(N) memory load mapping optimization for Unidirectional User-Role Mapping in RBAC]
+**Learning:** When navigating unidirectional JPA relationships from `User` to `Role` where `Role` doesn't maintain a mapped user collection, avoiding iterative list generation during map loops using `.stream().map(...)` via fetching the full `User` entities list is crucial to avoiding O(N) memory loads and an N+1 Database Bottleneck.
+**Action:** Consistently replace `findAll().stream().filter(...)` operations in services lacking full database constraints logic. Create specific mapped queries like `countUsersByRoleIds` using `GROUP BY r.id` and fetch mappings as maps before mapping to data structures like Response Dtos in bulk to dramatically optimize mapping workflows.
