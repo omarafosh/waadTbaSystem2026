@@ -1,0 +1,3 @@
+## 2026-06-12 - JPQL Optimization in RoleManagementService
+**Learning:** Found an inefficient `findAll().stream().filter(...)` pattern in `RoleManagementService` (`getUsersWithRole` and `countUsersWithRole`) for extracting sub-fields and counting related entities. This loads the entire user table into memory, creating a significant bottleneck.
+**Action:** Always replace in-memory `.findAll().stream()` operations that perform simple filtering or projections with explicit JPQL queries (e.g., `findUsernamesByRolesId` and `countByRolesId`) to push the computation to the database, ensuring scalable performance without modifying the overall architecture.
