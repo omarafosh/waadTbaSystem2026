@@ -225,11 +225,15 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().add(permission);
+        // Performance Optimization: Batch fetch permissions to prevent N+1 queries
+        Set<Long> uniquePermissionIds = new HashSet<>(permissionIds);
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniquePermissionIds);
+
+        if (fetchedPermissions.size() != uniquePermissionIds.size()) {
+            throw new ResourceNotFoundException("One or more permissions not found for provided IDs");
         }
+
+        role.getPermissions().addAll(fetchedPermissions);
 
         roleRepository.save(role);
 
@@ -258,11 +262,15 @@ public class PermissionMatrixService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        for (Long permissionId : permissionIds) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + permissionId));
-            role.getPermissions().remove(permission);
+        // Performance Optimization: Batch fetch permissions to prevent N+1 queries
+        Set<Long> uniquePermissionIds = new HashSet<>(permissionIds);
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniquePermissionIds);
+
+        if (fetchedPermissions.size() != uniquePermissionIds.size()) {
+            throw new ResourceNotFoundException("One or more permissions not found for provided IDs");
         }
+
+        fetchedPermissions.forEach(permission -> role.getPermissions().remove(permission));
 
         roleRepository.save(role);
 

@@ -112,14 +112,15 @@ public class RoleService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
-        Set<Permission> permissions = new HashSet<>();
-        for (Long permissionId : dto.getPermissionIds()) {
-            Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Permission", "id", permissionId));
-            permissions.add(permission);
+        // Performance Optimization: Batch fetch permissions to prevent N+1 queries
+        Set<Long> uniquePermissionIds = new HashSet<>(dto.getPermissionIds());
+        List<Permission> fetchedPermissions = permissionRepository.findAllById(uniquePermissionIds);
+
+        if (fetchedPermissions.size() != uniquePermissionIds.size()) {
+            throw new ResourceNotFoundException("Permission", "id", "One or more provided IDs not found");
         }
 
-        role.setPermissions(permissions);
+        role.setPermissions(new HashSet<>(fetchedPermissions));
         Role updatedRole = roleRepository.save(role);
         
         log.info("Permissions assigned successfully to role: {}", roleId);
