@@ -29,14 +29,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Role Management Service
  * Phase 2 - System Administration
- * 
+ *
  * Manages role CRUD operations and permission assignments (SUPER_ADMIN only)
- * 
+ *
  * SECURITY HARDENING (2026-01-13):
  * - All write operations require SUPER_ADMIN
  * - Protected system roles cannot be deleted
  * - SUPER_ADMIN role permissions cannot be modified
- * 
+ *
  * @version 2.0 - RBAC Hardening
  */
 @Service
@@ -57,8 +57,6 @@ public class RoleManagementService {
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
         List<Role> roles = roleRepository.findAll();
-        // ⚡ Bolt Optimization: Uses batch processing to eliminate N+1 database queries
-        // Impact: Reduces queries from O(N) to O(1) by fetching all role-user counts simultaneously.
         return toViewDtos(roles);
     }
 
@@ -91,7 +89,6 @@ public class RoleManagementService {
     public List<RoleViewDto> searchRoles(String query) {
         log.info("Searching roles with query: {}", query);
         List<Role> roles = roleRepository.searchRoles(query);
-        // ⚡ Bolt Optimization: Batch maps DTOs to avoid N+1 queries during search
         return toViewDtos(roles);
     }
 
@@ -303,12 +300,10 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
-        
+
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        // ⚡ Bolt Optimization: Replaced O(N) full-table in-memory filtering (findAll().stream())
-        // with a targeted JPQL query. Impact: significantly reduces memory consumption and response time.
         return userRepository.findUsernamesByRolesId(roleId);
     }
 
@@ -320,8 +315,6 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        // ⚡ Bolt Optimization: Replaced O(N) full-table in-memory counting (findAll().stream().count())
-        // with a targeted database-level JPQL count query.
         return userRepository.countByRolesId(roleId);
     }
 

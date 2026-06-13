@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -19,11 +20,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
            "LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))")
-    List<User> searchUsers(String query);
+    List<User> searchUsers(@Param("query") String query);
     
     Optional<User> findByUsernameOrEmail(String username, String email);
     List<User> findByProviderId(Long providerId);
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@Param("roleId") Long roleId);
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    long countByRolesId(@Param("roleId") Long roleId);
+
+    @Query("SELECT r.id, COUNT(u) FROM User u JOIN u.roles r WHERE r.id IN :roleIds GROUP BY r.id")
+    List<Object[]> countUsersByRoleIds(@Param("roleIds") List<Long> roleIds);
 }
