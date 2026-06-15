@@ -1,0 +1,3 @@
+## 2026-06-15 - Role Management Service N+1 and Memory Filtering Optimization
+**Learning:** Found significant N+1 and full-table scan bottlenecks in `RoleManagementService.java` where `countUsersWithRole`, `getUsersWithRole`, `getAllRoles`, and `searchRoles` used `userRepository.findAll().stream()` to filter and count users in application memory.
+**Action:** Replaced in-memory filtering by adding targeted JPQL queries in `UserRepository.java`: `findUsernamesByRolesId`, `countByRolesId`, and a bulk counting query `countUsersByRoleIds` using `COUNT(u) ... GROUP BY r.id`. The service was refactored to pre-fetch these counts into a `Map<Long, Long>` and use an overloaded `toViewDto` method, effectively reducing O(N) database queries to O(1) and eliminating full-table loads.

@@ -3,6 +3,8 @@ package com.waad.tba.modules.systemadmin.service;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -54,8 +56,23 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
-        return roleRepository.findAll().stream()
-                .map(this::toViewDto)
+        List<Role> roles = roleRepository.findAll();
+        if (roles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
+        Map<Long, Long> roleUserCounts = userRepository.countUsersByRoleIds(roleIds).stream()
+                .collect(Collectors.toMap(
+                        arr -> (Long) arr[0],
+                        arr -> (Long) arr[1]
+                ));
+
+        return roles.stream()
+                .map(role -> {
+                    long count = roleUserCounts.getOrDefault(role.getId(), 0L);
+                    return toViewDto(role, count);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -87,8 +104,23 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> searchRoles(String query) {
         log.info("Searching roles with query: {}", query);
-        return roleRepository.searchRoles(query).stream()
-                .map(this::toViewDto)
+        List<Role> roles = roleRepository.searchRoles(query);
+        if (roles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
+        Map<Long, Long> roleUserCounts = userRepository.countUsersByRoleIds(roleIds).stream()
+                .collect(Collectors.toMap(
+                        arr -> (Long) arr[0],
+                        arr -> (Long) arr[1]
+                ));
+
+        return roles.stream()
+                .map(role -> {
+                    long count = roleUserCounts.getOrDefault(role.getId(), 0L);
+                    return toViewDto(role, count);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -304,10 +336,7 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -318,9 +347,7 @@ public class RoleManagementService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
@@ -335,6 +362,10 @@ public class RoleManagementService {
     }
 
     private RoleViewDto toViewDto(Role role) {
+        return toViewDto(role, countUsersWithRole(role.getId()));
+    }
+
+    private RoleViewDto toViewDto(Role role, long userCount) {
         return RoleViewDto.builder()
                 .id(role.getId())
                 .name(role.getName())
@@ -342,7 +373,7 @@ public class RoleManagementService {
                 .permissions(role.getPermissions().stream()
                         .map(Permission::getName)
                         .collect(Collectors.toList()))
-                .userCount((int) countUsersWithRole(role.getId()))
+                .userCount((int) userCount)
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
