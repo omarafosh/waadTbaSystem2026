@@ -1,0 +1,3 @@
+## 2026-06-17 - Eliminate N+1 and O(N) memory bottlenecks in RoleManagementService
+**Learning:** Found critical bottlenecks in `RoleManagementService` (`getUsersWithRole`, `countUsersWithRole`, `getAllRoles`, `searchRoles`) where `userRepository.findAll().stream().filter(...)` was used to load the entire user table into memory, creating massive N+1 queries during DTO mapping.
+**Action:** Push projection and aggregation directly to the database using targeted JPQL queries (`countByRolesId`, `findUsernamesByRolesId`, `countUsersByRoleIds`), and map bulk counts in memory to eliminate full-table loads. Always check collection parameters in Spring Data JPA queries to avoid syntax errors when passing empty lists.
