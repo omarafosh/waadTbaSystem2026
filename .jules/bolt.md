@@ -1,0 +1,3 @@
+## 2025-02-18 - PreAuthorizationService Full-Table Scan Optimization
+**Learning:** In `PreAuthorizationService.checkValidity()`, there was a full-table in-memory filtering bottleneck via `findAll().stream().filter(...)` for validity checks based on member, service, and status. It's crucial to push these filters (including enum and dynamic checks like expiration using `LocalDate`) to the database using JPQL `@Query` methods. This reduces memory pressure and execution time for common authorization lookups.
+**Action:** When performing complex filtering based on enums (`status`) or runtime values (`expiryDate`), prefer targeted JPQL queries passing enums via `@Param` instead of pulling entire tables into memory.
