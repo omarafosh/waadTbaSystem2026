@@ -1,0 +1,3 @@
+## 2024-05-18 - Full Table Loads in Validation Logic
+**Learning:** Checking for single entity validity by performing `.findAll().stream().filter(...)` in the service layer is a critical O(N) memory and performance bottleneck in Spring Boot applications, especially when large tables like `PreAuthorization` are involved.
+**Action:** When searching for specific conditions (like finding valid pre-authorizations by member and service), push the filtering, sorting, and pagination down to the database using custom JPQL `@Query` methods with `PageRequest.of(0, 1)` to return only the needed entity, avoiding massive memory bloat.
