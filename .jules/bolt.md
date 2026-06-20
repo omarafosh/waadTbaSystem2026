@@ -1,0 +1,3 @@
+## 2026-06-20 - [Optimize full-table scans in RbacGuardService and JwtTokenProvider]
+**Learning:** In Spring Boot applications, fetching an entire table using `findAll().stream()` to perform simple aggregations (like `.count()`) or projections (like `.map(Entity::getName)`) introduces severe O(N) memory and processing bottlenecks. These operations must be delegated to the database layer via targeted JPQL queries.
+**Action:** Always inspect service layers for `findAll().stream()` operations. When found performing aggregations or projections, replace them with derived Spring Data queries or custom `@Query` methods to shift the computational burden to the database.
