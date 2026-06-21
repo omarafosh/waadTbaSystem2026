@@ -1,0 +1,3 @@
+## 2024-06-21 - [Backend] Resolve Full-Table Scans in RBAC and JWT Auth
+**Learning:** `findAll().stream().filter()` or `.map()` is an extreme performance anti-pattern in high-throughput components like `JwtTokenProvider` or `RbacGuardService` as it forces the entire table into application memory just to extract an aggregated count or a single field per entity.
+**Action:** Replace `findAll().stream()` operations in authorization logic with precise, parameterised JPQL queries (`countByRoleName`, `findAllPermissionNames`) to shift processing to the database layer where it runs in O(1) space instead of O(N).
