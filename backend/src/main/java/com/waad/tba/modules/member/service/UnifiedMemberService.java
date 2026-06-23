@@ -113,9 +113,7 @@ public class UnifiedMemberService {
         if (employerId == null && Boolean.TRUE.equals(dto.getIsVip())) {
             employerId = organizationRepository.findByCode("VIP")
                     .map(Organization::getId)
-                    .orElseGet(() -> organizationRepository.findAll().stream()
-                            .filter(o -> o.getType() == com.waad.tba.common.enums.OrganizationType.EMPLOYER)
-                            .findFirst()
+                    .orElseGet(() -> organizationRepository.findFirstByType(com.waad.tba.common.enums.OrganizationType.EMPLOYER)
                             .map(Organization::getId)
                             .orElseThrow(() -> new BusinessRuleException("No Employer Organization found to assign VIP member.")));
         }

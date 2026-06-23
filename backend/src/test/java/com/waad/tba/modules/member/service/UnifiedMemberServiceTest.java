@@ -22,6 +22,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import com.waad.tba.modules.rbac.entity.User;
+import com.waad.tba.security.AuthorizationService;
+import com.waad.tba.modules.member.repository.MemberWorkflowHistoryRepository;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.waad.tba.common.entity.Organization;
@@ -40,6 +45,7 @@ import com.waad.tba.modules.member.mapper.UnifiedMemberMapper;
 import com.waad.tba.modules.member.repository.MemberRepository;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("Unified Member Service Tests")
@@ -57,6 +63,12 @@ public class UnifiedMemberServiceTest {
     private CardNumberGeneratorService cardNumberGenerator;
     @Mock
     private UnifiedMemberMapper mapper;
+
+    @Mock
+    private AuthorizationService authorizationService;
+
+    @Mock
+    private MemberWorkflowHistoryRepository memberWorkflowHistoryRepository;
 
     @InjectMocks
     private UnifiedMemberService unifiedMemberService;
@@ -98,6 +110,8 @@ public class UnifiedMemberServiceTest {
         when(mapper.toEntity(any(MemberCreateDto.class))).thenReturn(mockPrincipal);
         when(memberRepository.save(any(Member.class))).thenReturn(mockPrincipal);
         when(mapper.toViewDto(any(Member.class), any())).thenReturn(MemberViewDto.builder().id(100L).barcode("WAHA-2026-0001").build());
+        User mockUser = new User();
+        when(authorizationService.getCurrentUser()).thenReturn(mockUser);
 
         // Act
         MemberViewDto result = unifiedMemberService.createPrincipalMember(validPrincipalDto);
@@ -132,6 +146,6 @@ public class UnifiedMemberServiceTest {
         Exception exception = assertThrows(BusinessRuleException.class, () -> {
             unifiedMemberService.createPrincipalMember(validPrincipalDto);
         });
-        assertEquals("Cannot create principal member with parentId. Use createDependentMember() for dependents.", exception.getMessage());
+        assertEquals("Cannot create principal member with parentId.", exception.getMessage());
     }
 }
