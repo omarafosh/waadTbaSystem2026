@@ -1,0 +1,3 @@
+## 2023-10-27 - [CompanyService Fallback Memory O(N) Load]
+**Learning:** The fallback strategies in `CompanyService.getDefaultCompany()` and `updateDefaultCompany()` used `findAll().stream().filter(...)` and `findAll().stream().findFirst()` to find active or any available company. This loads all companies into memory, causing severe bottlenecks.
+**Action:** Always replace application-side `findAll().stream().filter(...)` logic that aims to retrieve a single entity with explicit database-level limits. Implement derived queries like `findFirstByActiveTrue()` and `findFirstByOrderByIdAsc()` in Spring Data JPA repositories to ensure `LIMIT 1` SQL execution.
