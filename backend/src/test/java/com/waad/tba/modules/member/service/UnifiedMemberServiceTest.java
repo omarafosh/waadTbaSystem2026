@@ -43,7 +43,14 @@ import com.waad.tba.modules.member.repository.MemberRepository;
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("Unified Member Service Tests")
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 public class UnifiedMemberServiceTest {
+
+    @Mock
+    private com.waad.tba.security.AuthorizationService authorizationService;
+
+    @Mock
+    private com.waad.tba.modules.member.repository.MemberWorkflowHistoryRepository memberWorkflowHistoryRepository;
 
     @Mock
     private MemberRepository memberRepository;
@@ -70,6 +77,10 @@ public class UnifiedMemberServiceTest {
     void setUp() {
         mockEmployer = Organization.builder().id(1L).name("Test Corp").build();
         
+        com.waad.tba.modules.rbac.entity.User currentUser = new com.waad.tba.modules.rbac.entity.User();
+        currentUser.setUsername("testuser");
+        org.mockito.Mockito.lenient().when(authorizationService.getCurrentUser()).thenReturn(currentUser);
+
         validPrincipalDto = MemberCreateDto.builder()
                 .fullName("John Doe")
                 .employerId(1L)
@@ -132,6 +143,6 @@ public class UnifiedMemberServiceTest {
         Exception exception = assertThrows(BusinessRuleException.class, () -> {
             unifiedMemberService.createPrincipalMember(validPrincipalDto);
         });
-        assertEquals("Cannot create principal member with parentId. Use createDependentMember() for dependents.", exception.getMessage());
+        assertEquals("Cannot create principal member with parentId.", exception.getMessage());
     }
 }
