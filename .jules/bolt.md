@@ -1,0 +1,3 @@
+## 2026-06-29 - Replaced Full-Table Scans with Targeted JPQL Queries
+**Learning:** Found critical performance bottlenecks in `JwtTokenProvider` and `RbacGuardService` where full tables (`Permission` and `User` respectively) were loaded into memory via `findAll().stream()` just to extract specific fields or count records based on relationships. This causes O(N) database-to-memory loading and massive memory spikes, especially as user bases grow.
+**Action:** When needing a subset of data (like names) or aggregated counts, always push the projection or counting to the database level using `@Query` methods (e.g. `SELECT p.name FROM Permission p` and `SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName`) instead of Java streams.
