@@ -54,9 +54,8 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
-        return roleRepository.findAll().stream()
-                .map(this::toViewDto)
-                .collect(Collectors.toList());
+        List<Role> roles = roleRepository.findAll();
+        return toViewDtos(roles);
     }
 
     /**
@@ -87,9 +86,8 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> searchRoles(String query) {
         log.info("Searching roles with query: {}", query);
-        return roleRepository.searchRoles(query).stream()
-                .map(this::toViewDto)
-                .collect(Collectors.toList());
+        List<Role> roles = roleRepository.searchRoles(query);
+        return toViewDtos(roles);
     }
 
     /**
@@ -301,13 +299,11 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRolesId(roleId);
     }
 
     /**
@@ -315,12 +311,11 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countByRolesId(roleId);
     }
 
     // Helper methods
@@ -342,9 +337,36 @@ public class RoleManagementService {
                 .permissions(role.getPermissions().stream()
                         .map(Permission::getName)
                         .collect(Collectors.toList()))
-                .userCount((int) countUsersWithRole(role.getId()))
+                .userCount((int) userRepository.countByRolesId(role.getId()))
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
+    }
+
+    private List<RoleViewDto> toViewDtos(List<Role> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
+        List<Object[]> counts = userRepository.countUsersByRoleIds(roleIds);
+
+        java.util.Map<Long, Long> roleUserCounts = new java.util.HashMap<>();
+        for (Object[] count : counts) {
+            roleUserCounts.put((Long) count[0], (Long) count[1]);
+        }
+
+        return roles.stream().map(role -> RoleViewDto.builder()
+                .id(role.getId())
+                .name(role.getName())
+                .description(role.getDescription())
+                .permissions(role.getPermissions().stream()
+                        .map(Permission::getName)
+                        .collect(Collectors.toList()))
+                .userCount(roleUserCounts.getOrDefault(role.getId(), 0L).intValue())
+                .createdAt(role.getCreatedAt())
+                .updatedAt(role.getUpdatedAt())
+                .build()
+        ).collect(Collectors.toList());
     }
 }
