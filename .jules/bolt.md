@@ -1,0 +1,3 @@
+## 2024-07-02 - RoleManagementService Full-Table Scan Optimization
+**Learning:** The `RoleManagementService` has severe N+1 and full-table scan bottlenecks. Specifically, `countUsersWithRole` and `getUsersWithRole` pull ALL users into application memory (`userRepository.findAll().stream()`) just to filter by a specific role. Furthermore, `getAllRoles` maps every role using `toViewDto`, which in turn calls `countUsersWithRole(role.getId())`, executing the full-table scan in an N+1 loop (once per role).
+**Action:** Replace `findAll().stream().filter(...)` with targeted JPQL queries in `UserRepository` (`countByRolesId` and `findUsernamesByRolesId`). Avoid calling iterative database operations inside mapping methods; instead, bulk-fetch counts and use them.
