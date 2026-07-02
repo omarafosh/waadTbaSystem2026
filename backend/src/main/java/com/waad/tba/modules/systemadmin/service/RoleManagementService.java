@@ -54,9 +54,8 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> getAllRoles() {
         log.info("Fetching all roles");
-        return roleRepository.findAll().stream()
-                .map(this::toViewDto)
-                .collect(Collectors.toList());
+        List<Role> roles = roleRepository.findAll();
+        return toViewDtos(roles);
     }
 
     /**
@@ -87,9 +86,8 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<RoleViewDto> searchRoles(String query) {
         log.info("Searching roles with query: {}", query);
-        return roleRepository.searchRoles(query).stream()
-                .map(this::toViewDto)
-                .collect(Collectors.toList());
+        List<Role> roles = roleRepository.searchRoles(query);
+        return toViewDtos(roles);
     }
 
     /**
@@ -301,13 +299,11 @@ public class RoleManagementService {
     public List<String> getUsersWithRole(Long roleId) {
         log.info("Fetching users with role ID: {}", roleId);
         
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        return userRepository.findUsernamesByRoleId(roleId);
     }
 
     /**
@@ -315,12 +311,11 @@ public class RoleManagementService {
      */
     @Transactional(readOnly = true)
     public long countUsersWithRole(Long roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with ID: " + roleId));
+        if (!roleRepository.existsById(roleId)) {
+            throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(role))
-                .count();
+        return userRepository.countByRoleId(roleId);
     }
 
     // Helper methods
@@ -346,5 +341,38 @@ public class RoleManagementService {
                 .createdAt(role.getCreatedAt())
                 .updatedAt(role.getUpdatedAt())
                 .build();
+    }
+
+    // BOLT OPTIMIZATION: Replaces iterative countUsersWithRole mapping with a single bulk query
+    // This resolves the N+1 query and full-table scan bottlenecks in getAllRoles and searchRoles.
+    private List<RoleViewDto> toViewDtos(List<Role> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
+        java.util.Map<Long, Long> roleUserCounts = new java.util.HashMap<>();
+
+        List<Object[]> counts = userRepository.countUsersByRoleIds(roleIds);
+        for (Object[] countRow : counts) {
+            Long roleId = (Long) countRow[0];
+            Long count = (Long) countRow[1];
+            roleUserCounts.put(roleId, count);
+        }
+
+        return roles.stream().map(role -> {
+            long userCount = roleUserCounts.getOrDefault(role.getId(), 0L);
+            return RoleViewDto.builder()
+                    .id(role.getId())
+                    .name(role.getName())
+                    .description(role.getDescription())
+                    .permissions(role.getPermissions().stream()
+                            .map(Permission::getName)
+                            .collect(Collectors.toList()))
+                    .userCount((int) userCount)
+                    .createdAt(role.getCreatedAt())
+                    .updatedAt(role.getUpdatedAt())
+                    .build();
+        }).collect(Collectors.toList());
     }
 }
