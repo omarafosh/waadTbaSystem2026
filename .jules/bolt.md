@@ -1,0 +1,3 @@
+## 2026-07-03 - N+1 Issue during `checkValidity` iteration fixed with targeted JPA query
+**Learning:** `findAll().stream().filter(...)` operations on large database tables in Spring Data applications fetch the entire table content into application memory. This is a severe performance anti-pattern.
+**Action:** Replace `findAll().stream()` logic with specifically tuned JPA `@Query` annotations at the repository layer. Ensure the queries correctly mirror the memory filtering logic and use optimal SQL, such as limiting row returns (e.g., passing a `PageRequest` object if native SQL limit 1 is required across an arbitrary query sort constraint) instead of retrieving all filtered elements into application RAM.
