@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,4 +28,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = 'PROVIDER' AND u.providerId IS NULL")
     List<User> findUnassignedProviders();
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    long countByRolesId(@Param("roleId") Long roleId);
+
+    @Query("SELECT u.username FROM User u JOIN u.roles r WHERE r.id = :roleId")
+    List<String> findUsernamesByRolesId(@Param("roleId") Long roleId);
+
+    @Query("SELECT r.id, COUNT(u) FROM User u JOIN u.roles r WHERE r.id IN :roleIds GROUP BY r.id")
+    List<Object[]> countUsersByRoleIds(@Param("roleIds") Collection<Long> roleIds);
 }
