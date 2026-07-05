@@ -1,0 +1,3 @@
+## 2024-05-18 - Replacing in-memory filtering with count and projection JPQL queries
+**Learning:** Found critical N+1 and full-table hydration performance bottlenecks where JPA `findAll().stream().filter(...).count()` or `findAll().stream().map(..)` was loading the entire dataset into application memory unnecessarily (e.g., in `RbacGuardService` counting "SUPER_ADMIN"s and `JwtTokenProvider` mapping `Permission` strings). Spring Data repositories can easily map `COUNT()` and simple property selections (`p.name`) directly to avoid large Object hydrations.
+**Action:** Always scan for `findAll().stream()` operations acting as ad-hoc databases. Replace filtering/counting with `countBy...` queries, and replace mapping to scalars with `@Query("SELECT t.prop FROM Table t")`.
