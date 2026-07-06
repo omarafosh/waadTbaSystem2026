@@ -23,6 +23,7 @@ import com.waad.tba.common.service.ArchitecturalGuardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -697,23 +698,21 @@ public class PreAuthorizationService {
         log.info("[PRE-AUTH] Checking validity for member {} and service {}", memberId, serviceCode);
 
         // Find approved and valid pre-authorizations for this member and service
-        List<PreAuthorization> validPreAuths = preAuthorizationRepository.findAll().stream()
-                .filter(pa -> pa.getMemberId().equals(memberId))
-                .filter(pa -> pa.getServiceCode().equals(serviceCode))
-                .filter(pa -> pa.getActive())
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .filter(pa -> !pa.isExpired())
-                .toList();
+        List<PreAuthorization> validPreAuths = preAuthorizationRepository.findValidPreAuthorizationsForMemberAndService(
+                memberId,
+                serviceCode,
+                PreAuthStatus.APPROVED,
+                LocalDate.now(),
+                PageRequest.of(0, 1)
+        );
 
         if (validPreAuths.isEmpty()) {
             log.info("[PRE-AUTH] No valid pre-authorization found for member {} and service {}", memberId, serviceCode);
             return null;
         }
 
-        // Return the most recent valid one
-        PreAuthorization preAuth = validPreAuths.stream()
-                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
-                .orElse(validPreAuths.get(0));
+        // Return the most recent valid one (already sorted by query)
+        PreAuthorization preAuth = validPreAuths.get(0);
 
         log.info("[PRE-AUTH] Found valid pre-authorization {} for member {} and service {}", 
                  preAuth.getReferenceNumber(), memberId, serviceCode);
