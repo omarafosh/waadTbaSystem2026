@@ -1,0 +1,3 @@
+## 2026-07-07 - Resolved In-Memory Filtering Bottleneck in CompanyService
+**Learning:** The fallback methods `getDefaultCompany` and `updateDefaultCompany` in `CompanyService` suffered from a full-table scanning and in-memory filtering bottleneck due to chained `findAll().stream().filter(...)` operations. This was likely implemented as a quick fallback strategy but wouldn't scale as the table grew.
+**Action:** Always replace `findAll().stream()` operations on database tables with targeted derived queries (e.g., `findFirstByActiveTrue()`, `findFirstByOrderByIdAsc()`) to push projection and filtering logic directly down to the database level, thereby avoiding unnecessary O(N) memory hydration and processing bottlenecks.
