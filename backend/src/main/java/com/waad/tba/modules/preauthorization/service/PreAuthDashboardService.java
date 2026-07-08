@@ -62,27 +62,16 @@ public class PreAuthDashboardService {
     public OverallStats getOverallStats() {
         log.info("[DASHBOARD] Calculating overall statistics");
 
-        List<PreAuthorization> all = preAuthRepository.findAll()
-                .stream()
-                .filter(PreAuthorization::getActive)
-                .collect(Collectors.toList());
+        Object[] stats = preAuthRepository.getOverallDashboardStats();
 
-        long totalCount = all.size();
-        long pendingCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.PENDING).count();
-        long approvedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED).count();
-        long rejectedCount = all.stream().filter(pa -> pa.getStatus() == PreAuthStatus.REJECTED).count();
+        long totalCount = stats[0] != null ? ((Number) stats[0]).longValue() : 0L;
+        long pendingCount = stats[1] != null ? ((Number) stats[1]).longValue() : 0L;
+        long approvedCount = stats[2] != null ? ((Number) stats[2]).longValue() : 0L;
+        long rejectedCount = stats[3] != null ? ((Number) stats[3]).longValue() : 0L;
 
         // CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
-        BigDecimal totalRequested = all.stream()
-                .map(PreAuthorization::getContractPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalApproved = all.stream()
-                .filter(pa -> pa.getStatus() == PreAuthStatus.APPROVED)
-                .map(PreAuthorization::getApprovedAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalRequested = stats[4] != null ? (BigDecimal) stats[4] : BigDecimal.ZERO;
+        BigDecimal totalApproved = stats[5] != null ? (BigDecimal) stats[5] : BigDecimal.ZERO;
 
         BigDecimal avgApproved = approvedCount > 0
                 ? totalApproved.divide(BigDecimal.valueOf(approvedCount), 2, RoundingMode.HALF_UP)

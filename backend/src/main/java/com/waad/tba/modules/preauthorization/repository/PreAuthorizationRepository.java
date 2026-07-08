@@ -221,6 +221,20 @@ public interface PreAuthorizationRepository extends JpaRepository<PreAuthorizati
     List<Object[]> sumAmountsByStatus();
 
     /**
+     * Get overall statistics
+     */
+    @Query("SELECT " +
+           "COUNT(pa), " +
+           "SUM(CASE WHEN pa.status = 'PENDING' THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = 'APPROVED' THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN pa.status = 'REJECTED' THEN 1 ELSE 0 END), " +
+           "SUM(pa.contractPrice), " +
+           "SUM(CASE WHEN pa.status = 'APPROVED' THEN pa.approvedAmount ELSE 0 END) " +
+           "FROM PreAuthorization pa " +
+           "WHERE pa.active = true")
+    Object[] getOverallDashboardStats();
+
+    /**
      * Get statistics for date range
      * CANONICAL (2026-01-16): Use contractPrice instead of requestedAmount
      */
